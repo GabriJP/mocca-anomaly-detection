@@ -4,11 +4,13 @@ from operator import mul
 import torch
 import torch.nn as nn
 
+
 class BaseModule(nn.Module):
     """
     Implements the basic module.
     All other modules inherit from this one
     """
+
     def load_w(self, checkpoint_path):
         # type: (str) -> None
         """
@@ -23,9 +25,9 @@ class BaseModule(nn.Module):
         String representation
         """
         good_old = super(BaseModule, self).__repr__()
-        addition = 'Total number of parameters: {:,}'.format(self.n_parameters)
+        addition = "Total number of parameters: {:,}".format(self.n_parameters)
 
-        # return good_old + '\n' + addition
+        #  return good_old + '\n' + addition
         return good_old
 
     def __call__(self, *args, **kwargs):
@@ -39,24 +41,26 @@ class BaseModule(nn.Module):
         """
         n_parameters = 0
         for p in self.parameters():
-            if hasattr(p, 'mask'):
+            if hasattr(p, "mask"):
                 n_parameters += torch.sum(p.mask).item()
             else:
                 n_parameters += reduce(mul, p.shape)
         return int(n_parameters)
+
 
 class MaskedConv3d(BaseModule, nn.Conv3d):
     """
     Implements a Masked Convolution 3D.
     This is a 3D Convolution that cannot access future frames.
     """
+
     def __init__(self, *args, **kwargs):
         super(MaskedConv3d, self).__init__(*args, **kwargs)
 
-        self.register_buffer('mask', self.weight.data.clone())
+        self.register_buffer("mask", self.weight.data.clone())
         _, _, kT, kH, kW = self.weight.size()
         self.mask.fill_(1)
-        self.mask[:, :, kT // 2 + 1:] = 0
+        self.mask[:, :, kT // 2 + 1 :] = 0
 
     def forward(self, x):
         # type: (torch.Tensor) -> torch.Tensor
@@ -68,12 +72,14 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
         self.weight.data *= self.mask
         return super(MaskedConv3d, self).forward(x)
 
+
 class TemporallySharedFullyConnection(BaseModule):
     """
     Implements a temporally-shared fully connection.
     Processes a time series of feature vectors and performs
     the same linear projection to all of them.
     """
+
     def __init__(self, in_features, out_features, bias=True):
         # type: (int, int, bool) -> None
         """
@@ -107,7 +113,8 @@ class TemporallySharedFullyConnection(BaseModule):
         output = torch.stack(output, 1)
 
         return output
-        
+
+
 def residual_op(x, functions, bns, activation_fn):
     # type: (torch.Tensor, List[Module, Module, Module], List[Module, Module, Module], Module) -> torch.Tensor
     """
@@ -149,7 +156,8 @@ def residual_op(x, functions, bns, activation_fn):
 
 
 class BaseBlock(BaseModule):
-    """ Base class for all blocks. """
+    """Base class for all blocks."""
+
     def __init__(self, channel_in, channel_out, activation_fn, use_bn=True, use_bias=True):
         # type: (int, int, Module, bool, bool) -> None
         """
@@ -162,7 +170,7 @@ class BaseBlock(BaseModule):
         """
         super(BaseBlock, self).__init__()
 
-        assert not (use_bn and use_bias), 'Using bias=True with batch_normalization is forbidden.'
+        assert not (use_bn and use_bias), "Using bias=True with batch_normalization is forbidden."
 
         self._channel_in = channel_in
         self._channel_out = channel_out
@@ -186,7 +194,8 @@ class BaseBlock(BaseModule):
 
 
 class DownsampleBlock(BaseBlock):
-    """ Implements a Downsampling block for videos (Fig. 1ii). """
+    """Implements a Downsampling block for videos (Fig. 1ii)."""
+
     def __init__(self, channel_in, channel_out, activation_fn, stride, use_bn=True, use_bias=False):
         # type: (int, int, Module, Tuple[int, int, int], bool, bool) -> None
         """
@@ -202,12 +211,15 @@ class DownsampleBlock(BaseBlock):
         self.stride = stride
 
         # Convolutions
-        self.conv1a = MaskedConv3d(in_channels=channel_in, out_channels=channel_out, kernel_size=3,
-                                   padding=1, stride=stride, bias=use_bias)
-        self.conv1b = MaskedConv3d(in_channels=channel_out, out_channels=channel_out, kernel_size=3,
-                                   padding=1, stride=1, bias=use_bias)
-        self.conv2a = nn.Conv3d(in_channels=channel_in, out_channels=channel_out, kernel_size=1,
-                                padding=0, stride=stride, bias=use_bias)
+        self.conv1a = MaskedConv3d(
+            in_channels=channel_in, out_channels=channel_out, kernel_size=3, padding=1, stride=stride, bias=use_bias
+        )
+        self.conv1b = MaskedConv3d(
+            in_channels=channel_out, out_channels=channel_out, kernel_size=3, padding=1, stride=1, bias=use_bias
+        )
+        self.conv2a = nn.Conv3d(
+            in_channels=channel_in, out_channels=channel_out, kernel_size=1, padding=0, stride=stride, bias=use_bias
+        )
 
         # Batch Normalization layers
         self.bn1a = self.get_bn()
@@ -225,12 +237,13 @@ class DownsampleBlock(BaseBlock):
             x,
             functions=[self.conv1a, self.conv1b, self.conv2a],
             bns=[self.bn1a, self.bn1b, self.bn2a],
-            activation_fn=self._activation_fn
+            activation_fn=self._activation_fn,
         )
 
 
 class UpsampleBlock(BaseBlock):
-    """ Implements a Upsampling block for videos (Fig. 1ii). """
+    """Implements a Upsampling block for videos (Fig. 1ii)."""
+
     def __init__(self, channel_in, channel_out, activation_fn, stride, output_padding, use_bn=True, use_bias=False):
         # type: (int, int, Module, Tuple[int, int, int], Tuple[int, int, int], bool, bool) -> None
         """
@@ -248,12 +261,27 @@ class UpsampleBlock(BaseBlock):
         self.output_padding = output_padding
 
         # Convolutions
-        self.conv1a = nn.ConvTranspose3d(channel_in, channel_out, kernel_size=5,
-                                         padding=2, stride=stride, output_padding=output_padding, bias=use_bias)
-        self.conv1b = nn.Conv3d(in_channels=channel_out, out_channels=channel_out, kernel_size=3,
-                                padding=1, stride=1, bias=use_bias)
-        self.conv2a = nn.ConvTranspose3d(channel_in, channel_out, kernel_size=5,
-                                         padding=2, stride=stride, output_padding=output_padding, bias=use_bias)
+        self.conv1a = nn.ConvTranspose3d(
+            channel_in,
+            channel_out,
+            kernel_size=5,
+            padding=2,
+            stride=stride,
+            output_padding=output_padding,
+            bias=use_bias,
+        )
+        self.conv1b = nn.Conv3d(
+            in_channels=channel_out, out_channels=channel_out, kernel_size=3, padding=1, stride=1, bias=use_bias
+        )
+        self.conv2a = nn.ConvTranspose3d(
+            channel_in,
+            channel_out,
+            kernel_size=5,
+            padding=2,
+            stride=stride,
+            output_padding=output_padding,
+            bias=use_bias,
+        )
 
         # Batch Normalization layers
         self.bn1a = self.get_bn()
@@ -271,6 +299,5 @@ class UpsampleBlock(BaseBlock):
             x,
             functions=[self.conv1a, self.conv1b, self.conv2a],
             bns=[self.bn1a, self.bn1b, self.bn2a],
-            activation_fn=self._activation_fn
+            activation_fn=self._activation_fn,
         )
-

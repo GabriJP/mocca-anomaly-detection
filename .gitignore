@@ -4,3 +4,4 @@ output
 *.pyc
 *.log
 *__pycache__*
+data

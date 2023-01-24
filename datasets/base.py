@@ -1,8 +1,8 @@
 from abc import ABCMeta
 from abc import abstractmethod
 
-import torch 
-import numpy as np 
+import numpy as np
+import torch
 from torch.utils.data import Dataset
 
 
@@ -10,6 +10,7 @@ class DatasetBase(Dataset):
     """
     Base class for all datasets.
     """
+
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -46,6 +47,7 @@ class OneClassDataset(DatasetBase):
     """
     Base class for all one-class classification datasets.
     """
+
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -68,6 +70,7 @@ class VideoAnomalyDetectionDataset(DatasetBase):
     """
     Base class for all video anomaly detection datasets.
     """
+
     __metaclass__ = ABCMeta
 
     @property
@@ -77,7 +80,6 @@ class VideoAnomalyDetectionDataset(DatasetBase):
         Returns all test video ids.
         """
         pass
-
 
     @abstractmethod
     def __len__(self):
@@ -120,7 +122,8 @@ class VideoAnomalyDetectionDataset(DatasetBase):
 
 
 class ToFloatTensor3D(object):
-    """ Convert videos to FloatTensors """
+    """Convert videos to FloatTensors"""
+
     def __init__(self, normalize=True):
         self._normalize = normalize
 
@@ -133,16 +136,18 @@ class ToFloatTensor3D(object):
         # swap color axis because
         # numpy image: T x H x W x C
         X = X.transpose(3, 0, 1, 2)
-        #Y = Y.transpose(3, 0, 1, 2)
+        # Y = Y.transpose(3, 0, 1, 2)
 
         if self._normalize:
-            X = X / 255.
-         
+            X = X / 255.0
+
         X = np.float32(X)
         return torch.from_numpy(X)
 
+
 class ToFloatTensor3DMask(object):
-    """ Convert videos to FloatTensors """
+    """Convert videos to FloatTensors"""
+
     def __init__(self, normalize=True, has_x_mask=True, has_y_mask=True):
         self._normalize = normalize
         self.has_x_mask = has_x_mask
@@ -158,15 +163,14 @@ class ToFloatTensor3DMask(object):
 
         if self._normalize:
             if self.has_x_mask:
-                X[:-1] = X[:-1] / 255.
+                X[:-1] = X[:-1] / 255.0
             else:
-                X = X / 255.
+                X = X / 255.0
 
         return torch.from_numpy(X)
 
 
 class RemoveBackground:
-
     def __init__(self, threshold: float):
         self.threshold = threshold
 

@@ -1,23 +1,20 @@
-import cv2
+from glob import glob
+from os.path import join
+from pathlib import Path
+from typing import List
+from typing import Tuple
+
 import numpy as np
 import skimage.io as io
 import torch
-from glob import glob
-from os.path import basename
-from os.path import isdir
-from os.path import join
 from prettytable import PrettyTable
-from skimage.transform import resize
 from sklearn.metrics import roc_auc_score
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 from tqdm import tqdm
-from typing import List
-from typing import Tuple
-from pathlib import Path
+
 from .base import ToFloatTensor3D
-from .base import ToFloatTensor3DMask
 from .base import VideoAnomalyDetectionDataset
 
 
