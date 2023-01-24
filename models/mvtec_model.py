@@ -36,11 +36,11 @@ class Selector(nn.Module):
 
         Parameters
         ----------
-        code_length : int 
+        code_length : int
             Latent code size
         idx : int
             Layer idx
-        
+
         """
         # List of depths of features maps
         sizes = [CHANNELS[0], CHANNELS[0], CHANNELS[1], CHANNELS[2], CHANNELS[2] * 2, CHANNELS[2] * 2, code_length]
@@ -108,9 +108,9 @@ class MVTec_Encoder(BaseModule):
         # Init convolutional blocks
         self.conv = nn.Conv2d(in_channels=c, out_channels=32, kernel_size=3, bias=False)
         self.res = ResidualBlock(channel_in=32, channel_out=32, activation_fn=self.activation_fn)
-        self.dwn1, self.dwn2, self.dwn3 = [
+        self.dwn1, self.dwn2, self.dwn3 = (
             init_conv_blocks(channel_in=ch, channel_out=ch * 2, activation_fn=self.activation_fn) for ch in CHANNELS
-        ]
+        )
 
         # Depth of the last features map
         self.last_depth = CHANNELS[2] * 2
@@ -123,7 +123,7 @@ class MVTec_Encoder(BaseModule):
         self.bn = nn.BatchNorm1d(num_features=self.last_depth)
         self.fc2 = nn.Linear(in_features=self.last_depth, out_features=code_length)
 
-        ## Init features selector models
+        # Init features selector models
         if self.use_selectors:
             self.selectors = nn.ModuleList([Selector(code_length=code_length, idx=idx) for idx in range(7)])
             self.selectors.append(Selector(code_length=code_length, idx=6))

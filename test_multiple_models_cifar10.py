@@ -3,24 +3,25 @@ import os
 
 import numpy as np
 import torch
-from datasets.main import load_dataset
-from models.deep_svdd.deep_svdd_cifar10 import CIFAR10_LeNet
-from models.deep_svdd.deep_svdd_mnist import MNIST_LeNet
 from tqdm import tqdm
 from trainer_svdd import test
 
+from datasets.main import load_dataset
+from models.deep_svdd.deep_svdd_cifar10 import CIFAR10_LeNet
+from models.deep_svdd.deep_svdd_mnist import MNIST_LeNet
+
 parser = argparse.ArgumentParser("AD")
-## General config
+# General config
 parser.add_argument(
     "--n_jobs_dataloader",
     type=int,
     default=0,
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
-## Model config
+# Model config
 parser.add_argument("-zl", "--code-length", default=32, type=int, help="Code length (default: 32)")
 parser.add_argument("-ck", "--model-ckp", help="Model checkpoint")
-## Data
+# Data
 parser.add_argument(
     "-ax",
     "--aux-data-filename",
@@ -37,7 +38,7 @@ parser.add_argument(
     default="/media/fabiovalerio/datasets/ti_500K_pseudo_labeled.pickle",
     help="Path to unalbelled data",
 )
-## Training config
+# Training config
 parser.add_argument("-bs", "--batch-size", type=int, default=200, help="Batch size (default: 200)")
 parser.add_argument("-bd", "--boundary", choices=("hard", "soft"), default="soft", help="Boundary (default: soft)")
 parser.add_argument("-ile", "--idx-list-enc", type=int, nargs="+", default=[], help="List of indices of model encoder")
@@ -98,7 +99,7 @@ def main():
         print(tau, ", ")
     print("]")
     print(test_auc)
-    print(f"{test_auc_m:.2f} $\pm$ {test_auc_s:.2f}")
+    print(rf"{test_auc_m:.2f} $\pm$ {test_auc_s:.2f}")
 
 
 if __name__ == "__main__":

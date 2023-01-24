@@ -27,7 +27,7 @@ def main(args):
     if args.disable_logging:
         logging.disable(level=logging.INFO)
 
-    ## Init logger & print training/warm-up summary
+    # Init logger & print training/warm-up summary
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(message)s",
@@ -97,10 +97,10 @@ def main(args):
             f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // args.batch_size}"
         )
 
-    ########################################################################################
-    ####### Train the AUTOENCODER on the RECONSTRUCTION task and then train only the #######
-    ########################## ENCODER on the ONE CLASS OBJECTIVE ##########################
-    ########################################################################################
+    #
+    # Train the AUTOENCODER on the RECONSTRUCTION task and then train only the #
+    # ENCODER on the ONE CLASS OBJECTIVE #
+    #
     ae_net_checkpoint = None
     if args.pretrain and not args.end_to_end_training:
         out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name="ShanghaiTech")
@@ -108,7 +108,7 @@ def main(args):
         tb_writer = SummaryWriter(os.path.join(args.output_path, "ShanghaiTech", "tb_runs_pretrain", tmp))
         # Init AutoEncoder
         ae_net = ShanghaiTech(data_holder.shape, args.code_length, use_selectors=args.use_selectors)
-        ### PRETRAIN
+        # PRETRAIN
         ae_net_checkpoint = pretrain(ae_net, train_loader, out_dir, tb_writer, device, args)
         tb_writer.close()
 
@@ -150,17 +150,17 @@ def main(args):
         # Load the new state_dict
         net.load_state_dict(net_dict)
 
-        ### TRAIN
+        # TRAIN
         net_checkpoint = train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args)
         tb_writer.close()
 
-    ########################################################################################
-    ########################################################################################
+    #
+    #
 
-    ########################################################################################
-    ################### Train the AUTOENCODER on the combined objective: ###################
-    ############################## RECONSTRUCTION + ONE CLASS ##############################
-    ########################################################################################
+    #
+    # Train the AUTOENCODER on the combined objective: #
+    # RECONSTRUCTION + ONE CLASS #
+    #
     if args.end_to_end_training:
         out_dir, tmp = get_out_dir(args, pretrain=False, aelr=int(args.learning_rate), dset_name="ShanghaiTech")
 
@@ -176,15 +176,15 @@ def main(args):
             args.bidirectional,
             args.use_selectors,
         )
-        ### End to end TRAIN
+        # End to end TRAIN
         net_checkpoint = train(ae_net, train_loader, out_dir, tb_writer, device, None, args)
         tb_writer.close()
-    ########################################################################################
-    ########################################################################################
+    #
+    #
 
-    ########################################################################################
-    ###################################### Model test ######################################
-    ########################################################################################
+    #
+    # Model test #
+    #
     if args.test:
         if net_checkpoint is None:
             net_checkpoint = args.model_ckp
@@ -256,31 +256,31 @@ def main(args):
             debug=args.debug,
             output_file=os.path.join("".join(net_checkpoint.split(os.sep)[:-1]), "shanghaitech_test_results.txt"),
         )
-        ### TEST
+        # TEST
         helper.test_video_anomaly_detection()
         print("Test finished")
-    ########################################################################################
-    ########################################################################################
+    #
+    #
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("AD")
-    ## General config
+    # General config
     parser.add_argument("-s", "--seed", type=int, default=-1, help="Random seed (default: -1)")
     parser.add_argument(
         "--n_workers",
         type=int,
         default=8,
-        help="Number of workers for data loading. 0 means that the data will be loaded in the main process. (default=8)",
+        help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
     )
     parser.add_argument("--output_path", default="./output")
     parser.add_argument("-lf", "--log-frequency", type=int, default=5, help="Log frequency (default: 5)")
     parser.add_argument("-dl", "--disable-logging", action="store_true", help="Disabel logging (default: False)")
     parser.add_argument("-db", "--debug", action="store_true", help="Debug mode (default: False)")
-    ## Model config
+    # Model config
     parser.add_argument("-zl", "--code-length", default=2048, type=int, help="Code length (default: 2048)")
     parser.add_argument("-ck", "--model-ckp", help="Model checkpoint")
-    ## Optimizer config
+    # Optimizer config
     parser.add_argument(
         "-opt", "--optimizer", choices=("adam", "sgd"), default="adam", help="Optimizer (default: adam)"
     )
@@ -294,10 +294,10 @@ if __name__ == "__main__":
     parser.add_argument("-wd", "--weight-decay", type=float, default=0.5e-6, help="Learning rate (default: 1.e-4)")
     parser.add_argument("-aml", "--ae-lr-milestones", type=int, nargs="+", default=[], help="Pretrain milestone")
     parser.add_argument("-ml", "--lr-milestones", type=int, nargs="+", default=[], help="Training milestone")
-    ## Data
+    # Data
     parser.add_argument("-dp", "--data-path", default="./ShanghaiTech", help="Dataset main path")
     parser.add_argument("-cl", "--clip-length", type=int, default=16, help="Clip length (default: 16)")
-    ## Training config
+    # Training config
     # LSTMs
     parser.add_argument("-ll", "--load-lstm", action="store_true", help="Load LSTMs (default: False)")
     parser.add_argument("-bdl", "--bidirectional", action="store_true", help="Bidirectional LSTMs (default: False)")

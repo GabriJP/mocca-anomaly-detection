@@ -22,7 +22,7 @@ def main(args):
     if len(args.idx_list_enc) == 0 and args.train:
         args.idx_list_enc = [3]
 
-    ## Init logger & print training/warm-up summary
+    # Init logger & print training/warm-up summary
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(message)s",
@@ -75,7 +75,7 @@ def main(args):
         batch_size=args.batch_size, shuffle_train=True, pin_memory=device == "cuda", num_workers=args.n_workers
     )
 
-    ### PRETRAIN the full AutoEncoder
+    # PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
     if args.pretrain:
         out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name="cifar10")
@@ -103,7 +103,7 @@ def main(args):
 
         tb_writer.close()
 
-    ### TRAIN the Encoder
+    # TRAIN the Encoder
     net_cehckpoint = None
     if args.train:
         if ae_net_cehckpoint is None:
@@ -144,7 +144,7 @@ def main(args):
 
         tb_writer.close()
 
-    ### TEST the Encoder
+    # TEST the Encoder
     if args.test:
         if net_cehckpoint is None:
             net_cehckpoint = args.model_ckp
@@ -184,19 +184,19 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("AD")
-    ## General config
+    # General config
     parser.add_argument("-s", "--seed", type=int, default=-1, help="Random seed (default: -1)")
     parser.add_argument(
         "--n_workers",
         type=int,
         default=8,
-        help="Number of workers for data loading. 0 means that the data will be loaded in the main process. (default: 8)",
+        help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
     )
     parser.add_argument("--output_path", default="./output")
-    ## Model config
+    # Model config
     parser.add_argument("-zl", "--code-length", default=32, type=int, help="Code length (default: 32)")
     parser.add_argument("-ck", "--model-ckp", help="Model checkpoint")
-    ## Optimizer config
+    # Optimizer config
     parser.add_argument(
         "-alr", "--ae-learning-rate", type=float, default=1.0e-4, help="Warm up learning rate (default: 1.e-4)"
     )
@@ -207,10 +207,10 @@ if __name__ == "__main__":
     parser.add_argument("-wd", "--weight-decay", type=float, default=0.5e-6, help="Learning rate (default: 0.5e-6)")
     parser.add_argument("-aml", "--ae-lr-milestones", type=int, nargs="+", default=[], help="Pretrain milestone")
     parser.add_argument("-ml", "--lr-milestones", type=int, nargs="+", default=[], help="Training milestone")
-    ## Data
+    # Data
     parser.add_argument("-dp", "--data-path", default="./cifar10", help="Dataset main path")
     parser.add_argument("-nc", "--normal-class", type=int, default=5, help="Normal Class (default: 5)")
-    ## Training config
+    # Training config
     parser.add_argument("-we", "--warm_up_n_epochs", type=int, default=10, help="Warm up epochs (default: 10)")
     parser.add_argument("--use-selectors", action="store_true", help="Use features selector (default: False)")
     parser.add_argument(

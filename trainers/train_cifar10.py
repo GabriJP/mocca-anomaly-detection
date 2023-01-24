@@ -297,7 +297,7 @@ def test(
     labels = np.array(labels)
     scores = np.array(scores)
     test_auc = roc_auc_score(labels, scores)
-    logger.info("Test set AUC: {:.2f}%".format(100.0 * test_auc))
+    logger.info(f"Test set AUC: {100.0 * test_auc:.2f}%")
 
     logger.info("Finished testing!!")
 

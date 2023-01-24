@@ -114,16 +114,17 @@ def pretrain(
 
             if idx != 0 and idx % ((len(train_loader) // log_frequency) + 1) == 0:
                 logger.info(
-                    f"PreTrain at epoch: {epoch + 1} ([{idx}]/[{len(train_loader)}]) ==> Recon Loss: {loss_epoch / idx:.4f}"
+                    f"PreTrain at epoch: {epoch + 1} ([{idx}]/[{len(train_loader)}]) ==> "
+                    f"Recon Loss: {loss_epoch / idx:.4f}"
                 )
                 tb_writer.add_scalar("pretrain/recon_loss", loss_epoch / idx, kk)
                 kk += 1
 
         scheduler.step()
         if epoch in ae_lr_milestones:
-            logger.info("  LR scheduler: new learning rate is %g" % float(scheduler.get_lr()[0]))
+            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
 
-        ae_net_cehckpoint = os.path.join(out_dir, f"best_ae_ckp.pth")
+        ae_net_cehckpoint = os.path.join(out_dir, "best_ae_ckp.pth")
         torch.save({"ae_state_dict": ae_net.state_dict()}, ae_net_cehckpoint)
         logger.info(f"Saved best autoencoder so far at: {ae_net_cehckpoint}")
 
@@ -258,7 +259,8 @@ def train(
             if idx != 0 and idx % ((len(train_loader) // log_frequency) + 1) == 0:
                 # log epoch statistics
                 logger.info(
-                    f"TRAIN at epoch: {epoch + 1} ([{idx}]/[{len(train_loader)}]) ==> Objective Loss: {loss_epoch / idx:.4f}"
+                    f"TRAIN at epoch: {epoch + 1} ([{idx}]/[{len(train_loader)}]) ==> "
+                    f"Objective Loss: {loss_epoch / idx:.4f}"
                 )
                 tb_writer.add_scalar("train/objective_loss", loss_epoch / idx, kk)
                 for _, k in enumerate(d_from_c.keys()):
@@ -272,7 +274,7 @@ def train(
             logger.info("  LR scheduler: new learning rate is %g" % float(scheduler.get_lr()[0]))
 
         if (loss_epoch / len(train_loader)) <= best_loss:
-            net_cehckpoint = os.path.join(out_dir, f"best_oc_model.pth")
+            net_cehckpoint = os.path.join(out_dir, "best_oc_model.pth")
             best_loss = loss_epoch / len(train_loader)
             torch.save({"net_state_dict": net.state_dict(), "R": R, "c": centers}, net_cehckpoint)
             logger.info(f"Saved best model so far at: {net_cehckpoint}")
@@ -343,7 +345,7 @@ def test(
             data = data.to(device)
 
             if is_texture:
-                ## Get 8 patches from each texture image ==> the anomaly score is max{score(patches)}
+                # Get 8 patches from each texture image ==> the anomaly score is max{score(patches)}
                 _, _, h, w = data.shape
                 assert h == w, "Height and Width are different!!!"
                 patch_size = 64

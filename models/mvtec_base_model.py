@@ -27,13 +27,13 @@ class BaseModule(nn.Module):
         """
         String representation
         """
-        good_old = super(BaseModule, self).__repr__()
-        addition = "Total number of parameters: {:,}".format(self.n_parameters)
+        good_old = super().__repr__()
+        addition = f"Total number of parameters: {self.n_parameters:,}"
 
         return good_old + "\n" + addition
 
     def __call__(self, *args, **kwargs):
-        return super(BaseModule, self).__call__(*args, **kwargs)
+        return super().__call__(*args, **kwargs)
 
     @property
     def n_parameters(self):
@@ -103,7 +103,7 @@ class BaseBlock(BaseModule):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(BaseBlock, self).__init__()
+        super().__init__()
 
         assert not (use_bn and use_bias), "Using bias=True with batch_normalization is forbidden."
 
@@ -141,7 +141,7 @@ class DownsampleBlock(BaseBlock):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(DownsampleBlock, self).__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
+        super().__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
 
         # Convolutions
         self.conv1a = nn.Conv2d(
@@ -187,7 +187,7 @@ class UpsampleBlock(BaseBlock):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(UpsampleBlock, self).__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
+        super().__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
 
         # Convolutions
         self.conv1a = nn.ConvTranspose2d(
@@ -233,7 +233,7 @@ class ResidualBlock(BaseBlock):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(ResidualBlock, self).__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
+        super().__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
 
         # Convolutions
         self.conv1 = nn.Conv2d(

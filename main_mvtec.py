@@ -109,7 +109,7 @@ def test_models(
     st_dict = torch.load(net_cehckpoint)
     net.load_state_dict(st_dict["net_state_dict"])
 
-    ### TEST
+    # TEST
     test_auc, test_b_acc = test(
         normal_class=normal_class,
         is_texture=is_texture,
@@ -171,7 +171,7 @@ def main(args):
     if args.disable_logging:
         logging.disable(level=logging.INFO)
 
-    ## Init logger & print training/warm-up summary
+    # Init logger & print training/warm-up summary
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(message)s",
@@ -248,7 +248,7 @@ def main(args):
     is_texture = args.normal_class in tuple(["carpet", "grid", "leather", "tile", "wood"])
     input_shape = (3, 64, 64) if is_texture else (3, 128, 128)
 
-    ### PRETRAIN the full AutoEncoder
+    # PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
     if args.pretrain:
         pretrain_out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name="mvtec")
@@ -279,7 +279,7 @@ def main(args):
 
         pretrain_tb_writer.close()
 
-    ### TRAIN the Encoder
+    # TRAIN the Encoder
     net_cehckpoint = None
     if args.train:
         if ae_net_cehckpoint is None:
@@ -306,7 +306,7 @@ def main(args):
             purge_ae_params=True,
         )
 
-        ## Eval/Load hyperspeheres centers
+        # Eval/Load hyperspeheres centers
         encoder_net.set_idx_list_enc(range(8))
         centers = eval_spheres_centers(
             train_loader=train_loader,
@@ -340,7 +340,7 @@ def main(args):
 
         train_tb_writer.close()
 
-    ### TEST the Encoder
+    # TEST the Encoder
     if args.test:
         if net_cehckpoint is None:
             net_cehckpoint = args.model_ckp
@@ -430,7 +430,8 @@ def main(args):
             ff.sort()
             version = int(ff[-1].split("_")[-1].split(".")[0]) + 1
             logger.info(
-                f"Already found csv file for {normal_class} with latest version: {version - 1} ==> creaing new csv file with version: {version}"
+                f"Already found csv file for {normal_class} with latest version: {version - 1} ==> "
+                f"creaing new csv file with version: {version}"
             )
             csv_out_name = os.path.join(b_path, f"test-results-{normal_class}_{version}.csv")
 
@@ -439,13 +440,13 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("AD")
-    ## General config
+    # General config
     parser.add_argument("-s", "--seed", type=int, default=-1, help="Random seed (default: -1)")
     parser.add_argument(
         "--n_workers",
         type=int,
         default=8,
-        help="Number of workers for data loading. 0 means that the data will be loaded in the main process. (default: 8)",
+        help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
     )
     parser.add_argument("--output_path", default="./output")
     parser.add_argument("-lf", "--log-frequency", type=int, default=5, help="Log frequency (default: 5)")
@@ -456,10 +457,10 @@ if __name__ == "__main__":
         action="store_true",
         help="Activate debug mode, i.e., only use the first three batches (default: False)",
     )
-    ## Model config
+    # Model config
     parser.add_argument("-zl", "--code-length", default=64, type=int, help="Code length (default: 64)")
     parser.add_argument("-ck", "--model-ckp", help="Model checkpoint")
-    ## Optimizer config
+    # Optimizer config
     parser.add_argument(
         "-alr", "--ae-learning-rate", type=float, default=1.0e-4, help="Warm up learning rate (default: 1.e-4)"
     )
@@ -470,7 +471,7 @@ if __name__ == "__main__":
     parser.add_argument("-wd", "--weight-decay", type=float, default=0.5e-6, help="Learning rate (default: 0.5e-6)")
     parser.add_argument("-aml", "--ae-lr-milestones", type=int, nargs="+", default=[], help="Pretrain milestone")
     parser.add_argument("-ml", "--lr-milestones", type=int, nargs="+", default=[], help="Training milestone")
-    ## Data
+    # Data
     parser.add_argument("-dp", "--data-path", default="./MVTec_Anomaly", help="Dataset main path")
     parser.add_argument(
         "-nc",
@@ -495,7 +496,7 @@ if __name__ == "__main__":
         default="cable",
         help="Category (default: cable)",
     )
-    ## Training config
+    # Training config
     parser.add_argument("-we", "--warm_up_n_epochs", type=int, default=5, help="Warm up epochs (default: 5)")
     parser.add_argument("--use-selectors", action="store_true", help="Use features selector (default: False)")
     parser.add_argument(
@@ -515,7 +516,7 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--epochs", type=int, default=1, help="Training epochs (default: 1)")
     parser.add_argument("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs (default: 1)")
     parser.add_argument("-nu", "--nu", type=float, default=0.1)
-    ## Test config
+    # Test config
     parser.add_argument(
         "-mt", "--metric", choices=(1, 2), type=int, default=2, help="Metric to evaluate norms (default: 2, i.e., L2)"
     )

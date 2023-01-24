@@ -16,7 +16,7 @@ class MVtecDataset(ImageFolder):
     """Torchvision ImageFolder class with patch of __getitem__ method to targets according to the task."""
 
     def __init__(self, root: str, transform):
-        super(MVtecDataset, self).__init__(root=root, transform=transform)
+        super().__init__(root=root, transform=transform)
 
         # Index of the class that corresponds to the folder named 'good'
         self.normal_class_idx = self.class_to_idx["good"]
@@ -53,7 +53,7 @@ class CustomTensorDataset(TensorDataset):
         self.data = torch.from_numpy(np.load(root))
 
         # Load TensorDataset
-        super(CustomTensorDataset, self).__init__(self.data)
+        super().__init__(self.data)
 
     def __len__(self):
         return self.data.shape[0]
@@ -62,7 +62,7 @@ class CustomTensorDataset(TensorDataset):
         return self.data[index], 0
 
 
-class MVTec_DataHolder(object):
+class MVTec_DataHolder:
     """MVTec data holder class"""
 
     def __init__(
@@ -125,7 +125,10 @@ class MVTec_DataHolder(object):
         # Preprocessed output data path
         cache_main_dir = join(self.data_path, f"processed/{self.category}")
         os.makedirs(cache_main_dir, exist_ok=True)
-        cache_file = f"{cache_main_dir}/{self.category}_train_dataset_i-{self.image_size}_p-{self.patch_size}_r-{self.rotation_range[0]}--{self.rotation_range[1]}.npy"
+        cache_file = (
+            f"{cache_main_dir}/{self.category}_train_dataset_i-{self.image_size}_p-{self.patch_size}_"
+            f"r-{self.rotation_range[0]}--{self.rotation_range[1]}.npy"
+        )
 
         # Check if preprocessed file already exists
         if not os.path.exists(cache_file):

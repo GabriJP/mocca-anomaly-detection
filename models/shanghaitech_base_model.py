@@ -24,14 +24,13 @@ class BaseModule(nn.Module):
         """
         String representation
         """
-        good_old = super(BaseModule, self).__repr__()
-        addition = "Total number of parameters: {:,}".format(self.n_parameters)
+        good_old = super().__repr__()
 
         #  return good_old + '\n' + addition
         return good_old
 
     def __call__(self, *args, **kwargs):
-        return super(BaseModule, self).__call__(*args, **kwargs)
+        return super().__call__(*args, **kwargs)
 
     @property
     def n_parameters(self):
@@ -55,7 +54,7 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
     """
 
     def __init__(self, *args, **kwargs):
-        super(MaskedConv3d, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.register_buffer("mask", self.weight.data.clone())
         _, _, kT, kH, kW = self.weight.size()
@@ -70,7 +69,7 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
         :return: the output tensor as result of the convolution.
         """
         self.weight.data *= self.mask
-        return super(MaskedConv3d, self).forward(x)
+        return super().forward(x)
 
 
 class TemporallySharedFullyConnection(BaseModule):
@@ -88,7 +87,7 @@ class TemporallySharedFullyConnection(BaseModule):
         :param out_features: number of output features.
         :param bias: whether or not to add bias.
         """
-        super(TemporallySharedFullyConnection, self).__init__()
+        super().__init__()
 
         self.in_features = in_features
         self.out_features = out_features
@@ -168,7 +167,7 @@ class BaseBlock(BaseModule):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(BaseBlock, self).__init__()
+        super().__init__()
 
         assert not (use_bn and use_bias), "Using bias=True with batch_normalization is forbidden."
 
@@ -207,7 +206,7 @@ class DownsampleBlock(BaseBlock):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(DownsampleBlock, self).__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
+        super().__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
         self.stride = stride
 
         # Convolutions
@@ -256,7 +255,7 @@ class UpsampleBlock(BaseBlock):
         :param use_bn: whether or not to use batch-norm.
         :param use_bias: whether or not to use bias.
         """
-        super(UpsampleBlock, self).__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
+        super().__init__(channel_in, channel_out, activation_fn, use_bn, use_bias)
         self.stride = stride
         self.output_padding = output_padding
 

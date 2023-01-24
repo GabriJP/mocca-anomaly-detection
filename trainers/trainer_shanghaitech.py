@@ -46,7 +46,8 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
 
             if idx % (len(train_loader) // args.log_frequency) == 0:
                 logger.info(
-                    f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> Recon Loss: {recon_loss / idx:.4f}"
+                    f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
+                    f"Recon Loss: {recon_loss / idx:.4f}"
                 )
                 tb_writer.add_scalar("pretrain/recon_loss", recon_loss / idx, it_t)
                 it_t += 1
@@ -103,7 +104,6 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
         objective_loss = 0.0
         n_batches = 0
         d_from_c = {k: 0 for k in keys}
-        epoch_start_time = time.time()
 
         for idx, (data, _) in enumerate(
             tqdm(train_loader, total=len(train_loader), desc=f"Training epoch: {epoch + 1}"), 1

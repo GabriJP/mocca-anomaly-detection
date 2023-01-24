@@ -10,7 +10,7 @@ from .shanghaitech_base_model import UpsampleBlock
 
 class Selector(BaseModule):
     def __init__(self, code_length, idx):
-        super(Selector, self).__init__()
+        super().__init__()
         """
         sizes = [[ch, time , h, w], ...]
         """
@@ -42,7 +42,7 @@ class Selector(BaseModule):
                 out_features=mid_features_size,
                 bias=True,
             ),
-            nn.BatchNorm1d((self.sizes[self.idx][1])),
+            nn.BatchNorm1d(self.sizes[self.idx][1]),
             nn.ReLU(),
             TemporallySharedFullyConnection(
                 in_features=mid_features_size, out_features=self.sizes[self.idx][0], bias=True
@@ -84,7 +84,7 @@ class ShanghaiTechEncoder(BaseModule):
         :param input_shape: the shape of UCSD Ped2 samples.
         :param code_length: the dimensionality of latent vectors.
         """
-        super(ShanghaiTechEncoder, self).__init__()
+        super().__init__()
 
         self.input_shape = input_shape
         self.code_length = code_length
@@ -110,7 +110,7 @@ class ShanghaiTechEncoder(BaseModule):
             self.lstm_5 = build_lstm(64, hidden_size, num_layers, dropout, bidirectional)
         # )
 
-        ## Features selector models (MLPs)
+        # Features selector models (MLPs)
         self.sel1 = Selector(self.code_length, 0)
         self.sel2 = Selector(self.code_length, 1)
         self.sel3 = Selector(self.code_length, 2)
@@ -206,7 +206,7 @@ class ShanghaiTechDecoder(BaseModule):
         :param deepest_shape: the dimensionality of the encoder's deepest convolutional map.
         :param output_shape: the shape of UCSD Ped2 samples.
         """
-        super(ShanghaiTechDecoder, self).__init__()
+        super().__init__()
 
         self.code_length = code_length
         self.deepest_shape = deepest_shape
@@ -287,7 +287,7 @@ class ShanghaiTech(BaseModule):
         :param code_length: the dimensionality of latent vectors.
         :param cpd_channels: number of bins in which the multinomial works.
         """
-        super(ShanghaiTech, self).__init__()
+        super().__init__()
 
         self.input_shape = input_shape
         self.code_length = code_length

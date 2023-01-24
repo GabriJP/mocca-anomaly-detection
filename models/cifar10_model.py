@@ -22,15 +22,15 @@ def init_conv(out_channels: int, k_size: int = 5) -> nn.Module:
         Conv2d layer
 
     """
-    l = nn.Conv2d(
+    conv = nn.Conv2d(
         in_channels=3 if out_channels == 32 else out_channels // 2,
         out_channels=out_channels,
         kernel_size=k_size,
         bias=False,
         padding=2,
     )
-    nn.init.xavier_uniform_(l.weight, gain=nn.init.calculate_gain("leaky_relu"))
-    return l
+    nn.init.xavier_uniform_(conv.weight, gain=nn.init.calculate_gain("leaky_relu"))
+    return conv
 
 
 def init_deconv(out_channels: int, k_size: int = 5) -> nn.Module:
@@ -49,15 +49,15 @@ def init_deconv(out_channels: int, k_size: int = 5) -> nn.Module:
         ConvTranspose2d layer
 
     """
-    l = nn.ConvTranspose2d(
+    conv = nn.ConvTranspose2d(
         in_channels=out_channels,
         out_channels=3 if out_channels == 32 else out_channels // 2,
         kernel_size=k_size,
         bias=False,
         padding=2,
     )
-    nn.init.xavier_uniform_(l.weight, gain=nn.init.calculate_gain("leaky_relu"))
-    return l
+    nn.init.xavier_uniform_(conv.weight, gain=nn.init.calculate_gain("leaky_relu"))
+    return conv
 
 
 def init_bn(num_features: int) -> nn.Module:
@@ -76,7 +76,7 @@ class BaseNet(nn.Module):
     """Base class for all neural networks."""
 
     def __init__(self):
-        super(BaseNet, self).__init__()
+        super().__init__()
 
         # init Logger to print model infos
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -88,7 +88,7 @@ class BaseNet(nn.Module):
         """Network summary."""
         net_parameters = filter(lambda p: p.requires_grad, self.parameters())
         params = sum([np.prod(p.size()) for p in net_parameters])
-        self.logger.info("Trainable parameters: {}".format(params))
+        self.logger.info(f"Trainable parameters: {params}")
         self.logger.info(self)
 
 
@@ -104,13 +104,13 @@ class CIFAR10_Encoder(BaseNet):
             Latent code size
 
         """
-        super(CIFAR10_Encoder, self).__init__()
+        super().__init__()
 
         # Init Conv layers
-        self.conv1, self.conv2, self.conv3 = [init_conv(out_channels) for out_channels in self.output_features_sizes]
+        self.conv1, self.conv2, self.conv3 = (init_conv(out_channels) for out_channels in self.output_features_sizes)
 
         # Init BN layers
-        self.bnd1, self.bnd2, self.bnd3 = [init_bn(num_features) for num_features in self.output_features_sizes]
+        self.bnd1, self.bnd2, self.bnd3 = (init_bn(num_features) for num_features in self.output_features_sizes)
 
         # Init all other layers
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -139,7 +139,7 @@ class CIFAR10_Decoder(BaseNet):
             Latent code size
 
         """
-        super(CIFAR10_Decoder, self).__init__()
+        super().__init__()
 
         self.rep_dim = code_length
 
@@ -147,12 +147,12 @@ class CIFAR10_Decoder(BaseNet):
 
         # Build the Decoder
         self.deconv1 = nn.ConvTranspose2d(int(self.rep_dim / (4 * 4)), 128, 5, bias=False, padding=2)
-        self.deconv2, self.deconv3, self.deconv4 = [
+        self.deconv2, self.deconv3, self.deconv4 = (
             init_deconv(out_channels) for out_channels in self.output_features_sizes[::-1]
-        ]
+        )
 
         # Init BN layers
-        self.bnd4, self.bnd5, self.bnd6 = [init_bn(num_features) for num_features in self.output_features_sizes[::-1]]
+        self.bnd4, self.bnd5, self.bnd6 = (init_bn(num_features) for num_features in self.output_features_sizes[::-1])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.bn1d(x)

@@ -121,7 +121,7 @@ class VideoAnomalyDetectionDataset(DatasetBase):
         pass
 
 
-class ToFloatTensor3D(object):
+class ToFloatTensor3D:
     """Convert videos to FloatTensors"""
 
     def __init__(self, normalize=True):
@@ -145,7 +145,7 @@ class ToFloatTensor3D(object):
         return torch.from_numpy(X)
 
 
-class ToFloatTensor3DMask(object):
+class ToFloatTensor3DMask:
     """Convert videos to FloatTensors"""
 
     def __init__(self, normalize=True, has_x_mask=True, has_y_mask=True):

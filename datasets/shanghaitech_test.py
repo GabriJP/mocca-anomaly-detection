@@ -25,7 +25,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         Class constructor.
         :param path: The folder in which ShanghaiTech is stored.
         """
-        super(ShanghaiTechTestHandler, self).__init__()
+        super().__init__()
         self.path = path
         # Test directory
         self.test_dir = join(path, "testing")
@@ -227,7 +227,7 @@ class ResultsAccumulator:
         return np.sum(self._counts != 0).astype(np.int32)
 
 
-class VideoAnomalyDetectionResultHelper(object):
+class VideoAnomalyDetectionResultHelper:
     """
     Performs tests for video anomaly detection datasets (UCSD Ped2 or Shanghaitech).
     """
@@ -280,9 +280,9 @@ class VideoAnomalyDetectionResultHelper(object):
         vad_table = self.empty_table
 
         # Set up container for anomaly scores from all test videos
-        ## oc: one class
-        ## rc: reconstruction
-        ## as: overall anomaly score
+        # oc: one class
+        # rc: reconstruction
+        # as: overall anomaly score
         global_oc = []
         global_rc = []
         global_as = []

@@ -7,7 +7,7 @@ from .shanghaitech import ShanghaiTech_DataHolder
 AVAILABLE_DATASETS = ("cifar10", "ShanghaiTech", "MVTec_Anomaly")
 
 
-class DataManager(object):
+class DataManager:
     """ "Init class to manage and load data"""
 
     def __init__(

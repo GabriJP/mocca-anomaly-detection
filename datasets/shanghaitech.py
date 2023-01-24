@@ -7,6 +7,7 @@ from typing import List
 import numpy as np
 import skimage.io as io
 import torch
+from scipy.ndimage.morphology import binary_dilation
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -15,7 +16,7 @@ from tqdm import tqdm
 from .shanghaitech_test import ShanghaiTechTestHandler
 
 
-class ShanghaiTech_DataHolder(object):
+class ShanghaiTech_DataHolder:
     """
     ShanghaiTech data holder class
 
@@ -113,7 +114,7 @@ class ShanghaiTech_DataHolder(object):
         return sorted([basename(d) for d in glob(join(self.train_dir, "**")) if isdir(d)])
 
     def create_clips(self, dir_path, ids, clip_length=16, stride=1, read_target=False):
-        # type: (str, int, int, bool)
+        # type: (str, List[str], int, int, bool) -> np.array
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -160,9 +161,6 @@ class MySHANGHAI(Dataset):
         return sample, index_
 
 
-from scipy.ndimage.morphology import binary_dilation
-
-
 def get_target_label_idx(labels, targets):
     """
     Get the indices of labels that are included in targets.
@@ -198,7 +196,7 @@ def global_contrast_normalization(x: torch.tensor, scale="l2"):
     return x
 
 
-class ToFloatTensor3D(object):
+class ToFloatTensor3D:
     """Convert videos to FloatTensors"""
 
     def __init__(self, normalize=True):
@@ -222,7 +220,7 @@ class ToFloatTensor3D(object):
         return torch.from_numpy(X)
 
 
-class ToFloatTensor3DMask(object):
+class ToFloatTensor3DMask:
     """Convert videos to FloatTensors"""
 
     def __init__(self, normalize=True, has_x_mask=True, has_y_mask=True):

@@ -26,8 +26,8 @@ def get_target_label_idx(labels: np.array, targets: np.array):
 
 
 def global_contrast_normalization(x: torch.tensor, scale: str = "l1") -> torch.Tensor:
-    """Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
-    which is either the standard deviation, L1- or L2-norm across features (pixels).
+    """Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by
+    scale, which is either the standard deviation, L1- or L2-norm across features (pixels).
     Note this is a *per sample* normalization globally across features (and not across the dataset).
 
     Parameters
@@ -55,7 +55,7 @@ def global_contrast_normalization(x: torch.tensor, scale: str = "l1") -> torch.T
     return x / x_scale
 
 
-class CIFAR10_DataHolder(object):
+class CIFAR10_DataHolder:
     """CIFAR10 data holder class"""
 
     def __init__(self, root: str, normal_class=5):
@@ -177,7 +177,7 @@ class MyCIFAR10(CIFAR10):
     """Torchvision CIFAR10 class with patch of __getitem__ method to also return the index of a data sample."""
 
     def __init__(self, *args, **kwargs):
-        super(MyCIFAR10, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __getitem__(self, index):
         """Override the original method of the CIFAR10 class.
