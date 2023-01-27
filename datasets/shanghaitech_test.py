@@ -360,7 +360,7 @@ class VideoAnomalyDetectionResultHelper:
                             0.0,
                             0.0,
                         ]
-                        # vad_table.add_row([k] + [video_id] + this_video_metrics)
+                        vad_table.add_row([k] + [video_id] + this_video_metrics)
                     except ValueError:
                         # This happens for sequences in which all frames are abnormal
                         # Skipping this row in the table (the sequence will still count for global metrics)
@@ -393,7 +393,7 @@ class VideoAnomalyDetectionResultHelper:
                     roc_auc_score(sample_y, sample_rc),  # reconstruction metric
                     roc_auc_score(sample_y, sample_as),  # anomaly score
                 ]
-                # vad_table.add_row(['Overall'] + [video_id] + this_video_metrics)
+                vad_table.add_row(["Overall"] + [video_id] + list(map(str, this_video_metrics)))
             except ValueError:
                 # This happens for sequences in which all frames are abnormal
                 # Skipping this row in the table (the sequence will still count for global metrics)
@@ -425,7 +425,7 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y, global_as),  # anomaly score
         ]
 
-        vad_table.add_row(["Overall"] + ["avg"] + global_metrics)
+        vad_table.add_row(["Overall"] + ["avg"] + list(map(str, global_metrics)))
         print(vad_table)
 
         # Save table
