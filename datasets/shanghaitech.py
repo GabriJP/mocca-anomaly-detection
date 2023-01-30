@@ -145,7 +145,7 @@ class MySHANGHAI(Dataset):
         self.shape = (3, clip_length, 256, 512)
 
     def __len__(self):
-        return 10000  # len(self.clips)
+        return len(self.clips)
 
     def __getitem__(self, index):
         """
