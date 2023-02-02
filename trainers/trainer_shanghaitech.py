@@ -17,15 +17,16 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
 
     # Set optimizer
     if args.optimizer == "adam":
-        optimizer = Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+        optimizer = Adam(ae_net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     else:
-        optimizer = SGD(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, momentum=0.9)
+        optimizer = SGD(ae_net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, momentum=0.9)
 
     scheduler = MultiStepLR(optimizer, milestones=args.ae_lr_milestones, gamma=0.1)
 
     ae_epochs = 1 if args.debug else args.ae_epochs
     it_t = 0
     logger.info("Start Pretraining the autoencoder...")
+    ae_net_checkpoint = None
     for epoch in range(ae_epochs):
 
         recon_loss = 0.0
@@ -54,7 +55,7 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
 
         scheduler.step()
         if epoch in args.ae_lr_milestones:
-            logger.info("  LR scheduler: new learning rate is %g" % float(scheduler.get_lr()[0]))
+            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
 
         ae_net_checkpoint = os.path.join(out_dir, f"ae_ckp_epoch_{epoch}_{time.time()}.pth")
         torch.save({"ae_state_dict": ae_net.state_dict()}, ae_net_checkpoint)
@@ -98,6 +99,7 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
 
     best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
+    best_model_checkpoint = None
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -165,7 +167,7 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
 
         scheduler.step()
         if epoch in args.lr_milestones:
-            logger.info("  LR scheduler: new learning rate is %g" % float(scheduler.get_lr()[0]))
+            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.split("_")[-1].split(".p")[0]
         net_checkpoint = os.path.join(out_dir, f"net_ckp_{epoch}_{time_}.pth")
@@ -187,7 +189,7 @@ def init_center_c(train_loader, net, idx_list_enc, device, end_to_end_training, 
     n_samples = 0
     net.eval()
 
-    data, _ = iter(train_loader).next()
+    data, _ = next(iter(train_loader))
     d_lstms = net(data.to(device))[-1]
 
     keys = []
