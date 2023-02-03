@@ -14,5 +14,5 @@ tensorboard
 tensorboardX
 tqdm
 prettytable
-#git+https://github.com/pytorch/vision@v0.14.0
-https://developer.download.nvidia.com/compute/redist/jp/v502/pytorch/torch-1.13.0a0+410ce96a.nv22.12-cp38-cp38-linux_aarch64.whl
+git+https://github.com/pytorch/vision@v0.14.0
+https://developer.download.nvidia.com/compute/redist/jp/v502/pytorch/torch-1.13.0a0+936e9305.nv22.11-cp38-cp38-linux_aarch64.whl
