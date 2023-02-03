@@ -1,18 +1,20 @@
-pip
 aiohttp
+flwr
 numpy==1.19.4
-scipy==1.5.3
-protobuf
 opencv-python<4.6
 pandas
-Pillow
+pillow
+pip
+prettytable
+protobuf
 pudb
 scikit-build
 scikit-image
 scikit-learn
+scipy==1.5.3
 tensorboard
 tensorboardX
 tqdm
-prettytable
-git+https://github.com/pytorch/vision@v0.14.0
+torchvision==0.14.0
+# git+https://github.com/pytorch/vision@v0.14.0
 https://developer.download.nvidia.com/compute/redist/jp/v502/pytorch/torch-1.13.0a0+936e9305.nv22.11-cp38-cp38-linux_aarch64.whl
