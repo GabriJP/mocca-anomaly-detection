@@ -2,17 +2,19 @@
 
 pip3 uninstall -y torch torchvision
 
-#pip3 install -U --user https://developer.download.nvidia.com/compute/redist/jp/v502/pytorch/torch-1.13.0a0+410ce96a.nv22.12-cp38-cp38-linux_aarch64.whl
-pip3 install -U --user https://developer.download.nvidia.com/compute/redist/jp/v502/pytorch/torch-1.13.0a0+936e9305.nv22.11-cp38-cp38-linux_aarch64.whl
-
-[ ! -d vision ] && git clone https://github.com/pytorch/vision.git
-
-cd vision
-
+# Torch
+[ ! -d pytorch ] && https://github.com/pytorch/pytorch.git
+cd pytorch || exit
 git reset --hard
+git chechout v1.13.1
+export USE_NCCL=0 USE_DISTRIBUTED=0 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 TORCH_CUDA_ARCH_LIST="7.2;8.7" PYTORCH_BUILD_VERSION=1.13.1 PYTORCH_BUILD_NUMBER=1
+#nano torch/utils/cpp_extension.py -> https://gist.github.com/dusty-nv/ce51796085178e1f38e3c6a1663a93a1#file-pytorch-1-11-jetpack-5-0-patch
+python3 setup.py bdist_wheel
 
-git chechout v0.14.0
-
-export BUILD_VERSION=0.14.0 FORCE_CUDA=1 CUDA_VISIBLE_DEVICES=0 CUDA_HOME='/usr/local/cuda' USE_CUDA=1 USE_CUDNN=1
-
+# Torchvision
+[ ! -d vision ] && git clone https://github.com/pytorch/vision.git
+cd vision || exit
+git reset --hard
+git chechout v0.14.1
+export BUILD_VERSION=0.14.1 FORCE_CUDA=1 CUDA_VISIBLE_DEVICES=0 CUDA_HOME='/usr/local/cuda' USE_CUDA=1 USE_CUDNN=1
 python3 setup.py install --user
