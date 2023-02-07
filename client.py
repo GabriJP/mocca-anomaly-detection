@@ -108,7 +108,7 @@ class MoccaClient(fl.client.NumPyClient):
 @click.option("--dropout", type=float, default=0.0, help="Dropout probability")
 @click.option("--batch-size", type=int, default=4, help="Batch size")
 @click.option("--boundary", type=click.Choice(["soft", "hard"]), default="soft", help="Boundary")
-@click.option("--enc_idx", type=int, multiple=True, default=[6], help="List of indices of model encoder")
+@click.option("--idx_list_enc", type=int, multiple=True, default=[6], help="List of indices of model encoder")
 @click.option("--nu", type=float, default=0.0)
 def cli(
     server_address: str,
