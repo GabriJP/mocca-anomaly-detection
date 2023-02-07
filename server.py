@@ -25,6 +25,7 @@ def cli(num_rounds: int, epochs: int, batch_size: int) -> None:
         server_address="0.0.0.0:8080",
         config=fl.server.ServerConfig(num_rounds=num_rounds),
         strategy=strategy,
+        grpc_max_message_length=1024**3,
     )
 
 

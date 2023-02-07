@@ -166,7 +166,9 @@ def cli(
         dataset_name="ShanghaiTech", data_path=str(data_path), normal_class=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout)
-    fl.client.start_numpy_client(server_address=server_address, client=MoccaClient(net, data_holder, rc))
+    fl.client.start_numpy_client(
+        server_address=server_address, client=MoccaClient(net, data_holder, rc), grpc_max_message_length=1024**3
+    )
 
 
 if __name__ == "__main__":
