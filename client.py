@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple
 
 import click
 import flwr as fl
@@ -11,6 +12,7 @@ from tensorboardX import SummaryWriter
 
 from datasets.data_manager import DataManager
 from datasets.shanghaitech import ShanghaiTech_DataHolder
+from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from trainers.trainer_shanghaitech import train
 
@@ -31,10 +33,10 @@ class RunConfig:
     dropout: float
     batch_size: int
     boundary: str
-    idx_list_enc: tuple[int, ...]
+    idx_list_enc: Tuple[int, ...]
     nu: float
     optimizer: str = "adam"
-    lr_milestones: tuple[int, ...] = tuple()
+    lr_milestones: Tuple[int, ...] = tuple()
     end_to_end_training: bool = True
     debug: bool = False
     warm_up_n_epochs: int = 0
@@ -42,7 +44,7 @@ class RunConfig:
     log_frequency: int = 5
 
 
-def get_out_dir(rc: RunConfig) -> tuple[Path, str]:
+def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
     tmp_name = (
         f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
         f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
@@ -70,7 +72,7 @@ class MoccaClient(fl.client.NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.net.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters: NDArrays, config: Config) -> tuple[NDArrays, int, Config]:
+    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
         self.set_parameters(parameters)
         train_loader, _ = self.data_holder.get_loaders(
@@ -78,18 +80,35 @@ class MoccaClient(fl.client.NumPyClient):
         )
         out_dir, tmp = get_out_dir(self.rc)
         with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
-            train(self.net, train_loader, str(out_dir), tb_writer, device, None, self.rc)
+            net_checkpoint = train(self.net, train_loader, str(out_dir), tb_writer, device, None, self.rc)
 
-        return self.get_parameters(config={}), 0, {}
+        return self.get_parameters(config={}), 0, dict(net_checkpoint=net_checkpoint)
 
-    def evaluate(self, parameters: NDArrays, config: Config) -> tuple[float, int, Config]:
-        raise NotImplementedError
-        # self.set_parameters(parameters)
-        # loss, accuracy = test(self.net, testloader)
-        # return float(loss), num_examples["testset"], {"accuracy": float(accuracy)}
+    def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
+        self.set_parameters(parameters)
+        net_checkpoint = Path(config["net_checkpoint"])
+        st_dict = torch.load(net_checkpoint)
+        dataset = self.data_holder.get_test_data()
+        result_output_file = net_checkpoint.parent / "shanghaitech_test_results.txt"
+        helper = VideoAnomalyDetectionResultHelper(
+            dataset=dataset,
+            model=self.net,
+            c=st_dict["c"],
+            R=st_dict["R"],
+            boundary=self.rc.boundary,
+            device=device,
+            end_to_end_training=True,
+            debug=False,
+            output_file=str(result_output_file),
+        )
+        helper.test_video_anomaly_detection()
+        vad_table = [s for s in result_output_file.read_text().replace("+", "").replace("-", "").splitlines() if len(s)]
+        tail = [s.strip() for s in vad_table[-1].split("|") if len(s)]
+        oc_metric, recon_metric, aurocas = [float(s) for s in tail[2:]]
+        return -1.0, -1, dict(oc_metric=oc_metric, recon_metric=recon_metric, aurocas=aurocas)
 
 
-@click.command()
+@click.command(context_settings=dict(show_default=True))
 @click.argument("server_address", type=str, default="150.214.203.248:8080")
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
 @click.option("--code-length", default=1024, type=int, help="Code length")
@@ -124,7 +143,7 @@ def cli(
     dropout: float,
     batch_size: int,
     boundary: str,
-    idx_list_enc: tuple[int],
+    idx_list_enc: Tuple[int],
     nu: float,
 ) -> None:
     rc = RunConfig(
