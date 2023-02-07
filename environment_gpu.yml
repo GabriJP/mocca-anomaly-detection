@@ -201,7 +201,7 @@ dependencies:
   - partd=1.2.0=pyhd3eb1b0_1
   - pcre=8.45=h295c915_0
   - pillow=9.3.0=py310h6a678d5_2
-  - pip=22.3.1=py310h06a4308_0
+  - pip
   - platformdirs=2.5.2=py310h06a4308_0
   - ply=3.11=py310h06a4308_0
   - pre-commit=2.20.0=py310h06a4308_0
@@ -276,5 +276,4 @@ dependencies:
   - zlib=1.2.13=h166bdaf_4
   - zstd=1.5.2=ha4553b6_0
   - pip:
-      - opencv-python==4.5.5.64
-      - pyqt5-sip==12.11.0
+      - opencv-contrib-python<4.6
