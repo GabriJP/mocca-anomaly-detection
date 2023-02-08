@@ -1,6 +1,8 @@
 import logging
 import os
 import time
+from typing import Dict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -66,7 +68,17 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
     return ae_net_checkpoint
 
 
-def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args):
+def train(
+    net,
+    train_loader,
+    out_dir,
+    tb_writer,
+    device,
+    ae_net_checkpoint,
+    args,
+    c: Optional[Dict[str, torch.Tensor]] = None,
+    R: Optional[Dict[str, torch.Tensor]] = None,
+):
     logger = logging.getLogger()
 
     idx_list_enc = {int(i): 1 for i in args.idx_list_enc}
@@ -84,12 +96,15 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
     scheduler = MultiStepLR(optimizer, milestones=args.lr_milestones, gamma=0.1)
 
     # Initialize hypersphere center c
-    logger.info("Evaluating hypersphere centers...")
-    c, keys = init_center_c(train_loader, net, idx_list_enc, device, args.end_to_end_training, args.debug)
-    logger.info(f"Keys: {keys}")
-    logger.info("Done!")
+    if c is not None and R is not None:
+        keys = list(c.keys())
+    else:
+        logger.info("Evaluating hypersphere centers...")
+        c, keys = init_center_c(train_loader, net, idx_list_enc, device, args.end_to_end_training, args.debug)
+        logger.info(f"Keys: {keys}")
+        logger.info("Done!")
 
-    R = {k: torch.tensor(0.0, device=device) for k in keys}
+        R = {k: torch.tensor(0.0, device=device) for k in keys}
 
     # Training
     logger.info("Starting training...")

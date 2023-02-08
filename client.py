@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict
+from typing import Optional
 from typing import Tuple
 
 import click
@@ -15,6 +17,7 @@ from datasets.shanghaitech import ShanghaiTech_DataHolder
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from trainers.trainer_shanghaitech import train
+from utils import init_center_c
 
 device = "cuda"
 
@@ -63,14 +66,49 @@ class MoccaClient(fl.client.NumPyClient):
         self.net = net
         self.data_holder = data_holder
         self.rc = rc
+        self.c: Optional[Dict[str, torch.Tensor]] = None
+        self.R: Optional[Dict[str, torch.Tensor]] = None
 
     def get_parameters(self, config: Config) -> NDArrays:
-        return [val.cpu().numpy() for _, val in self.net.state_dict().items()]
+        if self.c is None or self.R is None:
+            train_loader, _ = self.data_holder.get_loaders(
+                batch_size=int(config["batch_size"]), shuffle_train=True, pin_memory=True
+            )
+            self.c, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
+            self.R = {k: torch.tensor(0.0, device=device) for k in keys}
+
+        return (
+            [val.cpu().numpy() for _, val in self.net.state_dict().items()]
+            + [val.cpu().numpy() for _, val in self.c]
+            + [val.cpu().numpy() for _, val in self.R]
+        )
 
     def set_parameters(self, parameters: NDArrays) -> None:
         params_dict = zip(self.net.state_dict().keys(), parameters)
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.net.load_state_dict(state_dict, strict=True)
+
+        c_r = parameters[len(state_dict) :]
+        if len(c_r) % 2:
+            raise ValueError("Not an even number of remaining tensors")
+
+        if self.c is None:
+            train_loader, _ = self.data_holder.get_loaders(
+                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
+            )
+            _, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
+        else:
+            keys = list(self.c.keys())
+
+        cs_list = c_r[: len(c_r) // 2]
+        rs_list = c_r[len(c_r) // 2 :]
+
+        if len(keys) != len(cs_list) != len(rs_list):
+            raise ValueError("Keys, cs and rs differ in quantity")
+
+        for k, cv, rv in zip(keys, cs_list, rs_list):
+            self.c[k] = torch.tensor(cv)
+            self.R[k] = torch.tensor(rv)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
@@ -80,8 +118,13 @@ class MoccaClient(fl.client.NumPyClient):
         )
         out_dir, tmp = get_out_dir(self.rc)
         with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
-            net_checkpoint = train(self.net, train_loader, str(out_dir), tb_writer, device, None, self.rc)
+            net_checkpoint = train(
+                self.net, train_loader, str(out_dir), tb_writer, device, None, self.rc, self.c, self.R
+            )
 
+        torch_dict = torch.load(net_checkpoint)
+        self.R = torch_dict["R"]
+        self.c = torch_dict["c"]
         return self.get_parameters(config={}), 0, dict(net_checkpoint=net_checkpoint)
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
