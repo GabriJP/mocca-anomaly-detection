@@ -16,8 +16,8 @@ from datasets.data_manager import DataManager
 from datasets.shanghaitech import ShanghaiTech_DataHolder
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
+from trainers.trainer_shanghaitech import init_center_c
 from trainers.trainer_shanghaitech import train
-from utils import init_center_c
 
 device = "cuda"
 
@@ -63,7 +63,7 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
 class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTech_DataHolder, rc: RunConfig) -> None:
         super().__init__()
-        self.net = net
+        self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
         self.c: Optional[Dict[str, torch.Tensor]] = None
@@ -72,15 +72,15 @@ class MoccaClient(fl.client.NumPyClient):
     def get_parameters(self, config: Config) -> NDArrays:
         if self.c is None or self.R is None:
             train_loader, _ = self.data_holder.get_loaders(
-                batch_size=int(config["batch_size"]), shuffle_train=True, pin_memory=True
+                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
             )
             self.c, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
             self.R = {k: torch.tensor(0.0, device=device) for k in keys}
 
         return (
             [val.cpu().numpy() for _, val in self.net.state_dict().items()]
-            + [val.cpu().numpy() for _, val in self.c]
-            + [val.cpu().numpy() for _, val in self.R]
+            + [val.cpu().numpy() for _, val in self.c.items()]
+            + [val.cpu().numpy() for _, val in self.R.items()]
         )
 
     def set_parameters(self, parameters: NDArrays) -> None:
@@ -112,9 +112,10 @@ class MoccaClient(fl.client.NumPyClient):
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
+        self.rc.batch_size = int(config["batch_size"])
         self.set_parameters(parameters)
         train_loader, _ = self.data_holder.get_loaders(
-            batch_size=int(config["batch_size"]), shuffle_train=True, pin_memory=True
+            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
         )
         out_dir, tmp = get_out_dir(self.rc)
         with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
