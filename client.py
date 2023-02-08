@@ -97,6 +97,8 @@ class MoccaClient(fl.client.NumPyClient):
                 batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
             )
             _, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
+            self.c = dict()
+            self.R = dict()
         else:
             keys = list(self.c.keys())
 
