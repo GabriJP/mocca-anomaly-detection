@@ -107,8 +107,8 @@ class MoccaClient(fl.client.NumPyClient):
             raise ValueError("Keys, cs and rs differ in quantity")
 
         for k, cv, rv in zip(keys, cs_list, rs_list):
-            self.c[k] = torch.tensor(cv)
-            self.R[k] = torch.tensor(rv)
+            self.c[k] = torch.tensor(cv, device=device)
+            self.R[k] = torch.tensor(rv, device=device)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
