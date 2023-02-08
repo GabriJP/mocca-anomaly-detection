@@ -167,7 +167,10 @@ def cli(
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout)
     fl.client.start_numpy_client(
-        server_address=server_address, client=MoccaClient(net, data_holder, rc), grpc_max_message_length=1024**3
+        server_address=server_address,
+        client=MoccaClient(net, data_holder, rc),
+        grpc_max_message_length=1024**3,
+        root_certificates=Path("ca.crt").read_bytes(),
     )
 
 
