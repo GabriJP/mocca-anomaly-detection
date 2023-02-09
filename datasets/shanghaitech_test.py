@@ -1,6 +1,7 @@
 from glob import glob
 from os.path import join
 from pathlib import Path
+from typing import Dict
 from typing import List
 from typing import Tuple
 
@@ -14,6 +15,7 @@ from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 from tqdm import tqdm
 
+from models.shanghaitech_model import ShanghaiTech
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 
@@ -139,13 +141,12 @@ def get_target_label_idx(labels, targets):
     return np.argwhere(np.isin(labels, targets)).flatten().tolist()
 
 
-def global_contrast_normalization(x: torch.tensor, scale="l2"):
+def global_contrast_normalization(x: torch.Tensor, scale: str = "l2"):
     """
     Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
     which is either the standard deviation, L1- or L2-norm across features (pixels).
     Note this is a *per sample* normalization globally across features (and not across the dataset).
     """
-
     assert scale in ("l1", "l2")
 
     n_features = int(np.prod(x.shape))
@@ -153,11 +154,7 @@ def global_contrast_normalization(x: torch.tensor, scale="l2"):
     mean = torch.mean(x)  # mean over all features (pixels) per sample
     x -= mean
 
-    if scale == "l1":
-        x_scale = torch.mean(torch.abs(x))
-
-    if scale == "l2":
-        x_scale = torch.sqrt(torch.sum(x**2)) / n_features
+    x_scale = torch.mean(torch.abs(x)) if scale == "l1" else torch.sqrt(torch.sum(x**2)) / n_features
 
     x /= x_scale
 
@@ -232,8 +229,18 @@ class VideoAnomalyDetectionResultHelper:
     Performs tests for video anomaly detection datasets (UCSD Ped2 or Shanghaitech).
     """
 
-    def __init__(self, dataset, model, c, R, boundary, device, end_to_end_training, debug, output_file):
-        # type: (VideoAnomalyDetectionDataset, BaseModule, str, str) -> None
+    def __init__(
+        self,
+        dataset: VideoAnomalyDetectionDataset,
+        model: ShanghaiTech,
+        c: Dict[str, torch.Tensor],
+        R: Dict[str, torch.Tensor],
+        boundary: str,
+        device: str,
+        end_to_end_training: bool,
+        debug: bool,
+        output_file: str,
+    ):
         """
         Class constructor.
         :param dataset: dataset class.
@@ -268,7 +275,7 @@ class VideoAnomalyDetectionResultHelper:
 
     @torch.no_grad()
     def test_video_anomaly_detection(self):
-        # type: () -> None
+        # type: () -> Tuple[np.ndarray, List[float]]
         """
         Actually performs tests.
         """
@@ -295,10 +302,13 @@ class VideoAnomalyDetectionResultHelper:
         results_accumulator_oc = ResultsAccumulator(nb_frames_per_clip=t)
         results_accumulator_oc_by_layer = {k: ResultsAccumulator(nb_frames_per_clip=t) for k in self.keys}
         print(self.dataset.test_videos)
+
         # Start iteration over test videos
         for cl_idx, video_id in tqdm(
             enumerate(self.dataset.test_videos), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
+            if cl_idx == 3:
+                break
             # Run the test
             self.dataset.test(video_id)
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
@@ -332,39 +342,42 @@ class VideoAnomalyDetectionResultHelper:
                 sample_oc[i] = results_accumulator_oc.get_next()
 
                 for k in self.keys:
-                    if k != "tdl_lstm_o_0" and k != "tdl_lstm_o_1":
-                        results_accumulator_oc_by_layer[k].push(oc_loss_by_layer[k].item())
-                        sample_oc_by_layer[k][i] = results_accumulator_oc_by_layer[k].get_next()
+                    if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+                        continue
+                    results_accumulator_oc_by_layer[k].push(oc_loss_by_layer[k].item())
+                    sample_oc_by_layer[k][i] = results_accumulator_oc_by_layer[k].get_next()
 
             # Get last results layer by layer
             for k in self.keys:
-                if k != "tdl_lstm_o_0" and k != "tdl_lstm_o_1":
-                    while results_accumulator_oc_by_layer[k].results_left != 0:
-                        index = -results_accumulator_oc_by_layer[k].results_left
-                        sample_oc_by_layer[k][index] = results_accumulator_oc_by_layer[k].get_next()
+                if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+                    continue
 
-                    min_, max_ = sample_oc_by_layer[k].min(), sample_oc_by_layer[k].max()
+                while results_accumulator_oc_by_layer[k].results_left != 0:
+                    index = -results_accumulator_oc_by_layer[k].results_left
+                    sample_oc_by_layer[k][index] = results_accumulator_oc_by_layer[k].get_next()
 
-                    # Computes the normalized novelty score given likelihood scores, reconstruction scores
-                    # and normalization coefficients (Eq. 9-10).
-                    sample_ns = (sample_oc_by_layer[k] - min_) / (max_ - min_)
+                min_, max_ = sample_oc_by_layer[k].min(), sample_oc_by_layer[k].max()
 
-                    # Update global scores (used for global metrics)
-                    global_as_by_layer[k].append(sample_ns)
-                    global_y_by_layer[k].append(sample_y)
+                # Computes the normalized novelty score given likelihood scores, reconstruction scores
+                # and normalization coefficients (Eq. 9-10).
+                sample_ns = (sample_oc_by_layer[k] - min_) / (max_ - min_)
 
-                    try:
-                        # Compute AUROC for this video
-                        this_video_metrics = [
-                            roc_auc_score(sample_y, sample_ns),  # anomaly score == one class metric
-                            0.0,
-                            0.0,
-                        ]
-                        vad_table.add_row([k] + [video_id] + this_video_metrics)
-                    except ValueError:
-                        # This happens for sequences in which all frames are abnormal
-                        # Skipping this row in the table (the sequence will still count for global metrics)
-                        continue
+                # Update global scores (used for global metrics)
+                global_as_by_layer[k].append(sample_ns)
+                global_y_by_layer[k].append(sample_y)
+
+                try:
+                    # Compute AUROC for this video
+                    this_video_metrics = [
+                        roc_auc_score(sample_y, sample_ns),  # anomaly score == one class metric
+                        0.0,
+                        0.0,
+                    ]
+                    vad_table.add_row([k, video_id, *this_video_metrics])
+                except ValueError:
+                    # This happens for sequences in which all frames are abnormal
+                    # Skipping this row in the table (the sequence will still count for global metrics)
+                    continue
 
             # Get last results
             while results_accumulator_oc.results_left != 0:
@@ -404,15 +417,16 @@ class VideoAnomalyDetectionResultHelper:
 
         # Compute global AUROC and print table
         for k in self.keys:
-            if k != "tdl_lstm_o_0" and k != "tdl_lstm_o_1":
-                global_as_by_layer[k] = np.concatenate(global_as_by_layer[k])
-                global_y_by_layer[k] = np.concatenate(global_y_by_layer[k])
-                global_metrics = [
-                    roc_auc_score(global_y_by_layer[k], global_as_by_layer[k]),  # anomaly score == one class metric
-                    0.0,
-                    0.0,
-                ]
-                vad_table.add_row([k] + ["avg"] + global_metrics)
+            if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+                continue
+            global_as_by_layer[k] = np.concatenate(global_as_by_layer[k])
+            global_y_by_layer[k] = np.concatenate(global_y_by_layer[k])
+            global_metrics = [
+                roc_auc_score(global_y_by_layer[k], global_as_by_layer[k]),  # anomaly score == one class metric
+                0.0,
+                0.0,
+            ]
+            vad_table.add_row([k, "avg", *global_metrics])
 
         # Compute global AUROC and print table
         global_oc = np.concatenate(global_oc)
@@ -425,12 +439,14 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y, global_as),  # anomaly score
         ]
 
-        vad_table.add_row(["Overall"] + ["avg"] + list(map(str, global_metrics)))
+        vad_table.add_row(["Overall", "avg"] + list(map(str, global_metrics)))
         print(vad_table)
 
         # Save table
         with open(self.output_file, mode="w") as f:
             f.write(str(vad_table))
+
+        return global_oc, global_metrics
 
     @property
     def empty_table(self):

@@ -68,6 +68,8 @@ class MoccaClient(fl.client.NumPyClient):
         self.rc = rc
         self.c: Optional[Dict[str, torch.Tensor]] = None
         self.R: Optional[Dict[str, torch.Tensor]] = None
+        self.run = -1
+        self.current_checkpoint: Optional[Path] = None
 
     def get_parameters(self, config: Config) -> NDArrays:
         if self.c is None or self.R is None:
@@ -128,30 +130,31 @@ class MoccaClient(fl.client.NumPyClient):
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
         self.c = torch_dict["c"]
-        return self.get_parameters(config={}), 0, dict(net_checkpoint=net_checkpoint)
+        self.run += 1
+        self.current_checkpoint = Path(net_checkpoint or "")
+        return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
         self.set_parameters(parameters)
-        net_checkpoint = Path(config["net_checkpoint"])
-        st_dict = torch.load(net_checkpoint)
         dataset = self.data_holder.get_test_data()
-        result_output_file = net_checkpoint.parent / "shanghaitech_test_results.txt"
+        result_output_file = self.current_checkpoint.parent / "shanghaitech_test_results.txt"
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
             model=self.net,
-            c=st_dict["c"],
-            R=st_dict["R"],
+            c=self.c,
+            R=self.R,
             boundary=self.rc.boundary,
             device=device,
             end_to_end_training=True,
             debug=False,
             output_file=str(result_output_file),
         )
-        helper.test_video_anomaly_detection()
-        vad_table = [s for s in result_output_file.read_text().replace("+", "").replace("-", "").splitlines() if len(s)]
-        tail = [s.strip() for s in vad_table[-1].split("|") if len(s)]
-        oc_metric, recon_metric, aurocas = [float(s) for s in tail[2:]]
-        return -1.0, -1, dict(oc_metric=oc_metric, recon_metric=recon_metric, aurocas=aurocas)
+        global_oc, global_metrics = helper.test_video_anomaly_detection()
+        return (
+            float(global_oc.mean()),
+            len(global_oc),
+            dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)),
+        )
 
 
 @click.command(context_settings=dict(show_default=True))

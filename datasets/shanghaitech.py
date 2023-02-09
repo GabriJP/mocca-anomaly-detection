@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm import tqdm
 
+from .base import VideoAnomalyDetectionDataset
 from .shanghaitech_test import ShanghaiTechTestHandler
 
 
@@ -39,7 +40,7 @@ class ShanghaiTech_DataHolder:
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
 
-    def get_test_data(self) -> Dataset:
+    def get_test_data(self) -> VideoAnomalyDetectionDataset:
         """Load test dataset
 
         Returns
@@ -59,17 +60,16 @@ class ShanghaiTech_DataHolder:
             False for preprocessing purpose only
         """
 
-        if return_dataset:
-            # Load all ids
-            self.train_ids = self.load_train_ids()
-            # Create clips with given clip_length and stride
-            self.train_clips = self.create_clips(
-                self.train_dir, self.train_ids, clip_length=self.clip_length, stride=self.stride, read_target=False
-            )
+        if not return_dataset:
+            return None
 
-            return MySHANGHAI(self.train_clips, self.transform, clip_length=self.clip_length)
-        else:
-            return
+        # Load all ids
+        self.train_ids = self.load_train_ids()
+        # Create clips with given clip_length and stride
+        self.train_clips = self.create_clips(
+            self.train_dir, self.train_ids, clip_length=self.clip_length, stride=self.stride, read_target=False
+        )
+        return MySHANGHAI(self.train_clips, self.transform, clip_length=self.clip_length)
 
     def get_loaders(
         self, batch_size: int, shuffle_train: bool = True, pin_memory: bool = False, num_workers: int = 0
@@ -94,7 +94,7 @@ class ShanghaiTech_DataHolder:
 
         """
         train_loader = DataLoader(
-            dataset=self.get_train_data(return_dataset=True),
+            dataset=self.get_train_data(),
             batch_size=batch_size,
             shuffle=shuffle_train,
             pin_memory=pin_memory,

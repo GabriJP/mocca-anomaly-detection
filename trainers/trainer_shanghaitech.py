@@ -78,7 +78,7 @@ def train(
     args,
     c: Optional[Dict[str, torch.Tensor]] = None,
     R: Optional[Dict[str, torch.Tensor]] = None,
-):
+) -> Optional[str]:
     logger = logging.getLogger()
 
     idx_list_enc = {int(i): 1 for i in args.idx_list_enc}
@@ -114,7 +114,7 @@ def train(
 
     best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
-    best_model_checkpoint = None
+    model_checkpoint = None
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -174,11 +174,12 @@ def train(
                     it_t += 1
 
             # Update hypersphere radius R on mini-batch distances
-            if (args.boundary == "soft") and (epoch >= warm_up_n_epochs):
-                for k in R.keys():
-                    R[k].data = torch.tensor(
-                        np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - args.nu), device=device
-                    )
+            if args.boundary != "soft" or epoch < warm_up_n_epochs:
+                continue
+            for k in R.keys():
+                R[k].data = torch.tensor(
+                    np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - args.nu), device=device
+                )
 
         scheduler.step()
         if epoch in args.lr_milestones:
@@ -186,16 +187,16 @@ def train(
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.split("_")[-1].split(".p")[0]
         net_checkpoint = os.path.join(out_dir, f"net_ckp_{epoch}_{time_}.pth")
-        torch.save({"net_state_dict": net.state_dict(), "R": R, "c": c}, net_checkpoint)
+        torch.save(dict(net_state_dict=net.state_dict(), R=R, c=c), net_checkpoint)
         logger.info(f"Saved model at: {net_checkpoint}")
         if objective_loss < best_loss or epoch == 0:
             best_loss = objective_loss
             best_model_checkpoint = os.path.join(out_dir, f"net_ckp_best_model_{time_}.pth")
-            torch.save({"net_state_dict": net.state_dict(), "R": R, "c": c}, best_model_checkpoint)
+            torch.save(dict(net_state_dict=net.state_dict(), R=R, c=c), best_model_checkpoint)
 
     logger.info("Finished training.")
 
-    return best_model_checkpoint  # net_checkpoint
+    return model_checkpoint
 
 
 @torch.no_grad()
