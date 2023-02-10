@@ -60,7 +60,7 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
 
         ae_net_checkpoint = os.path.join(out_dir, f"ae_ckp_epoch_{epoch}_{time.time()}.pth")
-        torch.save({"ae_state_dict": ae_net.state_dict()}, ae_net_checkpoint)
+        torch.save(dict(ae_state_dict=ae_net.state_dict()), ae_net_checkpoint)
 
     logger.info("Finished pretraining.")
     logger.info(f"Saved autoencoder at: {ae_net_checkpoint}")
@@ -114,7 +114,7 @@ def train(
 
     best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
-    model_checkpoint = None
+    net_checkpoint = None
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -196,7 +196,7 @@ def train(
 
     logger.info("Finished training.")
 
-    return model_checkpoint
+    return net_checkpoint
 
 
 @torch.no_grad()
