@@ -307,8 +307,6 @@ class VideoAnomalyDetectionResultHelper:
         for cl_idx, video_id in tqdm(
             enumerate(self.dataset.test_videos), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
-            if cl_idx == 3:
-                break
             # Run the test
             self.dataset.test(video_id)
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
