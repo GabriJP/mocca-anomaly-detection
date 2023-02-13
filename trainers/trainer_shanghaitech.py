@@ -91,7 +91,7 @@ def train(
     train_loader: DataLoader[Tuple[torch.Tensor, int]],
     out_dir: str,
     tb_writer: SummaryWriter,
-    device: Union[str, torch.device],
+    device: str,
     ae_net_checkpoint: Optional[str],
     args: Union[argparse.Namespace, RunConfig],
     c: Optional[Dict[str, torch.Tensor]] = None,

@@ -34,7 +34,7 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
     return out_dir, tmp_name
 
 
-class MoccaClient(fl.client.NumPyClient):  # type: ignore
+class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
         self.net = net.to(device)

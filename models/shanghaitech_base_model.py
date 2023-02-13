@@ -27,9 +27,9 @@ class BaseModule(nn.Module):
         """
         String representation
         """
-        good_old = super().__repr__()
+        good_old = repr(super())
 
-        #  return good_old + '\n' + addition
+        # return good_old + '\n' + addition
         return good_old
 
     @property
