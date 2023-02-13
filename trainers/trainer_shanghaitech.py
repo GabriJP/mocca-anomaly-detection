@@ -161,7 +161,7 @@ def train(
                 _, d_lstms = net(data)
                 recon_loss_ = torch.tensor([0.0], device=device)
 
-            dist, one_class_loss_ = eval_ad_loss(d_lstms, c, R, args.nu, args.boundary)
+            dist, one_class_loss_ = eval_ad_loss(d_lstms, c, R, args.nu, args.boundary, device)
             objective_loss_ = one_class_loss_ + recon_loss_
 
             for k in keys:
@@ -262,10 +262,15 @@ def init_center_c(
 
 
 def eval_ad_loss(
-    d_lstms: Dict[str, torch.Tensor], c: Dict[str, torch.Tensor], R: Dict[str, torch.Tensor], nu: float, boundary: str
+    d_lstms: Dict[str, torch.Tensor],
+    c: Dict[str, torch.Tensor],
+    R: Dict[str, torch.Tensor],
+    nu: float,
+    boundary: str,
+    device: str,
 ) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
     dist = {}
-    loss = torch.tensor(1.0)
+    loss = torch.tensor(1.0, device=device)
 
     for k in c.keys():
         dist[k] = torch.sum((d_lstms[k] - c[k].unsqueeze(0)) ** 2, dim=-1)
