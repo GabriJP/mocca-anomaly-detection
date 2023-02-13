@@ -2,6 +2,8 @@ import argparse
 import logging
 import os
 import random
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Tuple
@@ -12,6 +14,31 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+
+@dataclass
+class RunConfig:
+    output_path: Path
+    code_length: int
+    learning_rate: float
+    weight_decay: float
+    data_path: Path
+    clip_length: int
+    load_lstm: bool
+    hidden_size: int
+    num_layers: int
+    dropout: float
+    batch_size: int
+    boundary: str
+    idx_list_enc: Tuple[int, ...]
+    nu: float
+    optimizer: str = "adam"
+    lr_milestones: Tuple[int, ...] = tuple()
+    end_to_end_training: bool = True
+    debug: bool = False
+    warm_up_n_epochs: int = 0
+    epochs: int = 0
+    log_frequency: int = 5
 
 
 def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[str, str]:

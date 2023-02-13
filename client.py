@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 from typing import Tuple
@@ -17,33 +16,9 @@ from datasets import VideoAnomalyDetectionResultHelper
 from models import ShanghaiTech
 from trainers import init_center_c
 from trainers import train
+from utils import RunConfig
 
 device = "cuda"
-
-
-@dataclass
-class RunConfig:
-    output_path: Path
-    code_length: int
-    learning_rate: float
-    weight_decay: float
-    data_path: Path
-    clip_length: int
-    load_lstm: bool
-    hidden_size: int
-    num_layers: int
-    dropout: float
-    batch_size: int
-    boundary: str
-    idx_list_enc: Tuple[int, ...]
-    nu: float
-    optimizer: str = "adam"
-    lr_milestones: Tuple[int, ...] = tuple()
-    end_to_end_training: bool = True
-    debug: bool = False
-    warm_up_n_epochs: int = 0
-    epochs: int = 0
-    log_frequency: int = 5
 
 
 def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
