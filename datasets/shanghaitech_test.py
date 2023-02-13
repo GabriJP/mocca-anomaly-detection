@@ -1,8 +1,10 @@
 from glob import glob
 from os.path import join
 from pathlib import Path
+from typing import Any
 from typing import Dict
 from typing import List
+from typing import Sequence
 from typing import Tuple
 from typing import Union
 
@@ -38,9 +40,9 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.test_ids = self.load_test_ids()
         # Other utilities
         self.cur_len = 0
-        self.cur_video_id = None
-        self.cur_video_frames = None
-        self.cur_video_gt = None
+        self.cur_video_id: str
+        self.cur_video_frames: npt.NDArray[np.uint8]
+        self.cur_video_gt: npt.NDArray[np.uint8]
 
     def load_test_ids(self) -> List[str]:
         """
@@ -49,7 +51,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    def load_test_sequence_frames(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_frames(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads a test video in memory.
         :param video_id: the id of the test video to be loaded
@@ -61,7 +63,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    def load_test_sequence_gt(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -70,7 +72,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         clip_gt = np.load(join(self.test_dir, "test_frame_mask", f"{video_id}.npy"))
         return clip_gt
 
-    def test(self, video_id: str) -> None:
+    def test(self, video_id: str, *_: Any) -> None:
         """
         Sets the dataset in test mode.
         :param video_id: the id of the video to test.
@@ -101,7 +103,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return self.cur_len
 
-    def __getitem__(self, i: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, i: int) -> torch.Tensor:
         """
         Provides the i-th example.
         """
@@ -109,22 +111,15 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         clip = self.cur_video_frames[i : i + t]
         sample = clip
         # Apply transform
-        if self.transform:
-            sample = self.transform(sample)
-        return sample
+        return self.transform(sample) if self.transform else torch.from_numpy(sample)
 
-    @property
-    def collate_fn(self):
-        """
-        Returns a function that decides how to merge a list of examples in a batch.
-        """
-        return default_collate
+    collate_fn = default_collate
 
     def __repr__(self) -> str:
         return f"ShanghaiTech (video id = {self.cur_video_id})"
 
 
-def get_target_label_idx(labels, targets):
+def get_target_label_idx(labels: npt.NDArray[np.int32], targets: Sequence[int]) -> List[int]:
     """
     Get the indices of labels that are included in targets.
     :param labels: array of labels
@@ -227,7 +222,7 @@ class VideoAnomalyDetectionResultHelper:
         self.debug = debug
         self.output_file = output_file
 
-    def _get_scores(self, d_lstm):
+    def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
         dist = {k: torch.sum((d_lstm[k] - self.hc[k].unsqueeze(0)) ** 2, dim=1) for k in self.keys}
         scores = {k: torch.zeros((dist[k].shape[0],), device=self.device) for k in self.keys}
@@ -243,7 +238,7 @@ class VideoAnomalyDetectionResultHelper:
         return scores, overall_score / len(self.keys)
 
     @torch.no_grad()
-    def test_video_anomaly_detection(self) -> Tuple[np.ndarray, List[float]]:
+    def test_video_anomaly_detection(self) -> Tuple[npt.NDArray[np.float64], List[float]]:
         """
         Actually performs tests.
         """
@@ -263,7 +258,7 @@ class VideoAnomalyDetectionResultHelper:
         global_as = []
         global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: [] for k in self.keys}
         global_y = []
-        global_y_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: [] for k in self.keys}
+        global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: [] for k in self.keys}
 
         # Get accumulators
         results_accumulator_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -277,7 +272,7 @@ class VideoAnomalyDetectionResultHelper:
         ):
             # Run the test
             self.dataset.test(video_id)
-            loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
+            loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)  # type: ignore
 
             # Build score containers
             sample_rc = np.zeros(shape=(len(loader) + t - 1,))

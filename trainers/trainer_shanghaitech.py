@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from tensorboardX import SummaryWriter
 from torch import nn
@@ -24,7 +25,7 @@ from client import RunConfig
 
 def pretrain(
     ae_net: nn.Module,
-    train_loader: DataLoader,
+    train_loader: DataLoader[npt.NDArray[np.uint8]],
     out_dir: str,
     tb_writer: SummaryWriter,
     device: str,
@@ -87,7 +88,7 @@ def pretrain(
 
 def train(
     net: nn.Module,
-    train_loader: DataLoader,
+    train_loader: DataLoader[Tuple[torch.Tensor, int]],
     out_dir: str,
     tb_writer: SummaryWriter,
     device: Union[str, torch.device],
@@ -219,7 +220,7 @@ def train(
 
 @torch.no_grad()
 def init_center_c(
-    train_loader: DataLoader,
+    train_loader: DataLoader[Tuple[torch.Tensor, int]],
     net: nn.Module,
     idx_list_enc: Sequence[int],
     device: Union[str, torch.device],

@@ -1,6 +1,5 @@
 from typing import Any
 from typing import Dict
-from typing import Optional
 from typing import Tuple
 from typing import Union
 
@@ -15,7 +14,7 @@ from .shanghaitech_base_model import UpsampleBlock
 
 
 class Selector(BaseModule):
-    def __init__(self, code_length, idx):
+    def __init__(self, idx: int) -> None:
         super().__init__()
         """
         sizes = [[ch, time , h, w], ...]
@@ -124,11 +123,11 @@ class ShanghaiTechEncoder(BaseModule):
         # )
 
         # Features selector models (MLPs)
-        self.sel1 = Selector(self.code_length, 0)
-        self.sel2 = Selector(self.code_length, 1)
-        self.sel3 = Selector(self.code_length, 2)
-        self.sel4 = Selector(self.code_length, 3)
-        self.sel5 = Selector(self.code_length, 4)
+        self.sel1 = Selector(0)
+        self.sel2 = Selector(1)
+        self.sel3 = Selector(2)
+        self.sel4 = Selector(3)
+        self.sel5 = Selector(4)
 
         self.deepest_shape = (64, t // 4, h // 32, w // 32)
 
@@ -170,7 +169,7 @@ class ShanghaiTechEncoder(BaseModule):
 
         if self.load_lstm:
 
-            def shape_lstm_input(o):
+            def shape_lstm_input(o: torch.Tensor) -> torch.Tensor:
                 # batch, channel, height, width
                 o = o.permute(0, 2, 1, 3, 4)
                 kernel_size = (1, o.shape[-2], o.shape[-1])
@@ -328,15 +327,13 @@ class ShanghaiTech(BaseModule):
         h = x
 
         # Produce representations
-        d_lstms: Optional[torch.Tensor] = None
         if self.load_lstm:
             z, d_lstms = self.encoder(h)
+            x_r = self.decoder(z)
+            x_r = x_r.view(-1, *self.input_shape)
+            return x_r, z, d_lstms
         else:
             z = self.encoder(h)
-
-        # Reconstruct x
-        x_r = self.decoder(z)
-        x_r = x_r.view(-1, *self.input_shape)
-        if self.load_lstm:
-            return x_r, z, d_lstms
-        return x_r, z
+            x_r = self.decoder(z)
+            x_r = x_r.view(-1, *self.input_shape)
+            return x_r, z

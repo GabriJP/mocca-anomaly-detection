@@ -70,7 +70,7 @@ def main(args: argparse.Namespace) -> None:
         f"\n\t\t\t\tDropout prob        : {args.dropout}\n"
     )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Init DataHolder class
     data_holder = DataManager(
@@ -88,8 +88,8 @@ def main(args: argparse.Namespace) -> None:
     if not only_test:
         logger.info(
             f"TRAIN:"
-            f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"
-            f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // args.batch_size}"
+            f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"  # type: ignore
+            f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // args.batch_size}"  # type: ignore
         )
 
     #

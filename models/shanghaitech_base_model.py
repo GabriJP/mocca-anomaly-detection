@@ -1,12 +1,13 @@
 from functools import reduce
 from operator import mul
+from typing import Any
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import torch
 import torch.nn as nn
-from torch import Module
 
 
 class BaseModule(nn.Module):
@@ -31,9 +32,6 @@ class BaseModule(nn.Module):
         #  return good_old + '\n' + addition
         return good_old
 
-    def __call__(self, *args, **kwargs):
-        return super().__call__(*args, **kwargs)
-
     @property
     def n_parameters(self) -> int:
         """
@@ -42,7 +40,7 @@ class BaseModule(nn.Module):
         n_parameters = 0
         for p in self.parameters():
             if hasattr(p, "mask"):
-                n_parameters += torch.sum(p.mask).item()
+                n_parameters += int(torch.sum(p.mask).item())
             else:
                 n_parameters += reduce(mul, p.shape)
         return int(n_parameters)
@@ -54,13 +52,13 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
     This is a 3D Convolution that cannot access future frames.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
 
         self.register_buffer("mask", self.weight.data.clone())
         _, _, kT, kH, kW = self.weight.size()
-        self.mask.fill_(1)
-        self.mask[:, :, kT // 2 + 1 :] = 0
+        self.mask.fill_(1)  # type: ignore
+        self.mask[:, :, kT // 2 + 1 :] = 0  # type: ignore
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -107,13 +105,12 @@ class TemporallySharedFullyConnection(BaseModule):
         for i in range(0, t):
             # apply dense layer
             output.append(self.linear(x[:, i, :]))
-        output = torch.stack(output, 1)
 
-        return output
+        return torch.stack(output, 1)
 
 
 def residual_op(
-    x: torch.Tensor, functions: List[nn.Module], bns: List[Module], activation_fn: nn.Module
+    x: torch.Tensor, functions: List[nn.Module], bns: List[Union[nn.Module, None]], activation_fn: nn.Module
 ) -> torch.Tensor:
     """
     Implements a global residual operation.
@@ -128,7 +125,7 @@ def residual_op(
 
     assert len(functions) == len(bns) == 3
     assert f1 is not None and f2 is not None
-    assert not (f3 is None and bn3 is not None)
+    assert not (f3 is None and bn3 is not None)  # type: ignore
 
     # A-branch
     ha = x
@@ -157,7 +154,7 @@ class BaseBlock(BaseModule):
     """Base class for all blocks."""
 
     def __init__(
-        self, channel_in: int, channel_out: int, activation_fn: Module, use_bn: bool = True, use_bias: bool = True
+        self, channel_in: int, channel_out: int, activation_fn: nn.Module, use_bn: bool = True, use_bias: bool = True
     ) -> None:
         """
         Class constructor.
@@ -177,7 +174,7 @@ class BaseBlock(BaseModule):
         self._use_bn = use_bn
         self._bias = use_bias
 
-    def get_bn(self) -> Optional[Module]:
+    def get_bn(self) -> Optional[nn.Module]:
         """
         Returns batch norm layers, if needed.
         :return: batch norm layers or None

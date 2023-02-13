@@ -73,7 +73,7 @@ class ShanghaiTechDataHolder:
 
     def get_loaders(
         self, batch_size: int, shuffle_train: bool = True, pin_memory: bool = False, num_workers: int = 0
-    ) -> Tuple[DataLoader, DataLoader]:
+    ) -> Tuple[DataLoader[Tuple[torch.Tensor, int]], DataLoader[torch.Tensor]]:
         """Returns MVtec dataloaders
 
         Parameters
@@ -137,7 +137,7 @@ class ShanghaiTechDataHolder:
         return np.array(clips)
 
 
-class MySHANGHAI(Dataset):
+class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __init__(self, clips: npt.NDArray[np.str_], transform: Optional[Compose] = None, clip_length: int = 16):
         self.clips = clips
         self.transform = transform
@@ -146,7 +146,7 @@ class MySHANGHAI(Dataset):
     def __len__(self) -> int:
         return len(self.clips)
 
-    def __getitem__(self, index: int) -> Tuple[npt.NDArray[np.uint8], int]:
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         """
         Args:
             index (int): Index
@@ -156,11 +156,11 @@ class MySHANGHAI(Dataset):
         """
         index_ = int(torch.randint(0, len(self.clips), size=(1,)).item())
         sample = np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index_]])
-        sample = self.transform(sample) if self.transform else sample
-        return sample, index_
+        sample_t = self.transform(sample) if self.transform else torch.from_numpy(sample)
+        return sample_t, index_
 
 
-def get_target_label_idx(labels: npt.NDArray[np.int32], targets: Sequence[int]) -> List[int]:
+def get_target_label_idx(labels: npt.NDArray[np.uint8], targets: Sequence[int]) -> List[int]:
     """
     Get the indices of labels that are included in targets.
     :param labels: array of labels

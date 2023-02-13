@@ -1,14 +1,20 @@
 from abc import ABCMeta
 from abc import abstractmethod
+from typing import Any
+from typing import List
+from typing import Sequence
 from typing import Tuple
+from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy.ndimage import binary_dilation
 from torch.utils.data import Dataset
+from torch.utils.data import default_collate
 
 
-class DatasetBase(Dataset):
+class DatasetBase(Dataset[torch.Tensor]):
     """
     Base class for all datasets.
     """
@@ -16,7 +22,7 @@ class DatasetBase(Dataset):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def test(self, *args):
+    def test(self, video_id: str, *args: Any) -> None:
         """
         Sets the dataset in test mode.
         """
@@ -38,32 +44,9 @@ class DatasetBase(Dataset):
         pass
 
     @abstractmethod
-    def __getitem__(self, i: int):
+    def __getitem__(self, i: int) -> torch.Tensor:
         """
         Provides the i-th example.
-        """
-        pass
-
-
-class OneClassDataset(DatasetBase):
-    """
-    Base class for all one-class classification datasets.
-    """
-
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def val(self, *args):
-        """
-        Sets the dataset in validation mode.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def test_classes(self):
-        """
-        Returns all test possible test classes.
         """
         pass
 
@@ -77,36 +60,35 @@ class VideoAnomalyDetectionDataset(DatasetBase):
 
     @property
     @abstractmethod
-    def test_videos(self):
+    def test_videos(self) -> List[str]:
         """
         Returns all test video ids.
         """
         pass
 
     @abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Returns the number of examples.
         """
         pass
 
     @property
-    def raw_shape(self):
+    def raw_shape(self) -> Tuple[int, int, int, int]:
         """
         Workaround!
         """
         return self.shape
 
     @abstractmethod
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> torch.Tensor:
         """
         Provides the i-th example.
         """
         pass
 
     @abstractmethod
-    def load_test_sequence_gt(self, video_id):
-        # type: (str) -> np.ndarray
+    def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -114,76 +96,68 @@ class VideoAnomalyDetectionDataset(DatasetBase):
         """
         pass
 
-    @property
-    @abstractmethod
-    def collate_fn(self):
-        """
-        Returns a function that decides how to merge a list of examples in a batch.
-        """
-        pass
+    collate_fn = default_collate
 
 
 class ToFloatTensor3D:
     """Convert videos to FloatTensors"""
 
-    def __init__(self, normalize=True):
+    def __init__(self, normalize: bool = True) -> None:
         self._normalize = normalize
 
-    def __call__(self, sample):
+    def __call__(self, sample: Union[Sequence[npt.NDArray[np.uint8]], npt.NDArray[np.uint8]]) -> torch.Tensor:
         if len(sample) == 3:
-            X, Y, _ = sample
+            x, _, _ = sample
         else:
-            X = sample
+            x = sample
 
         # swap color axis because
         # numpy image: T x H x W x C
-        X = X.transpose(3, 0, 1, 2)
+        x = x.transpose(3, 0, 1, 2)
         # Y = Y.transpose(3, 0, 1, 2)
 
         if self._normalize:
-            X = X / 255.0
+            x = x / 255.0
 
-        X = np.float32(X)
-        return torch.from_numpy(X)
+        return torch.from_numpy(x.astype(np.float32))
 
 
 class ToFloatTensor3DMask:
     """Convert videos to FloatTensors"""
 
-    def __init__(self, normalize=True, has_x_mask=True, has_y_mask=True):
+    def __init__(self, normalize: bool = True, has_x_mask: bool = True, has_y_mask: bool = True) -> None:
         self._normalize = normalize
         self.has_x_mask = has_x_mask
         self.has_y_mask = has_y_mask
 
-    def __call__(self, sample):
-        X = sample
+    def __call__(self, sample: npt.NDArray[np.uint8]) -> torch.Tensor:
         # swap color axis because
         # numpy image: T x H x W x C
-        X = X.transpose(3, 0, 1, 2)
-
-        X = np.float32(X)
+        x = sample.transpose((3, 0, 1, 2)).astype(np.float32)
 
         if self._normalize:
             if self.has_x_mask:
-                X[:-1] = X[:-1] / 255.0
+                x[:-1] = x[:-1] / 255.0
             else:
-                X = X / 255.0
+                x = x / 255.0
 
-        return torch.from_numpy(X)
+        return torch.from_numpy(x)
 
 
 class RemoveBackground:
     def __init__(self, threshold: float):
         self.threshold = threshold
 
-    def __call__(self, sample: Tuple[np.ndarray, np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        X, Y, background = sample
+    def __call__(
+        self, sample: Tuple[npt.NDArray[np.uint8], npt.NDArray[np.uint8], npt.NDArray[np.uint8]]
+    ) -> Tuple[npt.NDArray[np.uint8], npt.NDArray[np.uint8], npt.NDArray[np.uint8]]:
+        x, y, background = sample
 
-        mask = np.uint8(np.sum(np.abs(np.int32(X) - background), axis=-1) > self.threshold)
+        mask = (np.sum(np.abs(np.int32(x) - background), axis=-1) > self.threshold).astype(np.uint8)
         mask = np.expand_dims(mask, axis=-1)
 
         mask = np.stack([binary_dilation(mask_frame, iterations=5) for mask_frame in mask])
 
-        X *= mask
+        x *= mask
 
-        return X, Y, background
+        return x, y, background
