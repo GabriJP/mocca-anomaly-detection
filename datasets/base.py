@@ -1,8 +1,10 @@
 from abc import ABCMeta
 from abc import abstractmethod
+from typing import Tuple
 
 import numpy as np
 import torch
+from scipy.ndimage import binary_dilation
 from torch.utils.data import Dataset
 
 
@@ -22,21 +24,21 @@ class DatasetBase(Dataset):
 
     @property
     @abstractmethod
-    def shape(self):
+    def shape(self) -> Tuple[int, int, int, int]:
         """
         Returns the shape of examples.
         """
         pass
 
     @abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Returns the number of examples.
         """
         pass
 
     @abstractmethod
-    def __getitem__(self, i):
+    def __getitem__(self, i: int):
         """
         Provides the i-th example.
         """
@@ -174,7 +176,7 @@ class RemoveBackground:
     def __init__(self, threshold: float):
         self.threshold = threshold
 
-    def __call__(self, sample: tuple) -> tuple:
+    def __call__(self, sample: Tuple[np.ndarray, np.ndarray, np.ndarray]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         X, Y, background = sample
 
         mask = np.uint8(np.sum(np.abs(np.int32(X) - background), axis=-1) > self.threshold)

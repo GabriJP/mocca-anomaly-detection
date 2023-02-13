@@ -3,21 +3,26 @@ from os.path import basename
 from os.path import isdir
 from os.path import join
 from typing import List
+from typing import Optional
+from typing import Sequence
+from typing import Tuple
 
 import numpy as np
+import numpy.typing as npt
 import skimage.io as io
 import torch
-from scipy.ndimage.morphology import binary_dilation
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.transforms import Compose
 from tqdm import tqdm
 
+from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 from .shanghaitech_test import ShanghaiTechTestHandler
 
 
-class ShanghaiTech_DataHolder:
+class ShanghaiTechDataHolder:
     """
     ShanghaiTech data holder class
 
@@ -31,7 +36,7 @@ class ShanghaiTech_DataHolder:
         for creating a clip what should be the size of sliding window
     """
 
-    def __init__(self, root: str, clip_length=16, stride=1):
+    def __init__(self, root: str, clip_length: int = 16, stride: int = 1) -> None:
         self.root = root
         self.clip_length = clip_length
         self.stride = stride
@@ -51,29 +56,24 @@ class ShanghaiTech_DataHolder:
         """
         return ShanghaiTechTestHandler(self.root)
 
-    def get_train_data(self, return_dataset: bool = True):
+    def get_train_data(self) -> "MySHANGHAI":
         """Load train dataset
 
         Parameters
         ----------
-        return_dataset : bool
-            False for preprocessing purpose only
         """
-
-        if not return_dataset:
-            return None
 
         # Load all ids
         self.train_ids = self.load_train_ids()
         # Create clips with given clip_length and stride
         self.train_clips = self.create_clips(
-            self.train_dir, self.train_ids, clip_length=self.clip_length, stride=self.stride, read_target=False
+            self.train_dir, self.train_ids, clip_length=self.clip_length, stride=self.stride
         )
         return MySHANGHAI(self.train_clips, self.transform, clip_length=self.clip_length)
 
     def get_loaders(
         self, batch_size: int, shuffle_train: bool = True, pin_memory: bool = False, num_workers: int = 0
-    ) -> [DataLoader, DataLoader]:
+    ) -> Tuple[DataLoader, DataLoader]:
         """Returns MVtec dataloaders
 
         Parameters
@@ -105,16 +105,15 @@ class ShanghaiTech_DataHolder:
         )
         return train_loader, test_loader
 
-    def load_train_ids(self):
-        # type: () -> List[str]
+    def load_train_ids(self) -> List[str]:
         """
         Loads the set of all train video ids.
         :return: The list of train ids.
         """
         return sorted([basename(d) for d in glob(join(self.train_dir, "**")) if isdir(d)])
 
-    def create_clips(self, dir_path, ids, clip_length=16, stride=1, read_target=False):
-        # type: (str, List[str], int, int, bool) -> np.array
+    @staticmethod
+    def create_clips(dir_path: str, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -139,15 +138,15 @@ class ShanghaiTech_DataHolder:
 
 
 class MySHANGHAI(Dataset):
-    def __init__(self, clips, transform=None, clip_length=16):
+    def __init__(self, clips: npt.NDArray[np.str_], transform: Optional[Compose] = None, clip_length: int = 16):
         self.clips = clips
         self.transform = transform
         self.shape = (3, clip_length, 256, 512)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.clips)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[npt.NDArray[np.uint8], int]:
         """
         Args:
             index (int): Index
@@ -155,13 +154,13 @@ class MySHANGHAI(Dataset):
             triple: (image, target, index) where target is index of the target class.
             targets are all 0 target
         """
-        index_ = torch.randint(0, len(self.clips), size=(1,)).item()
+        index_ = int(torch.randint(0, len(self.clips), size=(1,)).item())
         sample = np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index_]])
         sample = self.transform(sample) if self.transform else sample
         return sample, index_
 
 
-def get_target_label_idx(labels, targets):
+def get_target_label_idx(labels: npt.NDArray[np.int32], targets: Sequence[int]) -> List[int]:
     """
     Get the indices of labels that are included in targets.
     :param labels: array of labels
@@ -171,7 +170,7 @@ def get_target_label_idx(labels, targets):
     return np.argwhere(np.isin(labels, targets)).flatten().tolist()
 
 
-def global_contrast_normalization(x: torch.tensor, scale="l2"):
+def global_contrast_normalization(x: torch.Tensor, scale: str = "l2") -> torch.Tensor:
     """
     Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
     which is either the standard deviation, L1- or L2-norm across features (pixels).
@@ -185,78 +184,8 @@ def global_contrast_normalization(x: torch.tensor, scale="l2"):
     mean = torch.mean(x)  # mean over all features (pixels) per sample
     x -= mean
 
-    if scale == "l1":
-        x_scale = torch.mean(torch.abs(x))
-
-    if scale == "l2":
-        x_scale = torch.sqrt(torch.sum(x**2)) / n_features
+    x_scale = torch.mean(torch.abs(x)) if scale == "l1" else torch.sqrt(torch.sum(x**2)) / n_features
 
     x /= x_scale
 
     return x
-
-
-class ToFloatTensor3D:
-    """Convert videos to FloatTensors"""
-
-    def __init__(self, normalize=True):
-        self._normalize = normalize
-
-    def __call__(self, sample):
-        if len(sample) == 3:
-            X, Y, _ = sample
-        else:
-            X = sample
-
-        # swap color axis because
-        # numpy image: T x H x W x C
-        X = X.transpose(3, 0, 1, 2)
-        # Y = Y.transpose(3, 0, 1, 2)
-
-        if self._normalize:
-            X = X / 255.0
-
-        X = np.float32(X)
-        return torch.from_numpy(X)
-
-
-class ToFloatTensor3DMask:
-    """Convert videos to FloatTensors"""
-
-    def __init__(self, normalize=True, has_x_mask=True, has_y_mask=True):
-        self._normalize = normalize
-        self.has_x_mask = has_x_mask
-        self.has_y_mask = has_y_mask
-
-    def __call__(self, sample):
-        X = sample
-        # swap color axis because
-        # numpy image: T x H x W x C
-        X = X.transpose(3, 0, 1, 2)
-
-        X = np.float32(X)
-
-        if self._normalize:
-            if self.has_x_mask:
-                X[:-1] = X[:-1] / 255.0
-            else:
-                X = X / 255.0
-
-        return torch.from_numpy(X)
-
-
-class RemoveBackground:
-    def __init__(self, threshold: float):
-        self.threshold = threshold
-
-    def __call__(self, sample: tuple) -> tuple:
-        X, Y, background = sample
-
-        mask = np.uint8(np.sum(np.abs(np.int32(X) - background), axis=-1) > self.threshold)
-        mask = np.expand_dims(mask, axis=-1)
-
-        mask = np.stack([binary_dilation(mask_frame, iterations=5) for mask_frame in mask])
-
-        X *= mask
-
-        return X, Y, background

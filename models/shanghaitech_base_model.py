@@ -1,8 +1,12 @@
 from functools import reduce
 from operator import mul
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import torch
 import torch.nn as nn
+from torch import Module
 
 
 class BaseModule(nn.Module):
@@ -11,16 +15,14 @@ class BaseModule(nn.Module):
     All other modules inherit from this one
     """
 
-    def load_w(self, checkpoint_path):
-        # type: (str) -> None
+    def load_w(self, checkpoint_path: str) -> None:
         """
         Loads a checkpoint into the state_dict.
         :param checkpoint_path: the checkpoint file to be loaded.
         """
         self.load_state_dict(torch.load(checkpoint_path))
 
-    def __repr__(self):
-        # type: () -> str
+    def __repr__(self) -> str:
         """
         String representation
         """
@@ -33,8 +35,7 @@ class BaseModule(nn.Module):
         return super().__call__(*args, **kwargs)
 
     @property
-    def n_parameters(self):
-        # type: () -> int
+    def n_parameters(self) -> int:
         """
         Number of parameters of the model.
         """
@@ -61,8 +62,7 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
         self.mask.fill_(1)
         self.mask[:, :, kT // 2 + 1 :] = 0
 
-    def forward(self, x):
-        # type: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Performs the forward pass.
         :param x: the input tensor.
@@ -79,8 +79,7 @@ class TemporallySharedFullyConnection(BaseModule):
     the same linear projection to all of them.
     """
 
-    def __init__(self, in_features, out_features, bias=True):
-        # type: (int, int, bool) -> None
+    def __init__(self, in_features: int, out_features: int, bias: bool = True) -> None:
         """
         Class constructor.
         :param in_features: number of input features.
@@ -96,8 +95,7 @@ class TemporallySharedFullyConnection(BaseModule):
         # the layer to be applied at each timestep
         self.linear = nn.Linear(in_features=in_features, out_features=out_features, bias=bias)
 
-    def forward(self, x):
-        # type: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward function.
         :param x: layer input. Has shape=(batchsize, seq_len, in_features).
@@ -114,8 +112,9 @@ class TemporallySharedFullyConnection(BaseModule):
         return output
 
 
-def residual_op(x, functions, bns, activation_fn):
-    # type: (torch.Tensor, List[Module, Module, Module], List[Module, Module, Module], Module) -> torch.Tensor
+def residual_op(
+    x: torch.Tensor, functions: List[nn.Module], bns: List[Module], activation_fn: nn.Module
+) -> torch.Tensor:
     """
     Implements a global residual operation.
     :param x: the input tensor.
@@ -157,8 +156,9 @@ def residual_op(x, functions, bns, activation_fn):
 class BaseBlock(BaseModule):
     """Base class for all blocks."""
 
-    def __init__(self, channel_in, channel_out, activation_fn, use_bn=True, use_bias=True):
-        # type: (int, int, Module, bool, bool) -> None
+    def __init__(
+        self, channel_in: int, channel_out: int, activation_fn: Module, use_bn: bool = True, use_bias: bool = True
+    ) -> None:
         """
         Class constructor.
         :param channel_in: number of input channels.
@@ -177,15 +177,14 @@ class BaseBlock(BaseModule):
         self._use_bn = use_bn
         self._bias = use_bias
 
-    def get_bn(self):
-        # type: () -> Optional[Module]
+    def get_bn(self) -> Optional[Module]:
         """
         Returns batch norm layers, if needed.
         :return: batch norm layers or None
         """
         return nn.BatchNorm3d(num_features=self._channel_out) if self._use_bn else None
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Abstract forward function. Not implemented.
         """
@@ -195,8 +194,15 @@ class BaseBlock(BaseModule):
 class DownsampleBlock(BaseBlock):
     """Implements a Downsampling block for videos (Fig. 1ii)."""
 
-    def __init__(self, channel_in, channel_out, activation_fn, stride, use_bn=True, use_bias=False):
-        # type: (int, int, Module, Tuple[int, int, int], bool, bool) -> None
+    def __init__(
+        self,
+        channel_in: int,
+        channel_out: int,
+        activation_fn: nn.Module,
+        stride: Tuple[int, int, int],
+        use_bn: bool = True,
+        use_bias: bool = False,
+    ) -> None:
         """
         Class constructor.
         :param channel_in: number of input channels.
@@ -225,8 +231,7 @@ class DownsampleBlock(BaseBlock):
         self.bn1b = self.get_bn()
         self.bn2a = self.get_bn()
 
-    def forward(self, x):
-        # type: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward propagation.
         :param x: the input tensor
@@ -243,8 +248,16 @@ class DownsampleBlock(BaseBlock):
 class UpsampleBlock(BaseBlock):
     """Implements a Upsampling block for videos (Fig. 1ii)."""
 
-    def __init__(self, channel_in, channel_out, activation_fn, stride, output_padding, use_bn=True, use_bias=False):
-        # type: (int, int, Module, Tuple[int, int, int], Tuple[int, int, int], bool, bool) -> None
+    def __init__(
+        self,
+        channel_in: int,
+        channel_out: int,
+        activation_fn: nn.Module,
+        stride: Tuple[int, int, int],
+        output_padding: Tuple[int, int, int],
+        use_bn: bool = True,
+        use_bias: bool = False,
+    ) -> None:
         """
         Class constructor.
         :param channel_in: number of input channels.
@@ -287,8 +300,7 @@ class UpsampleBlock(BaseBlock):
         self.bn1b = self.get_bn()
         self.bn2a = self.get_bn()
 
-    def forward(self, x):
-        # type: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward propagation.
         :param x: the input tensor

@@ -1,18 +1,19 @@
+import argparse
 import logging
 import os
 import random
+from typing import Dict
+from typing import List
+from typing import Tuple
 
 import numpy as np
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from models.mvtec_model import MVTec_Encoder
 
-
-def get_out_dir(
-    args, pretrain: bool, aelr: float, dset_name: str = "cifar10", training_strategy: str = None
-) -> [str, str]:
+def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[str, str]:
     """Creates training output dir
 
     Parameters
@@ -26,7 +27,6 @@ def get_out_dir(
         Full AutoEncoder learning rate
     dset_name : str
         Dataset name
-    training_strategy : str
         ................................................................
 
     Returns
@@ -89,7 +89,7 @@ def set_seeds(seed: int) -> None:
         torch.manual_seed(seed)
 
 
-def purge_params(encoder_net, ae_net_cehckpoint: str) -> None:
+def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
     """Load Encoder preatrained weights from the full AutoEncoder.
     After the pretraining phase, we don't need the full AutoEncoder parameters, we only need the Encoder
 
@@ -117,58 +117,9 @@ def purge_params(encoder_net, ae_net_cehckpoint: str) -> None:
     encoder_net.load_state_dict(net_dict)
 
 
-def load_mvtec_model_from_checkpoint(
-    input_shape: tuple,
-    code_length: int,
-    idx_list_enc: list,
-    use_selectors: bool,
-    net_cehckpoint: str,
-    purge_ae_params: bool = False,
-) -> torch.nn.Module:
-    """Load AutoEncoder checkpoint.
-
-    Parameters
-    ----------
-    input_shape : tuple
-        Input data shape
-    code_length : int
-        Latent code size
-    idx_list_enc : list
-        List of indexes of layers from which extract features
-    use_selectors : bool
-        True if the model has to use Selector modules
-    net_cehckpoint : str
-        Path to model checkpoint
-    purge_ae_params : bool
-        True if the checkpoint is relative to an AutoEncoder
-
-    Returns
-    -------
-    encoder_net : torch.nn.Module
-        The Encoder network
-
-    """
-    logger = logging.getLogger()
-
-    encoder_net = MVTec_Encoder(
-        input_shape=input_shape, code_length=code_length, idx_list_enc=idx_list_enc, use_selectors=use_selectors
-    )
-
-    if purge_ae_params:
-
-        # Load Encoder parameters from pretrianed full AutoEncoder
-        logger.info(f"Loading encoder from: {net_cehckpoint}")
-        purge_params(encoder_net=encoder_net, ae_net_cehckpoint=net_cehckpoint)
-    else:
-
-        st_dict = torch.load(net_cehckpoint)
-        encoder_net.load_state_dict(st_dict["net_state_dict"])
-        logger.info(f"Loaded model from: {net_cehckpoint}")
-
-    return encoder_net
-
-
-def extract_arguments_from_checkpoint(net_checkpoint: str):
+def extract_arguments_from_checkpoint(
+    net_checkpoint: str,
+) -> Tuple[int, int, str, bool, List[int], bool, int, int, float, bool, str, str]:
     """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
     architectural specifications of the model.
 
@@ -227,7 +178,7 @@ def eval_spheres_centers(
     use_selectors: bool,
     device: str,
     debug: bool,
-) -> dict:
+) -> Dict[str, torch.Tensor]:
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
@@ -257,13 +208,11 @@ def eval_spheres_centers(
 
     # If centers are found, then load and return
     if os.path.exists(centers_files):
-
         logger.info("Found hyperspheres centers")
         ae_net_ckp = torch.load(centers_files, map_location=lambda storage, loc: storage)
 
         centers = {k: v.to(device) for k, v in ae_net_ckp["centers"].items()}
     else:
-
         logger.info("Hyperspheres centers not found... evaluating...")
         centers_ = init_center_c(train_loader=train_loader, encoder_net=encoder_net, device=device, debug=debug)
 
@@ -281,13 +230,14 @@ def eval_spheres_centers(
 @torch.no_grad()
 def init_center_c(
     train_loader: DataLoader, encoder_net: torch.nn.Module, device: str, debug: bool, eps: float = 0.1
-) -> dict:
+) -> Dict[str, torch.Tensor]:
     """Initialize hypersphere center as the mean from an initial forward pass on the data.
 
     Parameters
     ----------
     train_loader :
     encoder_net :
+    device :
     debug :
     eps:
 

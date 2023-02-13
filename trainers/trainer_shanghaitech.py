@@ -1,23 +1,41 @@
+import argparse
 import logging
 import os
 import time
 from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Sequence
+from typing import Tuple
+from typing import Union
 
 import numpy as np
 import torch
+from tensorboardX import SummaryWriter
+from torch import nn
 from torch.optim import Adam
 from torch.optim import SGD
 from torch.optim.lr_scheduler import MultiStepLR
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from client import RunConfig
 
-def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
+
+def pretrain(
+    ae_net: nn.Module,
+    train_loader: DataLoader,
+    out_dir: str,
+    tb_writer: SummaryWriter,
+    device: str,
+    args: argparse.Namespace,
+) -> str:
     logger = logging.getLogger()
 
     ae_net = ae_net.train().to(device)
 
     # Set optimizer
+    optimizer: torch.optim.Optimizer
     if args.optimizer == "adam":
         optimizer = Adam(ae_net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     else:
@@ -28,9 +46,8 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
     ae_epochs = 1 if args.debug else args.ae_epochs
     it_t = 0
     logger.info("Start Pretraining the autoencoder...")
-    ae_net_checkpoint = None
+    ae_net_checkpoint = ""
     for epoch in range(ae_epochs):
-
         recon_loss = 0.0
         n_batches = 0
         for idx, (data, _) in enumerate(tqdm(train_loader), 1):
@@ -57,7 +74,7 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
 
         scheduler.step()
         if epoch in args.ae_lr_milestones:
-            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
+            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
         ae_net_checkpoint = os.path.join(out_dir, f"ae_ckp_epoch_{epoch}_{time.time()}.pth")
         torch.save(dict(ae_state_dict=ae_net.state_dict()), ae_net_checkpoint)
@@ -69,24 +86,25 @@ def pretrain(ae_net, train_loader, out_dir, tb_writer, device, args):
 
 
 def train(
-    net,
-    train_loader,
-    out_dir,
-    tb_writer,
-    device,
-    ae_net_checkpoint,
-    args,
+    net: nn.Module,
+    train_loader: DataLoader,
+    out_dir: str,
+    tb_writer: SummaryWriter,
+    device: Union[str, torch.device],
+    ae_net_checkpoint: Optional[str],
+    args: Union[argparse.Namespace, RunConfig],
     c: Optional[Dict[str, torch.Tensor]] = None,
     R: Optional[Dict[str, torch.Tensor]] = None,
-) -> Optional[str]:
+) -> str:
     logger = logging.getLogger()
 
-    idx_list_enc = {int(i): 1 for i in args.idx_list_enc}
+    idx_list_enc = [int(i) for i in args.idx_list_enc]
 
     # Set device for network
     net = net.to(device)
 
     # Set optimizer
+    optimizer: torch.optim.Optimizer
     if args.optimizer == "adam":
         optimizer = Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     else:
@@ -114,13 +132,13 @@ def train(
 
     best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
-    net_checkpoint = None
+    net_checkpoint = ""
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
         objective_loss = 0.0
         n_batches = 0
-        d_from_c = {k: 0 for k in keys}
+        d_from_c = {k: 0.0 for k in keys}
 
         for idx, (data, _) in enumerate(
             tqdm(train_loader, total=len(train_loader), desc=f"Training epoch: {epoch + 1}"), 1
@@ -183,7 +201,7 @@ def train(
 
         scheduler.step()
         if epoch in args.lr_milestones:
-            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()[0]):g}")
+            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.split("_")[-1].split(".p")[0]
         net_checkpoint = os.path.join(out_dir, f"net_ckp_{epoch}_{time_}.pth")
@@ -200,7 +218,14 @@ def train(
 
 
 @torch.no_grad()
-def init_center_c(train_loader, net, idx_list_enc, device, end_to_end_training, debug, eps=0.1):
+def init_center_c(
+    train_loader: DataLoader,
+    net: nn.Module,
+    idx_list_enc: Sequence[int],
+    device: Union[str, torch.device],
+    debug: bool,
+    eps: float = 0.1,
+) -> Tuple[Dict[str, torch.Tensor], List[str]]:
     """Initialize hypersphere center c as the mean from an initial forward pass on the data."""
     n_samples = 0
     net.eval()
@@ -235,9 +260,11 @@ def init_center_c(train_loader, net, idx_list_enc, device, end_to_end_training, 
     return c, keys
 
 
-def eval_ad_loss(d_lstms, c, R, nu, boundary):
+def eval_ad_loss(
+    d_lstms: Dict[str, torch.Tensor], c: Dict[str, torch.Tensor], R: Dict[str, torch.Tensor], nu: float, boundary: str
+) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
     dist = {}
-    loss = 1
+    loss = torch.tensor(1.0)
 
     for k in c.keys():
         dist[k] = torch.sum((d_lstms[k] - c[k].unsqueeze(0)) ** 2, dim=-1)

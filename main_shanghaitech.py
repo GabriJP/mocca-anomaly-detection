@@ -10,19 +10,15 @@ from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from models.shanghaitech_model import ShanghaiTechEncoder
-from trainers.trainer_shanghaitech import pretrain
 from trainers.trainer_shanghaitech import train
 from utils import extract_arguments_from_checkpoint
 from utils import get_out_dir
 from utils import set_seeds
 
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     # Set seed
     set_seeds(args.seed)
-
-    # Get the device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     if args.disable_logging:
         logging.disable(level=logging.INFO)
@@ -35,51 +31,50 @@ def main(args):
     )
     logger = logging.getLogger()
 
-    if args.train or args.pretrain or args.end_to_end_training:
-        # If the list of layers from which extract the features is empty, then use the last one (after the sigmoid)
-        if len(args.idx_list_enc) == 0:
-            args.idx_list_enc = [6]
+    if not any([args.train, args.pretrain, args.end_to_end_training]) and args.model_ckp is None:
+        logger.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
+        raise ValueError("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
 
-        logger.info(
-            "Start run with params:\n"
-            f"\n\t\t\t\tEnd to end training : {args.end_to_end_training}"
-            f"\n\t\t\t\tPretrain model      : {args.pretrain}"
-            f"\n\t\t\t\tTrain model         : {args.train}"
-            f"\n\t\t\t\tTest model          : {args.test}"
-            f"\n\t\t\t\tBatch size          : {args.batch_size}\n"
-            f"\n\t\t\t\tAutoEncoder Pretraining"
-            f"\n\t\t\t\tPretrain epochs     : {args.ae_epochs}"
-            f"\n\t\t\t\tAE-Learning rate    : {args.ae_learning_rate}"
-            f"\n\t\t\t\tAE-milestones       : {args.ae_lr_milestones}"
-            f"\n\t\t\t\tAE-Weight decay     : {args.ae_weight_decay}\n"
-            f"\n\t\t\t\tEncoder Training"
-            f"\n\t\t\t\tClip length         : {args.clip_length}"
-            f"\n\t\t\t\tBoundary            : {args.boundary}"
-            f"\n\t\t\t\tTrain epochs        : {args.epochs}"
-            f"\n\t\t\t\tLearning rate       : {args.learning_rate}"
-            f"\n\t\t\t\tMilestones          : {args.lr_milestones}"
-            f"\n\t\t\t\tUse selectors       : {args.use_selectors}"
-            f"\n\t\t\t\tWeight decay        : {args.weight_decay}"
-            f"\n\t\t\t\tCode length         : {args.code_length}"
-            f"\n\t\t\t\tNu                  : {args.nu}"
-            f"\n\t\t\t\tEncoder list        : {args.idx_list_enc}\n"
-            f"\n\t\t\t\tLSTMs"
-            f"\n\t\t\t\tLoad LSTMs          : {args.load_lstm}"
-            f"\n\t\t\t\tBidirectional       : {args.bidirectional}"
-            f"\n\t\t\t\tHidden size         : {args.hidden_size}"
-            f"\n\t\t\t\tNumber of layers    : {args.num_layers}"
-            f"\n\t\t\t\tDropout prob        : {args.dropout}\n"
-        )
-    else:
-        if args.model_ckp is None:
-            logger.info("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
-            sys.exit(0)
+    # If the list of layers from which extract the features is empty, then use the last one (after the sigmoid)
+    if not len(args.idx_list_enc):
+        args.idx_list_enc = [6]
+
+    logger.info(
+        "Start run with params:\n"
+        f"\n\t\t\t\tEnd to end training : {args.end_to_end_training}"
+        f"\n\t\t\t\tPretrain model      : {args.pretrain}"
+        f"\n\t\t\t\tTrain model         : {args.train}"
+        f"\n\t\t\t\tTest model          : {args.test}"
+        f"\n\t\t\t\tBatch size          : {args.batch_size}\n"
+        f"\n\t\t\t\tAutoEncoder Pretraining"
+        f"\n\t\t\t\tPretrain epochs     : {args.ae_epochs}"
+        f"\n\t\t\t\tAE-Learning rate    : {args.ae_learning_rate}"
+        f"\n\t\t\t\tAE-milestones       : {args.ae_lr_milestones}"
+        f"\n\t\t\t\tAE-Weight decay     : {args.ae_weight_decay}\n"
+        f"\n\t\t\t\tEncoder Training"
+        f"\n\t\t\t\tClip length         : {args.clip_length}"
+        f"\n\t\t\t\tBoundary            : {args.boundary}"
+        f"\n\t\t\t\tTrain epochs        : {args.epochs}"
+        f"\n\t\t\t\tLearning rate       : {args.learning_rate}"
+        f"\n\t\t\t\tMilestones          : {args.lr_milestones}"
+        f"\n\t\t\t\tUse selectors       : {args.use_selectors}"
+        f"\n\t\t\t\tWeight decay        : {args.weight_decay}"
+        f"\n\t\t\t\tCode length         : {args.code_length}"
+        f"\n\t\t\t\tNu                  : {args.nu}"
+        f"\n\t\t\t\tEncoder list        : {args.idx_list_enc}\n"
+        f"\n\t\t\t\tLSTMs"
+        f"\n\t\t\t\tLoad LSTMs          : {args.load_lstm}"
+        f"\n\t\t\t\tBidirectional       : {args.bidirectional}"
+        f"\n\t\t\t\tHidden size         : {args.hidden_size}"
+        f"\n\t\t\t\tNumber of layers    : {args.num_layers}"
+        f"\n\t\t\t\tDropout prob        : {args.dropout}\n"
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Init DataHolder class
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=args.data_path, normal_class=None, only_test=args.test
+        dataset_name="ShanghaiTech", data_path=args.data_path, normal_class=-1, only_test=args.test
     ).get_data_holder()
 
     # Load data
@@ -102,15 +97,6 @@ def main(args):
     # ENCODER on the ONE CLASS OBJECTIVE #
     #
     ae_net_checkpoint = None
-    if args.pretrain and not args.end_to_end_training:
-        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name="ShanghaiTech")
-
-        tb_writer = SummaryWriter(os.path.join(args.output_path, "ShanghaiTech", "tb_runs_pretrain", tmp))
-        # Init AutoEncoder
-        ae_net = ShanghaiTech(data_holder.shape, args.code_length, use_selectors=args.use_selectors)
-        # PRETRAIN
-        ae_net_checkpoint = pretrain(ae_net, train_loader, out_dir, tb_writer, device, args)
-        tb_writer.close()
 
     net_checkpoint = None
 
@@ -121,13 +107,13 @@ def main(args):
                 sys.exit(0)
             ae_net_checkpoint = args.model_ckp
 
-        aelr = float(ae_net_cehckpoint.split("/")[-2].split("-")[4].split("_")[-1])
+        aelr = float(ae_net_checkpoint.split("/")[-2].split("-")[4].split("_")[-1])
 
         out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, dset_name="ShanghaiTech")
         tb_writer = SummaryWriter(os.path.join(args.output_path, "ShanghaiTech", "tb_runs_train", tmp))
 
         # Init Encoder
-        net = ShanghaiTechEncoder(
+        net: torch.nn.Module = ShanghaiTechEncoder(
             data_holder.shape,
             args.code_length,
             args.load_lstm,
@@ -206,9 +192,8 @@ def main(args):
 
         # Init dataset
         dataset = data_holder.get_test_data()
-        if train_type == "train_end_to_end":
-            # Init Autoencoder
-            net = ShanghaiTech(
+        net = (
+            ShanghaiTech(
                 data_holder.shape,
                 args.code_length,
                 load_lstm,
@@ -218,11 +203,11 @@ def main(args):
                 bidirectional,
                 use_selectors,
             )
-        else:
-            # Init Encoder ONLY
-            net = ShanghaiTechEncoder(
+            if train_type == "train_end_to_end"
+            else ShanghaiTechEncoder(
                 dataset.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
             )
+        )
         st_dict = torch.load(net_checkpoint)
 
         net.load_state_dict(st_dict["net_state_dict"])
@@ -331,5 +316,5 @@ if __name__ == "__main__":
     parser.add_argument("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs (default: 1)")
     parser.add_argument("-nu", "--nu", type=float, default=0.1)
 
-    args = parser.parse_args()
-    main(args)
+    margs = parser.parse_args()
+    main(margs)

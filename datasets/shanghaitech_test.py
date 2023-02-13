@@ -4,25 +4,26 @@ from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
 from sklearn.metrics import roc_auc_score
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 from tqdm import tqdm
 
-from models.shanghaitech_model import ShanghaiTech
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
-    def __init__(self, path):
-        # type: (str) -> None
+    def __init__(self, path: str) -> None:
         """
         Class constructor.
         :param path: The folder in which ShanghaiTech is stored.
@@ -41,16 +42,14 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_video_frames = None
         self.cur_video_gt = None
 
-    def load_test_ids(self):
-        # type: () -> List[str]
+    def load_test_ids(self) -> List[str]:
         """
         Loads the set of all test video ids.
         :return: The list of test ids.
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    def load_test_sequence_frames(self, video_id):
-        # type: (str) -> np.ndarray
+    def load_test_sequence_frames(self, video_id: str) -> np.ndarray:
         """
         Loads a test video in memory.
         :param video_id: the id of the test video to be loaded
@@ -62,8 +61,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    def load_test_sequence_gt(self, video_id):
-        # type: (str) -> np.ndarray
+    def load_test_sequence_gt(self, video_id: str) -> np.ndarray:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -72,8 +70,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         clip_gt = np.load(join(self.test_dir, "test_frame_mask", f"{video_id}.npy"))
         return clip_gt
 
-    def test(self, video_id):
-        # type: (str) -> None
+    def test(self, video_id: str) -> None:
         """
         Sets the dataset in test mode.
         :param video_id: the id of the video to test.
@@ -85,30 +82,26 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_len = len(self.cur_video_frames) - t + 1
 
     @property
-    def shape(self):
-        # type: () -> Tuple[int, int, int, int]
+    def shape(self) -> Tuple[int, int, int, int]:
         """
         Returns the shape of examples being fed to the model.
         """
         return 3, 16, 256, 512
 
     @property
-    def test_videos(self):
-        # type: () -> List[str]
+    def test_videos(self) -> List[str]:
         """
         Returns all available test videos.
         """
         return self.test_ids
 
-    def __len__(self):
-        # type: () -> int
+    def __len__(self) -> int:
         """
         Returns the number of examples.
         """
         return self.cur_len
 
-    def __getitem__(self, i):
-        # type: (int) -> Tuple[torch.Tensor, torch.Tensor]
+    def __getitem__(self, i: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Provides the i-th example.
         """
@@ -127,7 +120,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return default_collate
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ShanghaiTech (video id = {self.cur_video_id})"
 
 
@@ -141,26 +134,6 @@ def get_target_label_idx(labels, targets):
     return np.argwhere(np.isin(labels, targets)).flatten().tolist()
 
 
-def global_contrast_normalization(x: torch.Tensor, scale: str = "l2"):
-    """
-    Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
-    which is either the standard deviation, L1- or L2-norm across features (pixels).
-    Note this is a *per sample* normalization globally across features (and not across the dataset).
-    """
-    assert scale in ("l1", "l2")
-
-    n_features = int(np.prod(x.shape))
-
-    mean = torch.mean(x)  # mean over all features (pixels) per sample
-    x -= mean
-
-    x_scale = torch.mean(torch.abs(x)) if scale == "l1" else torch.sqrt(torch.sum(x**2)) / n_features
-
-    x /= x_scale
-
-    return x
-
-
 class ResultsAccumulator:
     """
     Accumulates results in a buffer for a sliding window
@@ -171,8 +144,7 @@ class ResultsAccumulator:
     appears`
     """
 
-    def __init__(self, nb_frames_per_clip):
-        # type: (int) -> None
+    def __init__(self, nb_frames_per_clip: int) -> None:
         """
         Class constructor.
         :param nb_frames_per_clip: the number of frames each clip holds.
@@ -182,8 +154,7 @@ class ResultsAccumulator:
         self._buffer = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
         self._counts = np.zeros(shape=(nb_frames_per_clip,))
 
-    def push(self, score):
-        # type: (float) -> None
+    def push(self, score: float) -> None:
         """
         Pushes the score of a clip into the buffer.
         :param score: the score of a clip
@@ -193,8 +164,7 @@ class ResultsAccumulator:
         self._buffer += score
         self._counts += 1
 
-    def get_next(self):
-        # type: () -> float
+    def get_next(self) -> float:
         """
         Gets the next frame (the first in the buffer) score,
         computed as the mean of the clips in which it appeared,
@@ -216,12 +186,11 @@ class ResultsAccumulator:
         return ret
 
     @property
-    def results_left(self):
-        # type: () -> np.int32
+    def results_left(self) -> int:
         """
         Returns the number of frames still in the buffer.
         """
-        return np.sum(self._counts != 0).astype(np.int32)
+        return int(np.sum(self._counts != 0))
 
 
 class VideoAnomalyDetectionResultHelper:
@@ -232,15 +201,15 @@ class VideoAnomalyDetectionResultHelper:
     def __init__(
         self,
         dataset: VideoAnomalyDetectionDataset,
-        model: ShanghaiTech,
+        model: nn.Module,
         c: Dict[str, torch.Tensor],
         R: Dict[str, torch.Tensor],
         boundary: str,
-        device: str,
+        device: Union[str, torch.device],
         end_to_end_training: bool,
         debug: bool,
         output_file: str,
-    ):
+    ) -> None:
         """
         Class constructor.
         :param dataset: dataset class.
@@ -274,8 +243,7 @@ class VideoAnomalyDetectionResultHelper:
         return scores, overall_score / len(self.keys)
 
     @torch.no_grad()
-    def test_video_anomaly_detection(self):
-        # type: () -> Tuple[np.ndarray, List[float]]
+    def test_video_anomaly_detection(self) -> Tuple[np.ndarray, List[float]]:
         """
         Actually performs tests.
         """
@@ -293,9 +261,9 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = []
         global_rc = []
         global_as = []
-        global_as_by_layer = {k: [] for k in self.keys}
+        global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: [] for k in self.keys}
         global_y = []
-        global_y_by_layer = {k: [] for k in self.keys}
+        global_y_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: [] for k in self.keys}
 
         # Get accumulators
         results_accumulator_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -417,24 +385,21 @@ class VideoAnomalyDetectionResultHelper:
         for k in self.keys:
             if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
                 continue
-            global_as_by_layer[k] = np.concatenate(global_as_by_layer[k])
-            global_y_by_layer[k] = np.concatenate(global_y_by_layer[k])
             global_metrics = [
-                roc_auc_score(global_y_by_layer[k], global_as_by_layer[k]),  # anomaly score == one class metric
+                # anomaly score == one class metric
+                roc_auc_score(np.concatenate(global_y_by_layer[k]), np.concatenate(global_as_by_layer[k])),
                 0.0,
                 0.0,
             ]
             vad_table.add_row([k, "avg", *global_metrics])
 
         # Compute global AUROC and print table
-        global_oc = np.concatenate(global_oc)
-        global_rc = np.concatenate(global_rc)
-        global_as = np.concatenate(global_as)
-        global_y = np.concatenate(global_y)
+        global_y_conc = np.concatenate(global_y)
+        global_oc_conc = np.concatenate(global_oc)
         global_metrics = [
-            roc_auc_score(global_y, global_oc),  # one class metric
-            roc_auc_score(global_y, global_rc),  # reconstruction metric
-            roc_auc_score(global_y, global_as),  # anomaly score
+            roc_auc_score(global_y_conc, global_oc_conc),  # one class metric
+            roc_auc_score(global_y_conc, np.concatenate(global_rc)),  # reconstruction metric
+            roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
         vad_table.add_row(["Overall", "avg"] + list(map(str, global_metrics)))
@@ -444,11 +409,10 @@ class VideoAnomalyDetectionResultHelper:
         with open(self.output_file, mode="w") as f:
             f.write(str(vad_table))
 
-        return global_oc, global_metrics
+        return global_oc_conc, global_metrics
 
     @property
-    def empty_table(self):
-        # type: () -> PrettyTable
+    def empty_table(self) -> PrettyTable:
         """
         Sets up a nice ascii-art table to hold results.
         This table is suitable for the video anomaly detection setting.

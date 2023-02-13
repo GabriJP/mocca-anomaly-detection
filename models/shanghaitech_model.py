@@ -1,3 +1,9 @@
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -49,7 +55,7 @@ class Selector(BaseModule):
             ),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.cv1(x)
         _, t, _, _ = self.sizes[self.idx]
         x = torch.transpose(x, 1, 2).contiguous()
@@ -58,7 +64,7 @@ class Selector(BaseModule):
         return x
 
 
-def build_lstm(input_size, hidden_size, num_layers, dropout, bidirectional):
+def build_lstm(input_size: int, hidden_size: int, num_layers: int, dropout: float, bidirectional: bool) -> nn.LSTM:
     return nn.LSTM(
         input_size=input_size,
         hidden_size=hidden_size,
@@ -76,9 +82,16 @@ class ShanghaiTechEncoder(BaseModule):
     """
 
     def __init__(
-        self, input_shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
-    ):
-        # type: (Tuple[int, int, int, int], int) -> None
+        self,
+        input_shape: Tuple[int, int, int, int],
+        code_length: int,
+        load_lstm: bool,
+        hidden_size: int,
+        num_layers: int,
+        dropout: float,
+        bidirectional: bool,
+        use_selectors: bool,
+    ) -> None:
         """
         Class constructor:
         :param input_shape: the shape of UCSD Ped2 samples.
@@ -131,8 +144,7 @@ class ShanghaiTechEncoder(BaseModule):
             self.lstm_tdl_2 = build_lstm(code_length, hidden_size, num_layers, dropout, bidirectional)
         # )
 
-    def forward(self, x):
-        # types: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
         """
         Forward propagation.
         :param x: the input batch of patches.
@@ -198,8 +210,9 @@ class ShanghaiTechDecoder(BaseModule):
     ShanghaiTech model decoder.
     """
 
-    def __init__(self, code_length, deepest_shape, output_shape):
-        # type: (int, Tuple[int, int, int, int], Tuple[int, int, int, int]) -> None
+    def __init__(
+        self, code_length: int, deepest_shape: Tuple[int, int, int, int], output_shape: Tuple[int, int, int, int]
+    ) -> None:
         """
         Class constructor.
         :param code_length: the dimensionality of latent vectors.
@@ -244,8 +257,7 @@ class ShanghaiTechDecoder(BaseModule):
             nn.Conv3d(in_channels=8, out_channels=output_shape[0], kernel_size=1),
         )
 
-    def forward(self, x):
-        # types: (torch.Tensor) -> torch.Tensor
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward propagation.
         :param x: the batch of latent vectors.
@@ -271,21 +283,19 @@ class ShanghaiTech(BaseModule):
 
     def __init__(
         self,
-        input_shape,
-        code_length,
-        load_lstm=False,
-        hidden_size=100,
-        num_layers=1,
-        dropout=0.0,
-        bidirectional=False,
-        use_selectors=False,
-    ):
-        # type: (Tuple[int, int, int, int], int, int) -> None
+        input_shape: Tuple[int, int, int, int],
+        code_length: int,
+        load_lstm: bool = False,
+        hidden_size: int = 100,
+        num_layers: int = 1,
+        dropout: float = 0.0,
+        bidirectional: bool = False,
+        use_selectors: bool = False,
+    ) -> None:
         """
         Class constructor.
         :param input_shape: the shape of UCSD Ped2 samples.
         :param code_length: the dimensionality of latent vectors.
-        :param cpd_channels: number of bins in which the multinomial works.
         """
         super().__init__()
 
@@ -309,8 +319,7 @@ class ShanghaiTech(BaseModule):
             code_length=code_length, deepest_shape=self.encoder.deepest_shape, output_shape=input_shape
         )
 
-    def forward(self, x):
-        # type: (torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, ...]:
         """
         Forward propagation.
         :param x: the input batch of patches.
@@ -319,6 +328,7 @@ class ShanghaiTech(BaseModule):
         h = x
 
         # Produce representations
+        d_lstms: Optional[torch.Tensor] = None
         if self.load_lstm:
             z, d_lstms = self.encoder(h)
         else:
@@ -329,5 +339,4 @@ class ShanghaiTech(BaseModule):
         x_r = x_r.view(-1, *self.input_shape)
         if self.load_lstm:
             return x_r, z, d_lstms
-        else:
-            return x_r, z
+        return x_r, z

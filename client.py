@@ -2,7 +2,6 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
-from typing import Optional
 from typing import Tuple
 
 import click
@@ -12,12 +11,12 @@ from flwr.common import Config
 from flwr.common import NDArrays
 from tensorboardX import SummaryWriter
 
-from datasets.data_manager import DataManager
-from datasets.shanghaitech import ShanghaiTech_DataHolder
-from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
-from models.shanghaitech_model import ShanghaiTech
-from trainers.trainer_shanghaitech import init_center_c
-from trainers.trainer_shanghaitech import train
+from datasets import DataManager
+from datasets import ShanghaiTechDataHolder
+from datasets import VideoAnomalyDetectionResultHelper
+from models import ShanghaiTech
+from trainers import init_center_c
+from trainers import train
 
 device = "cuda"
 
@@ -60,19 +59,19 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
     return out_dir, tmp_name
 
 
-class MoccaClient(fl.client.NumPyClient):
-    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTech_DataHolder, rc: RunConfig) -> None:
+class MoccaClient(fl.client.NumPyClient):  # type: ignore
+    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
-        self.c: Optional[Dict[str, torch.Tensor]] = None
-        self.R: Optional[Dict[str, torch.Tensor]] = None
+        self.c: Dict[str, torch.Tensor] = dict()
+        self.R: Dict[str, torch.Tensor] = dict()
         self.run = -1
-        self.current_checkpoint: Optional[Path] = None
+        self.current_checkpoint = Path()
 
     def get_parameters(self, config: Config) -> NDArrays:
-        if self.c is None or self.R is None:
+        if not len(self.c) or not len(self.R):
             train_loader, _ = self.data_holder.get_loaders(
                 batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
             )
@@ -94,13 +93,11 @@ class MoccaClient(fl.client.NumPyClient):
         if len(c_r) % 2:
             raise ValueError("Not an even number of remaining tensors")
 
-        if self.c is None:
+        if not len(self.c) is None:
             train_loader, _ = self.data_holder.get_loaders(
                 batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
             )
             _, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
-            self.c = dict()
-            self.R = dict()
         else:
             keys = list(self.c.keys())
 

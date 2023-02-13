@@ -1,8 +1,6 @@
 import os
 
-from .cifar10 import CIFAR10_DataHolder
-from .mvtec import MVTec_DataHolder
-from .shanghaitech import ShanghaiTech_DataHolder
+from .shanghaitech import ShanghaiTechDataHolder
 
 AVAILABLE_DATASETS = ("cifar10", "ShanghaiTech", "MVTec_Anomaly")
 
@@ -45,7 +43,7 @@ class DataManager:
             self.data_path
         ), f"{self.dataset_name} dataset is available but not found at: \n{self.data_path}"
 
-    def get_data_holder(self):
+    def get_data_holder(self) -> ShanghaiTechDataHolder:
         """Returns the data holder for the required dataset
 
         Rerurns
@@ -54,35 +52,5 @@ class DataManager:
             Class to handle datasets
 
         """
-        if self.dataset_name == "cifar10":
-            return CIFAR10_DataHolder(root=self.data_path, normal_class=self.normal_class)
 
-        if self.dataset_name == "ShanghaiTech":
-            return ShanghaiTech_DataHolder(root=self.data_path, clip_length=self.clip_length)
-
-        if self.dataset_name == "MVTec_Anomaly":
-            texture_classes = tuple(["carpet", "grid", "leather", "tile", "wood"])
-            object_classes = tuple(["bottle", "hazelnut", "metal_nut", "screw"])
-            # object_classes2 = tuple(["capsule", "toothbrush", "cable", "pill", "transistor", "zipper"])
-
-            # check if the selected class is texture-type
-            is_texture = self.normal_class in texture_classes
-            if is_texture:
-                image_size = 512
-                patch_size = 64
-                rotation_range = (0, 45)
-            else:
-                patch_size = 1
-                image_size = 128
-                # For some object-type classes, the anomalies are the rotations themselves
-                # thus, we don't have to apply rotations as data augmentation
-                rotation_range = (-45, 45) if self.normal_class in object_classes else (0, 0)
-
-            return MVTec_DataHolder(
-                data_path=self.data_path,
-                category=self.normal_class,
-                image_size=image_size,
-                patch_size=patch_size,
-                rotation_range=rotation_range,
-                is_texture=is_texture,
-            )
+        return ShanghaiTechDataHolder(root=self.data_path, clip_length=self.clip_length)
