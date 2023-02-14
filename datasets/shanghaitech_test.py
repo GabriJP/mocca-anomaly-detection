@@ -267,7 +267,7 @@ class VideoAnomalyDetectionResultHelper:
         ):
             # Run the test
             self.dataset.test(video_id)
-            loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)  # type: ignore
+            loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
             sample_rc = np.zeros(shape=(len(loader) + t - 1,))

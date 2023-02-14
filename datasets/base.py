@@ -1,6 +1,7 @@
 from abc import ABC
 from abc import abstractmethod
 from typing import Any
+from typing import Callable
 from typing import List
 from typing import Sequence
 from typing import Tuple
@@ -54,7 +55,9 @@ class VideoAnomalyDetectionDataset(DatasetBase, ABC):
     Base class for all video anomaly detection datasets.
     """
 
-    collate_fn = default_collate
+    @property
+    def collate_fn(self) -> Callable[[List[Any]], Any]:
+        return default_collate
 
     @property
     @abstractmethod
