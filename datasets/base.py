@@ -1,4 +1,4 @@
-from abc import ABCMeta
+from abc import ABC
 from abc import abstractmethod
 from typing import Any
 from typing import List
@@ -14,12 +14,10 @@ from torch.utils.data import Dataset
 from torch.utils.data import default_collate
 
 
-class DatasetBase(Dataset[torch.Tensor]):
+class DatasetBase(Dataset[torch.Tensor], ABC):
     """
     Base class for all datasets.
     """
-
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def test(self, video_id: str, *args: Any) -> None:
@@ -51,12 +49,12 @@ class DatasetBase(Dataset[torch.Tensor]):
         pass
 
 
-class VideoAnomalyDetectionDataset(DatasetBase):
+class VideoAnomalyDetectionDataset(DatasetBase, ABC):
     """
     Base class for all video anomaly detection datasets.
     """
 
-    __metaclass__ = ABCMeta
+    collate_fn = default_collate
 
     @property
     @abstractmethod
@@ -96,8 +94,6 @@ class VideoAnomalyDetectionDataset(DatasetBase):
         """
         pass
 
-    collate_fn = default_collate
-
 
 class ToFloatTensor3D:
     """Convert videos to FloatTensors"""
@@ -113,7 +109,7 @@ class ToFloatTensor3D:
 
         # swap color axis because
         # numpy image: T x H x W x C
-        x = x.transpose(3, 0, 1, 2)
+        x = x.transpose((3, 0, 1, 2))
         # Y = Y.transpose(3, 0, 1, 2)
 
         if self._normalize:
@@ -126,7 +122,7 @@ class ToFloatTensor3DMask:
     """Convert videos to FloatTensors"""
 
     def __init__(self, normalize: bool = True, has_x_mask: bool = True, has_y_mask: bool = True) -> None:
-        self._normalize = normalize
+        self.normalize = normalize
         self.has_x_mask = has_x_mask
         self.has_y_mask = has_y_mask
 
@@ -135,7 +131,7 @@ class ToFloatTensor3DMask:
         # numpy image: T x H x W x C
         x = sample.transpose((3, 0, 1, 2)).astype(np.float32)
 
-        if self._normalize:
+        if self.normalize:
             if self.has_x_mask:
                 x[:-1] = x[:-1] / 255.0
             else:

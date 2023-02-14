@@ -16,7 +16,6 @@ from prettytable import PrettyTable
 from sklearn.metrics import roc_auc_score
 from torch import nn
 from torch.utils.data import DataLoader
-from torch.utils.data.dataloader import default_collate
 from torchvision import transforms
 from tqdm import tqdm
 
@@ -36,15 +35,14 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.test_dir = join(path, "testing")
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
-        # Load all test ids
-        self.test_ids = self.load_test_ids()
         # Other utilities
         self.cur_len = 0
         self.cur_video_id: str
         self.cur_video_frames: npt.NDArray[np.uint8]
         self.cur_video_gt: npt.NDArray[np.uint8]
 
-    def load_test_ids(self) -> List[str]:
+    @property
+    def test_ids(self) -> List[str]:
         """
         Loads the set of all test video ids.
         :return: The list of test ids.
@@ -57,7 +55,6 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         :param video_id: the id of the test video to be loaded
         :return: the video in a np.ndarray, with shape (n_frames, h, w, c).
         """
-        c, t, h, w = self.shape
         sequence_dir = join(self.test_dir, "nobackground_frames_resized", video_id)
         img_list = sorted(glob(join(sequence_dir, "*.jpg")))
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
@@ -112,8 +109,6 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         sample = clip
         # Apply transform
         return self.transform(sample) if self.transform else torch.from_numpy(sample)
-
-    collate_fn = default_collate
 
     def __repr__(self) -> str:
         return f"ShanghaiTech (video id = {self.cur_video_id})"
