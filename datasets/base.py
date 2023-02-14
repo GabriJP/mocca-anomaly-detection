@@ -10,7 +10,6 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 import torch
-from scipy.ndimage import binary_dilation
 from torch.utils.data import Dataset
 from torch.utils.data import default_collate
 
@@ -119,44 +118,3 @@ class ToFloatTensor3D:
             x = x / 255.0
 
         return torch.from_numpy(x.astype(np.float32))
-
-
-class ToFloatTensor3DMask:
-    """Convert videos to FloatTensors"""
-
-    def __init__(self, normalize: bool = True, has_x_mask: bool = True, has_y_mask: bool = True) -> None:
-        self.normalize = normalize
-        self.has_x_mask = has_x_mask
-        self.has_y_mask = has_y_mask
-
-    def __call__(self, sample: npt.NDArray[np.uint8]) -> torch.Tensor:
-        # swap color axis because
-        # numpy image: T x H x W x C
-        x = sample.transpose((3, 0, 1, 2)).astype(np.float32)
-
-        if self.normalize:
-            if self.has_x_mask:
-                x[:-1] = x[:-1] / 255.0
-            else:
-                x = x / 255.0
-
-        return torch.from_numpy(x)
-
-
-class RemoveBackground:
-    def __init__(self, threshold: float):
-        self.threshold = threshold
-
-    def __call__(
-        self, sample: Tuple[npt.NDArray[np.uint8], npt.NDArray[np.uint8], npt.NDArray[np.uint8]]
-    ) -> Tuple[npt.NDArray[np.uint8], npt.NDArray[np.uint8], npt.NDArray[np.uint8]]:
-        x, y, background = sample
-
-        mask = (np.sum(np.abs(np.int32(x) - background), axis=-1) > self.threshold).astype(np.uint8)
-        mask = np.expand_dims(mask, axis=-1)
-
-        mask = np.stack([binary_dilation(mask_frame, iterations=5) for mask_frame in mask])
-
-        x *= mask
-
-        return x, y, background

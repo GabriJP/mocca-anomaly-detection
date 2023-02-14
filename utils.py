@@ -8,7 +8,6 @@ from typing import Optional
 from typing import Tuple
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -248,7 +247,7 @@ def extract_arguments_from_checkpoint(
 
 
 def eval_spheres_centers(
-    train_loader: DataLoader[npt.NDArray[np.uint8]],
+    train_loader: DataLoader[Tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     ae_net_cehckpoint: str,
     use_selectors: bool,
@@ -305,28 +304,13 @@ def eval_spheres_centers(
 
 @torch.no_grad()
 def init_center_c(
-    train_loader: DataLoader[npt.NDArray[np.uint8]],
+    train_loader: DataLoader[Tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     device: str,
     debug: bool,
     eps: float = 0.1,
 ) -> Dict[str, torch.Tensor]:
-    """Initialize hypersphere center as the mean from an initial forward pass on the data.
-
-    Parameters
-    ----------
-    train_loader :
-    encoder_net :
-    device :
-    debug :
-    eps:
-
-    Returns
-    -------
-    dictionary : dict
-        Dictionary with k='layer name'; v='center featrues'
-
-    """
+    """Initialize hypersphere center as the mean from an initial forward pass on the data."""
     n_samples = 0
 
     encoder_net.eval().to(device)

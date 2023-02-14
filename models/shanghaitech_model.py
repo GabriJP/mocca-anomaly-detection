@@ -75,6 +75,15 @@ def build_lstm(input_size: int, hidden_size: int, num_layers: int, dropout: floa
     )
 
 
+def shape_lstm_input(o: torch.Tensor) -> torch.Tensor:
+    # batch, channel, height, width
+    o = o.permute(0, 2, 1, 3, 4)
+    kernel_size = (1, o.shape[-2], o.shape[-1])
+    o = F.avg_pool3d(o, kernel_size).squeeze() if o.ndimension() > 3 else o
+    # batch, time, channel
+    return o if o.ndim > 2 else o.unsqueeze(0)
+
+
 class ShanghaiTechEncoder(BaseModule):
     """
     ShanghaiTech model encoder.
@@ -123,11 +132,12 @@ class ShanghaiTechEncoder(BaseModule):
         # )
 
         # Features selector models (MLPs)
-        self.sel1 = Selector(0)
-        self.sel2 = Selector(1)
-        self.sel3 = Selector(2)
-        self.sel4 = Selector(3)
-        self.sel5 = Selector(4)
+        if self.use_selectors:
+            self.sel1 = Selector(0)
+            self.sel2 = Selector(1)
+            self.sel3 = Selector(2)
+            self.sel4 = Selector(3)
+            self.sel5 = Selector(4)
 
         self.deepest_shape = (64, t // 4, h // 32, w // 32)
 
@@ -157,7 +167,7 @@ class ShanghaiTechEncoder(BaseModule):
         o4 = self.conv_4(o3)
         o5 = self.conv_5(o4)
 
-        # Reshape for fully connected sub-network (flatten)
+        # Reshape for fully connected subnetwork (flatten)
         c, t, height, width = self.deepest_shape
         h = torch.transpose(o5, 1, 2).contiguous()
         h = h.view(-1, t, (c * height * width))
@@ -167,41 +177,31 @@ class ShanghaiTechEncoder(BaseModule):
         o_tdl_2 = self.tdl_2(o_tdl_1_t)
         o_tdl_2_s = self.sigmoid(o_tdl_2)
 
-        if self.load_lstm:
-
-            def shape_lstm_input(o: torch.Tensor) -> torch.Tensor:
-                # batch, channel, height, width
-                o = o.permute(0, 2, 1, 3, 4)
-                kernel_size = (1, o.shape[-2], o.shape[-1])
-                o = F.avg_pool3d(o, kernel_size).squeeze() if o.ndimension() > 3 else o
-                # batch, time, channel
-                return o if o.ndim > 2 else o.unsqueeze(0)
-
-            if self.use_selectors:
-                o1_lstm, _ = self.lstm_1(self.sel1(o1))
-                o2_lstm, _ = self.lstm_2(self.sel2(o2))
-                o3_lstm, _ = self.lstm_3(self.sel3(o3))
-                o4_lstm, _ = self.lstm_4(self.sel4(o4))
-                o5_lstm, _ = self.lstm_5(self.sel5(o5))
-            else:
-                o1_lstm, _ = self.lstm_1(shape_lstm_input(o1))
-                o2_lstm, _ = self.lstm_2(shape_lstm_input(o2))
-                o3_lstm, _ = self.lstm_3(shape_lstm_input(o3))
-                o4_lstm, _ = self.lstm_4(shape_lstm_input(o4))
-                o5_lstm, _ = self.lstm_5(shape_lstm_input(o5))
-
-            o1_tdl_lstm, _ = self.lstm_tdl_1(o_tdl_1_t)
-            o2_tdl_lstm, _ = self.lstm_tdl_2(o_tdl_2_s)
-
-            conv_lstms = [o1_lstm[:, -1], o2_lstm[:, -1], o3_lstm[:, -1], o4_lstm[:, -1], o5_lstm[:, -1]]
-            tdl_lstms = [o1_tdl_lstm[:, -1], o2_tdl_lstm[:, -1]]
-
-            d_lstms = dict(zip([f"conv_lstm_o_{i}" for i in range(len(conv_lstms))], conv_lstms))
-            d_lstms.update(dict(zip([f"tdl_lstm_o_{i}" for i in range(len(tdl_lstms))], tdl_lstms)))
-            return o_tdl_2_s, d_lstms
-
-        else:
+        if not self.load_lstm:
             return o_tdl_2_s
+
+        if self.use_selectors:
+            o1_lstm, _ = self.lstm_1(self.sel1(o1))
+            o2_lstm, _ = self.lstm_2(self.sel2(o2))
+            o3_lstm, _ = self.lstm_3(self.sel3(o3))
+            o4_lstm, _ = self.lstm_4(self.sel4(o4))
+            o5_lstm, _ = self.lstm_5(self.sel5(o5))
+        else:
+            o1_lstm, _ = self.lstm_1(shape_lstm_input(o1))
+            o2_lstm, _ = self.lstm_2(shape_lstm_input(o2))
+            o3_lstm, _ = self.lstm_3(shape_lstm_input(o3))
+            o4_lstm, _ = self.lstm_4(shape_lstm_input(o4))
+            o5_lstm, _ = self.lstm_5(shape_lstm_input(o5))
+
+        o1_tdl_lstm, _ = self.lstm_tdl_1(o_tdl_1_t)
+        o2_tdl_lstm, _ = self.lstm_tdl_2(o_tdl_2_s)
+
+        conv_lstms = [o1_lstm[:, -1], o2_lstm[:, -1], o3_lstm[:, -1], o4_lstm[:, -1], o5_lstm[:, -1]]
+        tdl_lstms = [o1_tdl_lstm[:, -1], o2_tdl_lstm[:, -1]]
+
+        d_lstms = {f"conv_lstm_o_{i}": conv_lstm for i, conv_lstm in enumerate(conv_lstms)}
+        d_lstms.update((f"tdl_lstm_o_{i}", tdl_lstm) for i, tdl_lstm in enumerate(tdl_lstms))
+        return o_tdl_2_s, d_lstms
 
 
 class ShanghaiTechDecoder(BaseModule):
@@ -256,24 +256,6 @@ class ShanghaiTechDecoder(BaseModule):
             nn.Conv3d(in_channels=8, out_channels=output_shape[0], kernel_size=1),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward propagation.
-        :param x: the batch of latent vectors.
-        :return: the batch of reconstructions.
-        """
-        h = x
-        h = self.tdl(h)
-
-        # Reshape to encoder's deepest convolutional shape
-        h = torch.transpose(h, 1, 2).contiguous()
-        h = h.view(len(h), *self.deepest_shape)
-
-        h = self.conv(h)
-        o = h
-
-        return o
-
 
 class ShanghaiTech(BaseModule):
     """
@@ -324,16 +306,14 @@ class ShanghaiTech(BaseModule):
         :param x: the input batch of patches.
         :return: a tuple of torch.Tensors holding reconstructions, latent vectors and CPD estimates.
         """
-        h = x
-
         # Produce representations
         if self.load_lstm:
-            z, d_lstms = self.encoder(h)
+            z, d_lstms = self.encoder(x)
             x_r = self.decoder(z)
             x_r = x_r.view(-1, *self.input_shape)
             return x_r, z, d_lstms
         else:
-            z = self.encoder(h)
+            z = self.encoder(x)
             x_r = self.decoder(z)
             x_r = x_r.view(-1, *self.input_shape)
             return x_r, z

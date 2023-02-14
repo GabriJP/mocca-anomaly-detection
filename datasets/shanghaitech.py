@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import List
 from typing import Optional
-from typing import Sequence
 from typing import Tuple
 
 import numpy as np
@@ -123,7 +122,7 @@ class ShanghaiTechDataHolder:
         :return: clips:: numpy array with (num_clips,clip_length) shape
                  ground_truths:: numpy array with (num_clips,clip_length) shape
         """
-        clips = []
+        clips: List[List[Path]] = list()
         print(f"Creating clips for {dir_path} dataset with length {clip_length}...")
         for idx in tqdm(ids):
             frames = sorted(x for x in (dir_path / idx).iterdir() if x.suffix == ".jpg")
@@ -154,34 +153,3 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
         sample = np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index_]])
         sample_t = self.transform(sample) if self.transform else torch.from_numpy(sample)
         return sample_t, index_
-
-
-def get_target_label_idx(labels: npt.NDArray[np.uint8], targets: Sequence[int]) -> List[int]:
-    """
-    Get the indices of labels that are included in targets.
-    :param labels: array of labels
-    :param targets: list/tuple of target labels
-    :return: list with indices of target labels
-    """
-    return np.argwhere(np.isin(labels, targets)).flatten().tolist()
-
-
-def global_contrast_normalization(x: torch.Tensor, scale: str = "l2") -> torch.Tensor:
-    """
-    Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
-    which is either the standard deviation, L1- or L2-norm across features (pixels).
-    Note this is a *per sample* normalization globally across features (and not across the dataset).
-    """
-
-    assert scale in ("l1", "l2")
-
-    n_features = int(np.prod(x.shape))
-
-    mean = torch.mean(x)  # mean over all features (pixels) per sample
-    x -= mean
-
-    x_scale = torch.mean(torch.abs(x)) if scale == "l1" else torch.sqrt(torch.sum(x**2)) / n_features
-
-    x /= x_scale
-
-    return x
