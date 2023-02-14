@@ -17,7 +17,7 @@ class DataManager:
         ----------
         dataset_name : str
             Name of the dataset
-        data_path : str
+        data_path : Path
             Path to the dataset
         normal_class : int
             Index of the normal class

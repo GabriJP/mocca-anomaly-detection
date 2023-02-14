@@ -20,6 +20,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from utils import FullRunConfig
 from utils import RunConfig
 
 
@@ -92,8 +93,8 @@ def train(
     out_dir: Path,
     tb_writer: SummaryWriter,
     device: str,
-    ae_net_checkpoint: Optional[str],
-    args: Union[argparse.Namespace, RunConfig],
+    ae_net_checkpoint: Optional[Path],
+    args: Union[FullRunConfig, RunConfig],
     c: Optional[Dict[str, torch.Tensor]] = None,
     R: Optional[Dict[str, torch.Tensor]] = None,
 ) -> Path:
@@ -204,7 +205,7 @@ def train(
         if epoch in args.lr_milestones:
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
-        time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.split("_")[-1].split(".p")[0]
+        time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.name.split("_")[-1].split(".p")[0]
         net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"
         torch.save(dict(net_state_dict=net.state_dict(), R=R, c=c), net_checkpoint)
         logger.info(f"Saved model at: {net_checkpoint}")

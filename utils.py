@@ -1,10 +1,10 @@
-import argparse
 import logging
 import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -13,6 +13,53 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+
+@dataclass
+class FullRunConfig:
+    seed: int
+    n_workers: int
+    output_path: Path
+    log_frequency: int
+    disable_logging: bool
+    debug: bool
+    # Model config
+    code_length: int
+    model_ckp: Optional[Path]
+    # Optimizer config
+    optimizer: str
+    ae_learning_rate: float
+    learning_rate: float
+    ae_weight_decay: float
+    weight_decay: float
+    ae_lr_milestones: List[int]
+    lr_milestones: List[int]
+    # Data
+    data_path: Path
+    clip_length: int
+    # Training config
+    # LSTMs
+    load_lstm: bool
+    bidirectional: bool
+    hidden_size: int
+    num_layers: int
+    dropout: float
+    # Autoencoder
+    end_to_end_training: bool
+    warm_up_n_epochs: int
+    use_selectors: bool
+    batch_accumulation: int
+    pretrain: bool
+    train: bool
+    test: bool
+    train_best_conf: bool
+    batch_size: int
+    boundary: str
+    idx_list_enc: List[int]
+    epochs: int
+    ae_epochs: int
+    nu: float
+    normal_class: int = -1
 
 
 @dataclass
@@ -40,13 +87,13 @@ class RunConfig:
     log_frequency: int = 5
 
 
-def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
+def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
     """Creates training output dir
 
     Parameters
     ----------
 
-    args :
+    rc :
         Arguments
     pretrain : bool
         True if pretrain the model
@@ -64,36 +111,36 @@ def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name
         String containing infos about the current experiment setup
 
     """
-    output_path = Path(args.output_path)
+    output_path = Path(rc.output_path)
     if dset_name == "ShanghaiTech":
         if pretrain:
-            tmp = f"pretrain-mn_{dset_name}-cl_{args.code_length}-lr_{args.ae_learning_rate}"
+            tmp = f"pretrain-mn_{dset_name}-cl_{rc.code_length}-lr_{rc.ae_learning_rate}"
             out_dir = output_path / dset_name / "pretrain" / tmp
         else:
             tmp = (
-                f"train-mn_{dset_name}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
-                f"bd_{args.boundary}-sl_{args.use_selectors}-ile_{'.'.join(map(str, args.idx_list_enc))}-"
-                f"lstm_{args.load_lstm}-bidir_{args.bidirectional}-hs_{args.hidden_size}-nl_{args.num_layers}-"
-                f"dp_{args.dropout}"
+                f"train-mn_{dset_name}-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
+                f"bd_{rc.boundary}-sl_{rc.use_selectors}-ile_{'.'.join(map(str, rc.idx_list_enc))}-"
+                f"lstm_{rc.load_lstm}-bidir_{rc.bidirectional}-hs_{rc.hidden_size}-nl_{rc.num_layers}-"
+                f"dp_{rc.dropout}"
             )
             out_dir = output_path / dset_name / "train" / tmp
-            if args.end_to_end_training:
+            if rc.end_to_end_training:
                 out_dir = output_path / dset_name / "train_end_to_end" / tmp
     else:
         if pretrain:
             tmp = (
-                f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-"
-                f"awd_{args.ae_weight_decay}"
+                f"pretrain-mn_{dset_name}-nc_{rc.normal_class}-cl_{rc.code_length}-lr_{rc.ae_learning_rate}-"
+                f"awd_{rc.ae_weight_decay}"
             )
-            out_dir = output_path / dset_name / str(args.normal_class) / "pretrain" / tmp
+            out_dir = output_path / dset_name / str(rc.normal_class) / "pretrain" / tmp
 
         else:
             tmp = (
-                f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-"
-                f"lr_{args.learning_rate}-wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-"
-                f"ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
+                f"train-mn_{dset_name}-nc_{rc.normal_class}-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-"
+                f"lr_{rc.learning_rate}-wd_{rc.weight_decay}-bd_{rc.boundary}-alr_{aelr}-sl_{rc.use_selectors}-"
+                f"ep_{rc.epochs}-ile_{'.'.join(map(str, rc.idx_list_enc))}"
             )
-            out_dir = output_path / dset_name / str(args.normal_class) / "train" / tmp
+            out_dir = output_path / dset_name / str(rc.normal_class) / "train" / tmp
 
     out_dir.mkdir(parents=True, exist_ok=True)
 

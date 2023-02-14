@@ -126,10 +126,9 @@ class ShanghaiTechDataHolder:
         clips = []
         print(f"Creating clips for {dir_path} dataset with length {clip_length}...")
         for idx in tqdm(ids):
-            frames = sorted(x for x in (dir_path / idx).iterdir() if x.stem == ".jpg")
-            num_frames = len(frames)
+            frames = sorted(x for x in (dir_path / idx).iterdir() if x.suffix == ".jpg")
             # Slide the window with stride to collect clips
-            for window in range(0, num_frames - clip_length + 1, stride):
+            for window in range(0, len(frames) - clip_length + 1, stride):
                 clips.append(frames[window : window + clip_length])
         return np.array(clips)
 
