@@ -239,7 +239,7 @@ def main(args: argparse.Namespace) -> None:
             device=device,
             end_to_end_training=True if train_type == "train_end_to_end" else False,
             debug=args.debug,
-            output_file=os.path.join(os.sep.join(net_checkpoint.split(os.sep)[:-1]), "shanghaitech_test_results.txt"),
+            output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
         )
         # TEST
         helper.test_video_anomaly_detection()

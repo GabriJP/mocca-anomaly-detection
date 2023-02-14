@@ -1,12 +1,9 @@
-from glob import glob
-from os.path import join
 from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Sequence
 from typing import Tuple
-from typing import Union
 
 import numpy as np
 import numpy.typing as npt
@@ -24,7 +21,7 @@ from .base import VideoAnomalyDetectionDataset
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: Path) -> None:
         """
         Class constructor.
         :param path: The folder in which ShanghaiTech is stored.
@@ -32,7 +29,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         super().__init__()
         self.path = path
         # Test directory
-        self.test_dir = join(path, "testing")
+        self.test_dir = path / "testing"
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
         # Other utilities
@@ -55,8 +52,8 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         :param video_id: the id of the test video to be loaded
         :return: the video in a np.ndarray, with shape (n_frames, h, w, c).
         """
-        sequence_dir = join(self.test_dir, "nobackground_frames_resized", video_id)
-        img_list = sorted(glob(join(sequence_dir, "*.jpg")))
+        sequence_dir = self.test_dir / "nobackground_frames_resized" / video_id
+        img_list = sorted(p for p in sequence_dir.iterdir() if p.suffix == ".jpg")
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
@@ -66,7 +63,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
         :return: the groundtruth of the video in a np.ndarray, with shape (n_frames,).
         """
-        clip_gt = np.load(join(self.test_dir, "test_frame_mask", f"{video_id}.npy"))
+        clip_gt = np.load(str(self.test_dir / "test_frame_mask" / f"{video_id}.npy"))
         return clip_gt
 
     def test(self, video_id: str, *_: Any) -> None:
@@ -195,10 +192,10 @@ class VideoAnomalyDetectionResultHelper:
         c: Dict[str, torch.Tensor],
         R: Dict[str, torch.Tensor],
         boundary: str,
-        device: Union[str, torch.device],
+        device: str,
         end_to_end_training: bool,
         debug: bool,
-        output_file: str,
+        output_file: Path,
     ) -> None:
         """
         Class constructor.

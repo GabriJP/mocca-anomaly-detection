@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 from .shanghaitech import ShanghaiTechDataHolder
 
@@ -9,7 +9,7 @@ class DataManager:
     """ "Init class to manage and load data"""
 
     def __init__(
-        self, dataset_name: str, data_path: str, normal_class: int, clip_length: int = 16, only_test: bool = False
+        self, dataset_name: str, data_path: Path, normal_class: int, clip_length: int = 16, only_test: bool = False
     ):
         """Init the DataManager
 
@@ -39,9 +39,7 @@ class DataManager:
     def __check_dataset(self) -> None:
         """Checks if the required dataset is available"""
         assert self.dataset_name in AVAILABLE_DATASETS, f"{self.dataset_name} dataset is not available"
-        assert os.path.exists(
-            self.data_path
-        ), f"{self.dataset_name} dataset is available but not found at: \n{self.data_path}"
+        assert self.data_path.exists(), f"{self.dataset_name} dataset is available but not found at: \n{self.data_path}"
 
     def get_data_holder(self) -> ShanghaiTechDataHolder:
         """Returns the data holder for the required dataset

@@ -95,9 +95,7 @@ class MoccaClient(fl.client.NumPyClient):
         )
         out_dir, tmp = get_out_dir(self.rc)
         with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
-            net_checkpoint = train(
-                self.net, train_loader, str(out_dir), tb_writer, device, None, self.rc, self.c, self.R
-            )
+            net_checkpoint = train(self.net, train_loader, out_dir, tb_writer, device, None, self.rc, self.c, self.R)
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
@@ -119,7 +117,7 @@ class MoccaClient(fl.client.NumPyClient):
             device=device,
             end_to_end_training=True,
             debug=False,
-            output_file=str(result_output_file),
+            output_file=result_output_file,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         return (
@@ -184,7 +182,7 @@ def cli(
         nu,
     )
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=str(data_path), normal_class=-1, clip_length=clip_length
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout)
     fl.client.start_numpy_client(

@@ -1,7 +1,4 @@
-from glob import glob
-from os.path import basename
-from os.path import isdir
-from os.path import join
+from pathlib import Path
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -36,12 +33,12 @@ class ShanghaiTechDataHolder:
         for creating a clip what should be the size of sliding window
     """
 
-    def __init__(self, root: str, clip_length: int = 16, stride: int = 1) -> None:
-        self.root = root
+    def __init__(self, root: Path, clip_length: int = 16, stride: int = 1) -> None:
+        self.root: Path = root
         self.clip_length = clip_length
         self.stride = stride
         self.shape = (3, clip_length, 256, 512)
-        self.train_dir = join(root, "training", "nobackground_frames_resized")
+        self.train_dir = root / "training" / "nobackground_frames_resized"
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
 
@@ -110,10 +107,10 @@ class ShanghaiTechDataHolder:
         Loads the set of all train video ids.
         :return: The list of train ids.
         """
-        return sorted([basename(d) for d in glob(join(self.train_dir, "**")) if isdir(d)])
+        return sorted(d.name for d in self.train_dir.iterdir() if d.is_dir())
 
     @staticmethod
-    def create_clips(dir_path: str, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
+    def create_clips(dir_path: Path, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -129,7 +126,7 @@ class ShanghaiTechDataHolder:
         clips = []
         print(f"Creating clips for {dir_path} dataset with length {clip_length}...")
         for idx in tqdm(ids):
-            frames = sorted([x for x in glob(join(dir_path, idx, "*.jpg"))])
+            frames = sorted(x for x in (dir_path / idx).iterdir() if x.stem == ".jpg")
             num_frames = len(frames)
             # Slide the window with stride to collect clips
             for window in range(0, num_frames - clip_length + 1, stride):

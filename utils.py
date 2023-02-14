@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,7 +40,7 @@ class RunConfig:
     log_frequency: int = 5
 
 
-def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[str, str]:
+def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
     """Creates training output dir
 
     Parameters
@@ -65,10 +64,11 @@ def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name
         String containing infos about the current experiment setup
 
     """
+    output_path = Path(args.output_path)
     if dset_name == "ShanghaiTech":
         if pretrain:
             tmp = f"pretrain-mn_{dset_name}-cl_{args.code_length}-lr_{args.ae_learning_rate}"
-            out_dir = os.path.join(args.output_path, dset_name, "pretrain", tmp)
+            out_dir = output_path / dset_name / "pretrain" / tmp
         else:
             tmp = (
                 f"train-mn_{dset_name}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
@@ -76,16 +76,16 @@ def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name
                 f"lstm_{args.load_lstm}-bidir_{args.bidirectional}-hs_{args.hidden_size}-nl_{args.num_layers}-"
                 f"dp_{args.dropout}"
             )
-            out_dir = os.path.join(args.output_path, dset_name, "train", tmp)
+            out_dir = output_path / dset_name / "train" / tmp
             if args.end_to_end_training:
-                out_dir = os.path.join(args.output_path, dset_name, "train_end_to_end", tmp)
+                out_dir = output_path / dset_name / "train_end_to_end" / tmp
     else:
         if pretrain:
             tmp = (
                 f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-"
                 f"awd_{args.ae_weight_decay}"
             )
-            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), "pretrain", tmp)
+            out_dir = output_path / dset_name / str(args.normal_class) / "pretrain" / tmp
 
         else:
             tmp = (
@@ -93,10 +93,9 @@ def get_out_dir(args: argparse.Namespace, pretrain: bool, aelr: float, dset_name
                 f"lr_{args.learning_rate}-wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-"
                 f"ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
             )
-            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), "train", tmp)
+            out_dir = output_path / dset_name / str(args.normal_class) / "train" / tmp
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     return out_dir, tmp
 
@@ -146,14 +145,14 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
 
 
 def extract_arguments_from_checkpoint(
-    net_checkpoint: str,
+    net_checkpoint: Path,
 ) -> Tuple[int, int, str, bool, List[int], bool, int, int, float, bool, str, str]:
     """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
     architectural specifications of the model.
 
     Parameters
     ----------
-    net_checkpoint : file path of the checkpoint (str)
+    net_checkpoint : file path of the checkpoint (Path)
 
     Returns
     -------
@@ -171,18 +170,20 @@ def extract_arguments_from_checkpoint(
     train_type = is it end-to-end, train, or pretrain (str)
     """
 
-    code_length = int(net_checkpoint.split(os.sep)[-2].split("-")[2].split("_")[-1])
-    batch_size = int(net_checkpoint.split(os.sep)[-2].split("-")[3].split("_")[-1])
-    boundary = net_checkpoint.split(os.sep)[-2].split("-")[6].split("_")[-1]
-    use_selectors = net_checkpoint.split(os.sep)[-2].split("-")[7].split("_")[-1] == "True"
-    idx_list_enc = [int(i) for i in net_checkpoint.split(os.sep)[-2].split("-")[8].split("_")[-1].split(".")]
-    load_lstm = net_checkpoint.split(os.sep)[-2].split("-")[9].split("_")[-1] == "True"
-    hidden_size = int(net_checkpoint.split(os.sep)[-2].split("-")[11].split("_")[-1])
-    num_layers = int(net_checkpoint.split(os.sep)[-2].split("-")[12].split("_")[-1])
-    dropout = float(net_checkpoint.split(os.sep)[-2].split("-")[13].split("_")[-1])
-    bidirectional = net_checkpoint.split(os.sep)[-2].split("-")[10].split("_")[-1] == "True"
-    dataset_name = net_checkpoint.split(os.sep)[-4]
-    train_type = net_checkpoint.split(os.sep)[-3]
+    definition = net_checkpoint.parent.name.split("-")
+
+    code_length = int(definition[2].split("_")[-1])
+    batch_size = int(definition[3].split("_")[-1])
+    boundary = definition[6].split("_")[-1]
+    use_selectors = definition[7].split("_")[-1] == "True"
+    idx_list_enc = [int(i) for i in definition[8].split("_")[-1].split(".")]
+    load_lstm = definition[9].split("_")[-1] == "True"
+    hidden_size = int(definition[11].split("_")[-1])
+    num_layers = int(definition[12].split("_")[-1])
+    dropout = float(definition[13].split("_")[-1])
+    bidirectional = definition[10].split("_")[-1] == "True"
+    dataset_name = net_checkpoint.parent.parent.parent.name
+    train_type = net_checkpoint.parent.parent.name
     return (
         code_length,
         batch_size,
@@ -235,7 +236,7 @@ def eval_spheres_centers(
     centers_files = ae_net_cehckpoint[:-4] + f"_w_centers_{use_selectors}.pth"
 
     # If centers are found, then load and return
-    if os.path.exists(centers_files):
+    if Path(centers_files).exists():
         logger.info("Found hyperspheres centers")
         ae_net_ckp = torch.load(centers_files, map_location=lambda storage, loc: storage)
 

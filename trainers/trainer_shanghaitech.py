@@ -1,7 +1,7 @@
 import argparse
 import logging
-import os
 import time
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -26,11 +26,11 @@ from utils import RunConfig
 def pretrain(
     ae_net: nn.Module,
     train_loader: DataLoader[npt.NDArray[np.uint8]],
-    out_dir: str,
+    out_dir: Path,
     tb_writer: SummaryWriter,
     device: str,
     args: argparse.Namespace,
-) -> str:
+) -> Path:
     logger = logging.getLogger()
 
     ae_net = ae_net.train().to(device)
@@ -47,7 +47,7 @@ def pretrain(
     ae_epochs = 1 if args.debug else args.ae_epochs
     it_t = 0
     logger.info("Start Pretraining the autoencoder...")
-    ae_net_checkpoint = ""
+    ae_net_checkpoint = Path()
     for epoch in range(ae_epochs):
         recon_loss = 0.0
         n_batches = 0
@@ -77,7 +77,7 @@ def pretrain(
         if epoch in args.ae_lr_milestones:
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
-        ae_net_checkpoint = os.path.join(out_dir, f"ae_ckp_epoch_{epoch}_{time.time()}.pth")
+        ae_net_checkpoint = out_dir / f"ae_ckp_epoch_{epoch}_{time.time()}.pth"
         torch.save(dict(ae_state_dict=ae_net.state_dict()), ae_net_checkpoint)
 
     logger.info("Finished pretraining.")
@@ -89,14 +89,14 @@ def pretrain(
 def train(
     net: nn.Module,
     train_loader: DataLoader[Tuple[torch.Tensor, int]],
-    out_dir: str,
+    out_dir: Path,
     tb_writer: SummaryWriter,
     device: str,
     ae_net_checkpoint: Optional[str],
     args: Union[argparse.Namespace, RunConfig],
     c: Optional[Dict[str, torch.Tensor]] = None,
     R: Optional[Dict[str, torch.Tensor]] = None,
-) -> str:
+) -> Path:
     logger = logging.getLogger()
 
     idx_list_enc = [int(i) for i in args.idx_list_enc]
@@ -133,7 +133,7 @@ def train(
 
     best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
-    net_checkpoint = ""
+    net_checkpoint = Path()
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -205,12 +205,12 @@ def train(
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.split("_")[-1].split(".p")[0]
-        net_checkpoint = os.path.join(out_dir, f"net_ckp_{epoch}_{time_}.pth")
+        net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"
         torch.save(dict(net_state_dict=net.state_dict(), R=R, c=c), net_checkpoint)
         logger.info(f"Saved model at: {net_checkpoint}")
         if objective_loss < best_loss or epoch == 0:
             best_loss = objective_loss
-            best_model_checkpoint = os.path.join(out_dir, f"net_ckp_best_model_{time_}.pth")
+            best_model_checkpoint = out_dir / f"net_ckp_best_model_{time_}.pth"
             torch.save(dict(net_state_dict=net.state_dict(), R=R, c=c), best_model_checkpoint)
 
     logger.info("Finished training.")
