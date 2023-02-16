@@ -256,6 +256,24 @@ class ShanghaiTechDecoder(BaseModule):
             nn.Conv3d(in_channels=8, out_channels=output_shape[0], kernel_size=1),
         )
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward propagation.
+        :param x: the batch of latent vectors.
+        :return: the batch of reconstructions.
+        """
+        h = x
+        h = self.tdl(h)
+
+        # Reshape to encoder's deepest convolutional shape
+        h = torch.transpose(h, 1, 2).contiguous()
+        h = h.view(len(h), *self.deepest_shape)
+
+        h = self.conv(h)
+        o = h
+
+        return o
+
 
 class ShanghaiTech(BaseModule):
     """
