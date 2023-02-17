@@ -4,7 +4,7 @@ from typing import Callable
 import click
 import flwr as fl
 from flwr.common import Config
-from flwr.server.strategy import FedAvg
+from flwr.server.strategy import FedProx
 
 
 def create_fit_config_fn(epochs: int, batch_size: int) -> Callable[[int], Config]:
@@ -19,7 +19,7 @@ def create_fit_config_fn(epochs: int, batch_size: int) -> Callable[[int], Config
 @click.option("--epochs", type=int, default=5)
 @click.option("--batch_size", type=int, default=5)
 def cli(num_rounds: int, epochs: int, batch_size: int) -> None:
-    strategy = FedAvg(on_fit_config_fn=create_fit_config_fn(epochs, batch_size))
+    strategy = FedProx(on_fit_config_fn=create_fit_config_fn(epochs, batch_size), proximal_mu=1)
     certificates_path = Path.home() / "PycharmProjects/flower/examples/advanced_tensorflow/.cache/certificates"
     fl.server.start_server(
         server_address="0.0.0.0:8080",

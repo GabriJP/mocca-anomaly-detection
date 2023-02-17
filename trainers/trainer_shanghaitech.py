@@ -100,8 +100,11 @@ def train(
     rc: Union[FullRunConfig, RunConfig],
     c: Optional[Dict[str, torch.Tensor]] = None,
     r: Optional[Dict[str, torch.Tensor]] = None,
+    mu: float = 0.0,
 ) -> Path:
     logger = logging.getLogger()
+
+    global_params = list(net.parameters())
 
     idx_list_enc = [int(i) for i in rc.idx_list_enc]
 
@@ -163,6 +166,13 @@ def train(
 
             dist, one_class_loss_ = eval_ad_loss(d_lstms, c, r, rc.nu, rc.boundary, device)
             objective_loss_ = one_class_loss_ + recon_loss_
+
+            if mu > 0:
+                proximal_term = sum(
+                    (local_weights - global_weights).norm(2)
+                    for local_weights, global_weights in zip(net.parameters(), global_params)
+                )
+                objective_loss_ += mu / 2 * proximal_term
 
             for k in keys:
                 d_from_c[k] += torch.mean(dist[k]).item()

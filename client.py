@@ -95,7 +95,18 @@ class MoccaClient(fl.client.NumPyClient):
         )
         out_dir, tmp = get_out_dir(self.rc)
         with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
-            net_checkpoint = train(self.net, train_loader, out_dir, tb_writer, device, None, self.rc, self.c, self.R)
+            net_checkpoint = train(
+                self.net,
+                train_loader,
+                out_dir,
+                tb_writer,
+                device,
+                None,
+                self.rc,
+                self.c,
+                self.R,
+                config.get("proximal_mu", 0.0),
+            )
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
