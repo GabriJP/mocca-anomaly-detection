@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Sequence
 from typing import Tuple
 
 import numpy as np
@@ -109,16 +108,6 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
 
     def __repr__(self) -> str:
         return f"ShanghaiTech (video id = {self.cur_video_id})"
-
-
-def get_target_label_idx(labels: npt.NDArray[np.int32], targets: Sequence[int]) -> List[int]:
-    """
-    Get the indices of labels that are included in targets.
-    :param labels: array of labels
-    :param targets: list/tuple of target labels
-    :return: list with indices of target labels
-    """
-    return np.argwhere(np.isin(labels, targets)).flatten().tolist()
 
 
 class ResultsAccumulator:

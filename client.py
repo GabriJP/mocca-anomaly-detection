@@ -42,7 +42,6 @@ class MoccaClient(fl.client.NumPyClient):
         self.rc = rc
         self.c: Dict[str, torch.Tensor] = dict()
         self.R: Dict[str, torch.Tensor] = dict()
-        self.run = -1
         self.current_checkpoint = Path()
 
     def get_parameters(self, config: Config) -> NDArrays:
@@ -105,13 +104,12 @@ class MoccaClient(fl.client.NumPyClient):
                 self.rc,
                 self.c,
                 self.R,
-                config.get("proximal_mu", 0.0),
+                float(config.get("proximal_mu", 0.0)),
             )
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
         self.c = torch_dict["c"]
-        self.run += 1
         self.current_checkpoint = Path(net_checkpoint or "")
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
@@ -199,7 +197,7 @@ def cli(
     fl.client.start_numpy_client(
         server_address=server_address,
         client=MoccaClient(net, data_holder, rc),
-        grpc_max_message_length=1024**3,
+        grpc_max_message_length=1024**3,  # 1 GB
         root_certificates=Path("ca.crt").read_bytes(),
     )
 
