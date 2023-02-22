@@ -11,7 +11,7 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 import torch
-from tensorboardX import SummaryWriter
+import wandb
 from torch import nn
 from torch.optim import Adam
 from torch.optim import SGD
@@ -35,7 +35,6 @@ def pretrain(
     ae_net: nn.Module,
     train_loader: DataLoader[npt.NDArray[np.uint8]],
     out_dir: Path,
-    tb_writer: SummaryWriter,
     device: str,
     rc: FullRunConfig,
 ) -> Path:
@@ -54,7 +53,6 @@ def pretrain(
     ae_net_checkpoint = Path()
     for epoch in range(ae_epochs):
         recon_loss = 0.0
-        n_batches = 0
         for idx, (data, _) in enumerate(tqdm(train_loader), 1):
             if rc.debug and idx == 2:
                 break
@@ -67,14 +65,13 @@ def pretrain(
             optimizer.step()
 
             recon_loss += recon_loss_.item()
-            n_batches += 1
 
             if idx % (len(train_loader) // rc.log_frequency) == 0:
                 logger.info(
                     f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
                     f"Recon Loss: {recon_loss / idx:.4f}"
                 )
-                tb_writer.add_scalar("pretrain/recon_loss", recon_loss / idx, it_t)
+                wandb.log("pretrain/recon_loss", recon_loss / idx, it_t)
                 it_t += 1
 
         scheduler.step()
@@ -94,7 +91,6 @@ def train(
     net: nn.Module,
     train_loader: DataLoader[Tuple[torch.Tensor, int]],
     out_dir: Path,
-    tb_writer: SummaryWriter,
     device: str,
     ae_net_checkpoint: Optional[Path],
     rc: Union[FullRunConfig, RunConfig],
@@ -191,16 +187,19 @@ def train(
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
                     f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
                 )
-                tb_writer.add_scalar("train/recon_loss", recon_loss / n_batches, it_t)
-                tb_writer.add_scalar("train/one_class_loss", one_class_loss / n_batches, it_t)
-                tb_writer.add_scalar("train/objective_loss", objective_loss / n_batches, it_t)
+                data = {
+                    "train/recon_loss": recon_loss / n_batches,
+                    "train/one_class_loss": one_class_loss / n_batches,
+                    "train/objective_loss": objective_loss / n_batches,
+                }
                 for k in keys:
                     logger.info(
                         f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
                     )
-                    tb_writer.add_scalar(f"train/radius_{k}", r[k], it_t)
-                    tb_writer.add_scalar(f"train/distance_c_sphere_{k}", d_from_c[k] / n_batches, it_t)
-                    it_t += 1
+                    data[f"train/radius_{k}"] = r[k]
+                    data[f"train/distance_c_sphere_{k}"] = d_from_c[k] / n_batches
+                wandb.log(data, step=it_t)
+                it_t += 1
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:

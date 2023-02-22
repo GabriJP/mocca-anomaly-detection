@@ -311,7 +311,8 @@ class VideoAnomalyDetectionResultHelper:
                 try:
                     # Compute AUROC for this video
                     vad_table.add_row([k, video_id, roc_auc_score(sample_y, sample_ns), 0.0, 0.0])
-                except ValueError:
+                except ValueError as e:
+                    print(f"Exception {e}: continue")
                     # This happens for sequences in which all frames are abnormal
                     # Skipping this row in the table (the sequence will still count for global metrics)
                     continue
@@ -347,7 +348,8 @@ class VideoAnomalyDetectionResultHelper:
                         roc_auc_score(sample_y, sample_as),  # anomaly score
                     ]
                 )
-            except ValueError:
+            except ValueError as e:
+                print(f"Exception {e}: continue")
                 # This happens for sequences in which all frames are abnormal
                 # Skipping this row in the table (the sequence will still count for global metrics)
                 continue

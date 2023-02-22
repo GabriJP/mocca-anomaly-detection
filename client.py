@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
 from typing import Tuple
@@ -6,9 +7,9 @@ from typing import Tuple
 import click
 import flwr as fl
 import torch
+import wandb
 from flwr.common import Config
 from flwr.common import NDArrays
-from tensorboardX import SummaryWriter
 
 from datasets import DataManager
 from datasets import ShanghaiTechDataHolder
@@ -93,19 +94,17 @@ class MoccaClient(fl.client.NumPyClient):
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
         )
         out_dir, tmp = get_out_dir(self.rc)
-        with SummaryWriter(str(self.rc.output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp)) as tb_writer:
-            net_checkpoint = train(
-                self.net,
-                train_loader,
-                out_dir,
-                tb_writer,
-                device,
-                None,
-                self.rc,
-                self.c,
-                self.R,
-                float(config.get("proximal_mu", 0.0)),
-            )
+        net_checkpoint = train(
+            self.net,
+            train_loader,
+            out_dir,
+            device,
+            None,
+            self.rc,
+            self.c,
+            self.R,
+            float(config.get("proximal_mu", 0.0)),
+        )
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
@@ -139,24 +138,26 @@ class MoccaClient(fl.client.NumPyClient):
 @click.command(context_settings=dict(show_default=True))
 @click.argument("server_address", type=str, default="150.214.203.248:8080")
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
-@click.option("--code-length", default=1024, type=int, help="Code length")
-@click.option("--learning-rate", type=float, default=1.0e-4, help="Learning rate")
-@click.option("--weight-decay", type=float, default=0.5e-6, help="Learning rate")
+@click.option("--code-length", type=click.IntRange(1), default=1024, help="Code length")
+@click.option("--learning-rate", type=click.FloatRange(0, 1), default=1.0e-4, help="Learning rate")
+@click.option("--weight-decay", type=click.FloatRange(0, 1), default=0.5e-6, help="Learning rate")
 @click.option(
     "--data-path",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     default=Path("data/UCSDped2"),
     help="Dataset main path",
 )
-@click.option("--clip-length", type=int, default=16, help="Clip length")
+@click.option("--clip-length", type=click.IntRange(1), default=16, help="Clip length")
 @click.option("--load-lstm", is_flag=True, help="Load LSTMs")
-@click.option("--hidden-size", type=int, default=100, help="Hidden size")
-@click.option("--num-layers", type=int, default=1, help="Number of LSTMs layers")
-@click.option("--dropout", type=float, default=0.0, help="Dropout probability")
-@click.option("--batch-size", type=int, default=4, help="Batch size")
+@click.option("--hidden-size", type=click.IntRange(1), default=100, help="Hidden size")
+@click.option("--num-layers", type=click.IntRange(1), default=1, help="Number of LSTMs layers")
+@click.option("--dropout", type=click.FloatRange(0, 1), default=0.0, help="Dropout probability")
+@click.option("--batch-size", type=click.IntRange(1), default=4, help="Batch size")
 @click.option("--boundary", type=click.Choice(["soft", "hard"]), default="soft", help="Boundary")
-@click.option("--idx_list_enc", type=int, multiple=True, default=[6], help="List of indices of model encoder")
-@click.option("--nu", type=float, default=0.1)
+@click.option(
+    "--idx_list_enc", type=click.IntRange(1), multiple=True, default=[6], help="List of indices of model encoder"
+)
+@click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
 def cli(
     server_address: str,
     output_path: Path,
@@ -190,6 +191,7 @@ def cli(
         idx_list_enc,
         nu,
     )
+    wandb.init(project="mocca", entity="gabijp", config=asdict(rc))
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()

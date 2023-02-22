@@ -6,7 +6,6 @@ from typing import Optional
 
 import click
 import torch
-from tensorboardX import SummaryWriter
 
 from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
@@ -252,7 +251,6 @@ def main(
         aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
 
         out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name="ShanghaiTech")
-        tb_writer = SummaryWriter(str(output_path / "ShanghaiTech" / "tb_runs_train" / tmp))
 
         # Init Encoder
         net: torch.nn.Module = ShanghaiTechEncoder(
@@ -279,8 +277,7 @@ def main(
         net.load_state_dict(net_dict)
 
         # TRAIN
-        net_checkpoint = sh_train(net, train_loader, out_dir, tb_writer, device, net_checkpoint, rc)
-        tb_writer.close()
+        net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc)
 
     #
     #
@@ -292,7 +289,6 @@ def main(
     if end_to_end_training:
         out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=int(learning_rate), dset_name="ShanghaiTech")
 
-        tb_writer = SummaryWriter(str(output_path / "ShanghaiTech" / "tb_runs_train_end_to_end" / tmp))
         # Init AutoEncoder
         ae_net = ShanghaiTech(
             data_holder.shape,
@@ -305,8 +301,7 @@ def main(
             use_selectors,
         )
         # End to end TRAIN
-        net_checkpoint = sh_train(ae_net, train_loader, out_dir, tb_writer, device, None, rc)
-        tb_writer.close()
+        net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc)
     #
     #
 

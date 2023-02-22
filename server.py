@@ -15,11 +15,12 @@ def create_fit_config_fn(epochs: int, batch_size: int) -> Callable[[int], Config
 
 
 @click.command()
-@click.option("--num_rounds", type=int, default=5)
-@click.option("--epochs", type=int, default=5)
-@click.option("--batch_size", type=int, default=5)
-def cli(num_rounds: int, epochs: int, batch_size: int) -> None:
-    strategy = FedProx(on_fit_config_fn=create_fit_config_fn(epochs, batch_size), proximal_mu=1)
+@click.option("--num_rounds", type=click.IntRange(1), default=5)
+@click.option("--epochs", type=click.IntRange(1), default=5)
+@click.option("--batch_size", type=click.IntRange(1), default=5)
+@click.option("--proximal_mu", type=click.FloatRange(0, 1), default=1.0)
+def cli(num_rounds: int, epochs: int, batch_size: int, proximal_mu: float) -> None:
+    strategy = FedProx(on_fit_config_fn=create_fit_config_fn(epochs, batch_size), proximal_mu=proximal_mu)
     certificates_path = Path.home() / "PycharmProjects/flower/examples/advanced_tensorflow/.cache/certificates"
     fl.server.start_server(
         server_address="0.0.0.0:8080",
