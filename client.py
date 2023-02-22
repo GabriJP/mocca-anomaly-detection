@@ -1,6 +1,8 @@
 from collections import OrderedDict
 from dataclasses import asdict
+from itertools import count
 from pathlib import Path
+from typing import Callable
 from typing import Dict
 from typing import Tuple
 
@@ -35,6 +37,15 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
     return out_dir, tmp_name
 
 
+def get_log_func() -> Callable[[Dict[str, float]], None]:
+    counter = count()
+
+    def log_func(data: Dict[str, float]) -> None:
+        wandb.log(data, step=next(counter))
+
+    return log_func
+
+
 class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
@@ -44,6 +55,7 @@ class MoccaClient(fl.client.NumPyClient):
         self.c: Dict[str, torch.Tensor] = dict()
         self.R: Dict[str, torch.Tensor] = dict()
         self.current_checkpoint = Path()
+        self.log_func = get_log_func()
 
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.c) or not len(self.R):
@@ -104,6 +116,7 @@ class MoccaClient(fl.client.NumPyClient):
             self.c,
             self.R,
             float(config.get("proximal_mu", 0.0)),
+            log_func=self.log_func,
         )
 
         torch_dict = torch.load(net_checkpoint)
@@ -158,6 +171,7 @@ class MoccaClient(fl.client.NumPyClient):
     "--idx_list_enc", type=click.IntRange(1), multiple=True, default=[6], help="List of indices of model encoder"
 )
 @click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
+@click.option("--wandb_group", type=str, default=None)
 def cli(
     server_address: str,
     output_path: Path,
@@ -174,6 +188,7 @@ def cli(
     boundary: str,
     idx_list_enc: Tuple[int],
     nu: float,
+    wandb_group: str,
 ) -> None:
     rc = RunConfig(
         output_path,
@@ -191,7 +206,7 @@ def cli(
         idx_list_enc,
         nu,
     )
-    wandb.init(project="mocca", entity="gabijp", config=asdict(rc))
+    wandb.init(project="mocca", entity="gabijp", group=wandb_group, config=asdict(rc))
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()

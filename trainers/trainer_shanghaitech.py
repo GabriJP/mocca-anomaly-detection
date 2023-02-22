@@ -1,6 +1,7 @@
 import logging
 import time
 from pathlib import Path
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -72,7 +73,7 @@ def pretrain(
                     f"Recon Loss: {recon_loss / idx:.4f}"
                 )
                 wandb.log("pretrain/recon_loss", recon_loss / idx, it_t)
-                it_t += 1
+            it_t += 1
 
         scheduler.step()
         if epoch in rc.ae_lr_milestones:
@@ -97,6 +98,7 @@ def train(
     c: Optional[Dict[str, torch.Tensor]] = None,
     r: Optional[Dict[str, torch.Tensor]] = None,
     mu: float = 0.0,
+    log_func: Callable[[Dict[str, float]], None] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -128,7 +130,6 @@ def train(
     logger.info("Starting training...")
     warm_up_n_epochs = rc.warm_up_n_epochs
     net.train()
-    it_t = 0
 
     best_loss = 1e12
     epochs = 1 if rc.debug else rc.epochs
@@ -187,6 +188,8 @@ def train(
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
                     f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
                 )
+                if log_func is None:
+                    continue
                 data = {
                     "train/recon_loss": recon_loss / n_batches,
                     "train/one_class_loss": one_class_loss / n_batches,
@@ -198,8 +201,7 @@ def train(
                     )
                     data[f"train/radius_{k}"] = r[k]
                     data[f"train/distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb.log(data, step=it_t)
-                it_t += 1
+                log_func(data)
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:
