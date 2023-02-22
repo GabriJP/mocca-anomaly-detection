@@ -126,9 +126,9 @@ class ResultsAccumulator:
         :param nb_frames_per_clip: the number of frames each clip holds.
         """
 
-        # This buffers rotate.
-        self._buffer = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self._counts = np.zeros(shape=(nb_frames_per_clip,))
+        # These buffers rotate.
+        self.buffer = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.counts = np.zeros(shape=(nb_frames_per_clip,))
 
     def push(self, score: float) -> None:
         """
@@ -137,8 +137,8 @@ class ResultsAccumulator:
         """
 
         # Update buffer and counts
-        self._buffer += score
-        self._counts += 1
+        self.buffer += score
+        self.counts += 1
 
     def get_next(self) -> float:
         """
@@ -149,15 +149,15 @@ class ResultsAccumulator:
         """
 
         # Return first in buffer
-        ret = self._buffer[0] / self._counts[0]
+        ret = self.buffer[0] / self.counts[0]
 
         # Roll time backwards
-        self._buffer = np.roll(self._buffer, shift=-1)
-        self._counts = np.roll(self._counts, shift=-1)
+        self.buffer = np.roll(self.buffer, shift=-1)
+        self.counts = np.roll(self.counts, shift=-1)
 
         # Zero out final frame (next to be filled)
-        self._buffer[-1] = 0
-        self._counts[-1] = 0
+        self.buffer[-1] = 0
+        self.counts[-1] = 0
 
         return ret
 
@@ -166,7 +166,7 @@ class ResultsAccumulator:
         """
         Returns the number of frames still in the buffer.
         """
-        return int(np.sum(self._counts != 0))
+        return int(np.sum(self.counts != 0))
 
 
 class VideoAnomalyDetectionResultHelper:
@@ -205,18 +205,18 @@ class VideoAnomalyDetectionResultHelper:
 
     def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
-        dist = {k: torch.sum((d_lstm[k] - self.hc[k].unsqueeze(0)) ** 2, dim=1) for k in self.keys}
-        scores = {k: torch.zeros((dist[k].shape[0],), device=self.device) for k in self.keys}
-        overall_score = torch.zeros((dist[self.keys[0]].shape[0],), device=self.device)
-        for k in self.keys:
+        dists = {k: torch.sum((d_lstm[k] - self.hc[k].unsqueeze(0)) ** 2, dim=1) for k in self.keys}
+        scores = {k: torch.zeros((dist.shape[0],), device=self.device) for k, dist in dists.items()}
+        overall_score = torch.zeros((dists[self.keys[0]].shape[0],), device=self.device)
+        for k, dist in dists.items():
             if self.boundary == "soft":
-                scores[k] += dist[k] - self.R[k] ** 2
-                overall_score += dist[k] - self.R[k] ** 2
+                scores[k] += dist - self.R[k] ** 2
+                overall_score += dist - self.R[k] ** 2
             else:
-                scores[k] += dist[k]
-                overall_score += dist[k]
-        scores = {k: scores[k] / len(self.keys) for k in self.keys}
-        return scores, overall_score / len(self.keys)
+                scores[k] += dist
+                overall_score += dist
+        # Every value over the number of keys
+        return {k: v / len(self.keys) for k, v in scores.items()}, overall_score / len(self.keys)
 
     @torch.no_grad()
     def test_video_anomaly_detection(self) -> Tuple[npt.NDArray[np.float64], List[float]]:
@@ -234,12 +234,12 @@ class VideoAnomalyDetectionResultHelper:
         # oc: one class
         # rc: reconstruction
         # as: overall anomaly score
-        global_oc = []
-        global_rc = []
-        global_as = []
-        global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: [] for k in self.keys}
-        global_y = []
-        global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: [] for k in self.keys}
+        global_oc = list()
+        global_rc = list()
+        global_as = list()
+        global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: list() for k in self.keys}
+        global_y = list()
+        global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: list() for k in self.keys}
 
         # Get accumulators
         results_accumulator_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -284,25 +284,25 @@ class VideoAnomalyDetectionResultHelper:
                 sample_oc[i] = results_accumulator_oc.get_next()
 
                 for k in self.keys:
-                    if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+                    if k in ("tdl_lstm_o_0", "tdl_lstm_o_1"):
                         continue
                     results_accumulator_oc_by_layer[k].push(oc_loss_by_layer[k].item())
                     sample_oc_by_layer[k][i] = results_accumulator_oc_by_layer[k].get_next()
 
             # Get last results layer by layer
             for k in self.keys:
-                if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+                if k in ("tdl_lstm_o_0", "tdl_lstm_o_1"):
                     continue
 
                 while results_accumulator_oc_by_layer[k].results_left != 0:
                     index = -results_accumulator_oc_by_layer[k].results_left
                     sample_oc_by_layer[k][index] = results_accumulator_oc_by_layer[k].get_next()
 
-                min_, max_ = sample_oc_by_layer[k].min(), sample_oc_by_layer[k].max()
+                min_, ptp = sample_oc_by_layer[k].min(), sample_oc_by_layer[k].ptp()
 
                 # Computes the normalized novelty score given likelihood scores, reconstruction scores
                 # and normalization coefficients (Eq. 9-10).
-                sample_ns = (sample_oc_by_layer[k] - min_) / (max_ - min_)
+                sample_ns = (sample_oc_by_layer[k] - min_) / ptp
 
                 # Update global scores (used for global metrics)
                 global_as_by_layer[k].append(sample_ns)
@@ -310,12 +310,7 @@ class VideoAnomalyDetectionResultHelper:
 
                 try:
                     # Compute AUROC for this video
-                    this_video_metrics = [
-                        roc_auc_score(sample_y, sample_ns),  # anomaly score == one class metric
-                        0.0,
-                        0.0,
-                    ]
-                    vad_table.add_row([k, video_id, *this_video_metrics])
+                    vad_table.add_row([k, video_id, roc_auc_score(sample_y, sample_ns), 0.0, 0.0])
                 except ValueError:
                     # This happens for sequences in which all frames are abnormal
                     # Skipping this row in the table (the sequence will still count for global metrics)
@@ -327,12 +322,12 @@ class VideoAnomalyDetectionResultHelper:
                 sample_oc[index] = results_accumulator_oc.get_next()
                 sample_rc[index] = results_accumulator_rc.get_next()
 
-            min_oc, max_oc, min_rc, max_rc = sample_oc.min(), sample_oc.max(), sample_rc.min(), sample_rc.max()
+            min_oc, ptp_oc, min_rc, ptp_rc = sample_oc.min(), sample_oc.ptp(), sample_rc.min(), sample_rc.ptp()
 
             # Computes the normalized novelty score given likelihood scores, reconstruction scores
             # and normalization coefficients (Eq. 9-10).
-            sample_oc = (sample_oc - min_oc) / (max_oc - min_oc)
-            sample_rc = (sample_rc - min_rc) / (max_rc - min_rc) if (max_rc - min_rc) > 0 else np.zeros_like(sample_rc)
+            sample_oc = (sample_oc - min_oc) / ptp_oc
+            sample_rc = (sample_rc - min_rc) / ptp_rc if ptp_rc > 0 else np.zeros_like(sample_rc)
             sample_as = sample_oc + sample_rc
 
             # Update global scores (used for global metrics)
@@ -343,12 +338,15 @@ class VideoAnomalyDetectionResultHelper:
 
             try:
                 # Compute AUROC for this video
-                this_video_metrics = [
-                    roc_auc_score(sample_y, sample_oc),  # one class metric
-                    roc_auc_score(sample_y, sample_rc),  # reconstruction metric
-                    roc_auc_score(sample_y, sample_as),  # anomaly score
-                ]
-                vad_table.add_row(["Overall"] + [video_id] + list(map(str, this_video_metrics)))
+                vad_table.add_row(
+                    [
+                        "Overall",
+                        video_id,
+                        roc_auc_score(sample_y, sample_oc),  # one class metric
+                        roc_auc_score(sample_y, sample_rc),  # reconstruction metric
+                        roc_auc_score(sample_y, sample_as),  # anomaly score
+                    ]
+                )
             except ValueError:
                 # This happens for sequences in which all frames are abnormal
                 # Skipping this row in the table (the sequence will still count for global metrics)
@@ -359,15 +357,17 @@ class VideoAnomalyDetectionResultHelper:
 
         # Compute global AUROC and print table
         for k in self.keys:
-            if k == "tdl_lstm_o_0" or k == "tdl_lstm_o_1":
+            if k in ("tdl_lstm_o_0", "tdl_lstm_o_1"):
                 continue
-            global_metrics = [
-                # anomaly score == one class metric
-                roc_auc_score(np.concatenate(global_y_by_layer[k]), np.concatenate(global_as_by_layer[k])),
-                0.0,
-                0.0,
-            ]
-            vad_table.add_row([k, "avg", *global_metrics])
+            vad_table.add_row(
+                [
+                    k,
+                    "avg",
+                    roc_auc_score(np.concatenate(global_y_by_layer[k]), np.concatenate(global_as_by_layer[k])),
+                    0.0,
+                    0.0,
+                ]
+            )
 
         # Compute global AUROC and print table
         global_y_conc = np.concatenate(global_y)
@@ -378,11 +378,11 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
-        vad_table.add_row(["Overall", "avg"] + list(map(str, global_metrics)))
+        vad_table.add_row(["Overall", "avg", *global_metrics])
         print(vad_table)
 
         # Save table
-        with open(self.output_file, mode="w") as f:
+        with self.output_file.open("w") as f:
             f.write(str(vad_table))
 
         return global_oc_conc, global_metrics
