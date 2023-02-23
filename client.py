@@ -54,7 +54,6 @@ class MoccaClient(fl.client.NumPyClient):
         self.rc = rc
         self.c: Dict[str, torch.Tensor] = dict()
         self.R: Dict[str, torch.Tensor] = dict()
-        self.current_checkpoint = Path()
         self.log_func = get_log_func()
 
     def get_parameters(self, config: Config) -> NDArrays:
@@ -122,13 +121,11 @@ class MoccaClient(fl.client.NumPyClient):
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
         self.c = torch_dict["c"]
-        self.current_checkpoint = Path(net_checkpoint or "")
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
         self.set_parameters(parameters)
         dataset = self.data_holder.get_test_data()
-        result_output_file = self.current_checkpoint.parent / "shanghaitech_test_results.txt"
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
             model=self.net,
@@ -138,7 +135,7 @@ class MoccaClient(fl.client.NumPyClient):
             device=device,
             end_to_end_training=True,
             debug=False,
-            output_file=result_output_file,
+            output_file=None,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         return (

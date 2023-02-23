@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -184,7 +185,7 @@ class VideoAnomalyDetectionResultHelper:
         device: str,
         end_to_end_training: bool,
         debug: bool,
-        output_file: Path,
+        output_file: Optional[Path],
     ) -> None:
         """
         Class constructor.
@@ -384,8 +385,9 @@ class VideoAnomalyDetectionResultHelper:
         print(vad_table)
 
         # Save table
-        with self.output_file.open("w") as f:
-            f.write(str(vad_table))
+        if self.output_file is not None:
+            with self.output_file.open("w") as f:
+                f.write(str(vad_table))
 
         return global_oc_conc, global_metrics
 
