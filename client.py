@@ -57,14 +57,10 @@ class MoccaClient(fl.client.NumPyClient):
 
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.R):
-            train_loader, _ = self.data_holder.get_loaders(
-                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
-            )
-            keys = get_keys(self.rc.idx_list_enc)
-            self.R = {k: torch.tensor(0.0, device=device) for k in keys}
+            self.R = {k: torch.tensor(0.0, device=device) for k in get_keys(self.rc.idx_list_enc)}
 
-        return [val.cpu().numpy() for _, val in self.net.state_dict().items()] + [
-            val.cpu().numpy() for _, val in self.R.items()
+        return [val.cpu().numpy() for val in self.net.state_dict().values()] + [
+            val.cpu().numpy() for val in self.R.values()
         ]
 
     def set_parameters(self, parameters: NDArrays) -> None:
@@ -72,14 +68,9 @@ class MoccaClient(fl.client.NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.net.load_state_dict(state_dict, strict=True)
 
-        c_r = parameters[len(state_dict) :]
+        rs_list = parameters[len(state_dict) :]
 
-        if not len(self.R):
-            keys = get_keys(self.rc.idx_list_enc)
-        else:
-            keys = list(self.R.keys())
-
-        rs_list = c_r[len(c_r) // 2 :]
+        keys = list(self.R.keys()) if len(self.R) else get_keys(self.rc.idx_list_enc)
 
         if len(keys) != len(rs_list):
             raise ValueError("Keys, cs and rs differ in quantity")
