@@ -1,5 +1,6 @@
 import logging
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Callable
 from typing import Dict
@@ -239,37 +240,13 @@ def init_center_c(
     eps: float = 0.1,
 ) -> Tuple[Dict[str, torch.Tensor], List[str]]:
     """Initialize hypersphere center c as the mean from an initial forward pass on the data."""
-    n_samples = 0
-    net.eval()
+    enc = net.get_submodule("encoder")
+    c: Dict[str, torch.Tensor] = OrderedDict()
+    for i in idx_list_enc:
+        k = enc.d_lstm_names[i]
+        c[k] = torch.zeros(4, 100, device=device)
 
-    data, _ = next(iter(train_loader))
-    d_lstms = net(data.to(device))[-1]
-
-    keys = []
-    c = {}
-    for en, k in enumerate(list(d_lstms.keys())):
-        if en in idx_list_enc:
-            keys.append(k)
-            c[k] = torch.zeros_like(d_lstms[k][-1], device=device)
-
-    for idx, (data, _) in enumerate(
-        tqdm(train_loader, desc="init hyperspheres centeres", total=len(train_loader), leave=False)
-    ):
-        if debug and idx == 2:
-            break
-        # get the inputs of the batch
-        n_samples += data.shape[0]
-        d_lstms = net(data.to(device))[-1]
-        for k in keys:
-            c[k] += torch.sum(d_lstms[k], dim=0)
-
-    for k in keys:
-        c[k] = c[k] / n_samples
-        # If c_i is too close to 0, set to +-eps. Reason: a zero unit can be trivially matched with zero weights.
-        c[k][(abs(c[k]) < eps) & (c[k] < 0)] = -eps
-        c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps
-
-    return c, keys
+    return c, list(c.keys())
 
 
 def eval_ad_loss(

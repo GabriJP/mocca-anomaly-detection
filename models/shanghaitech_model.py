@@ -153,6 +153,9 @@ class ShanghaiTechEncoder(BaseModule):
             self.lstm_tdl_2 = build_lstm(code_length, hidden_size, num_layers, dropout, bidirectional)
         # )
 
+        self.d_lstm_names = [f"conv_lstm_o_{i}" for i in range(5)]
+        self.d_lstm_names.extend(f"tdl_lstm_o_{i}" for i in range(2))
+
     def forward(self, x: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
         """
         Forward propagation.
