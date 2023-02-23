@@ -73,8 +73,6 @@ class MoccaClient(fl.client.NumPyClient):
         self.net.load_state_dict(state_dict, strict=True)
 
         c_r = parameters[len(state_dict) :]
-        if len(c_r) % 2:
-            raise ValueError("Not an even number of remaining tensors")
 
         if not len(self.R):
             keys = get_keys(self.rc.idx_list_enc)
