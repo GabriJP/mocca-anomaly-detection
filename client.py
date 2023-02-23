@@ -9,15 +9,15 @@ from typing import Tuple
 import click
 import flwr as fl
 import torch
-import wandb
 from flwr.common import Config
 from flwr.common import NDArrays
 
+import wandb
 from datasets import DataManager
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from models import ShanghaiTech
-from trainers import init_center_c
+from trainers import get_keys
 from trainers import train
 from utils import RunConfig
 
@@ -52,23 +52,20 @@ class MoccaClient(fl.client.NumPyClient):
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
-        self.c: Dict[str, torch.Tensor] = dict()
         self.R: Dict[str, torch.Tensor] = dict()
         self.log_func = get_log_func()
 
     def get_parameters(self, config: Config) -> NDArrays:
-        if not len(self.c) or not len(self.R):
+        if not len(self.R):
             train_loader, _ = self.data_holder.get_loaders(
                 batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
             )
-            self.c, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
+            keys = get_keys(self.rc.idx_list_enc)
             self.R = {k: torch.tensor(0.0, device=device) for k in keys}
 
-        return (
-            [val.cpu().numpy() for _, val in self.net.state_dict().items()]
-            + [val.cpu().numpy() for _, val in self.c.items()]
-            + [val.cpu().numpy() for _, val in self.R.items()]
-        )
+        return [val.cpu().numpy() for _, val in self.net.state_dict().items()] + [
+            val.cpu().numpy() for _, val in self.R.items()
+        ]
 
     def set_parameters(self, parameters: NDArrays) -> None:
         params_dict = zip(self.net.state_dict().keys(), parameters)
@@ -79,22 +76,17 @@ class MoccaClient(fl.client.NumPyClient):
         if len(c_r) % 2:
             raise ValueError("Not an even number of remaining tensors")
 
-        if not len(self.c) is None:
-            train_loader, _ = self.data_holder.get_loaders(
-                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
-            )
-            _, keys = init_center_c(train_loader, self.net, self.rc.idx_list_enc, device, True, False)
+        if not len(self.R):
+            keys = get_keys(self.rc.idx_list_enc)
         else:
-            keys = list(self.c.keys())
+            keys = list(self.R.keys())
 
-        cs_list = c_r[: len(c_r) // 2]
         rs_list = c_r[len(c_r) // 2 :]
 
-        if len(keys) != len(cs_list) != len(rs_list):
+        if len(keys) != len(rs_list):
             raise ValueError("Keys, cs and rs differ in quantity")
 
-        for k, cv, rv in zip(keys, cs_list, rs_list):
-            self.c[k] = torch.tensor(cv, device=device)
+        for k, rv in zip(keys, rs_list):
             self.R[k] = torch.tensor(rv, device=device)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
@@ -112,7 +104,6 @@ class MoccaClient(fl.client.NumPyClient):
             device,
             None,
             self.rc,
-            self.c,
             self.R,
             float(config.get("proximal_mu", 0.0)),
             log_func=self.log_func,
@@ -120,7 +111,6 @@ class MoccaClient(fl.client.NumPyClient):
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
-        self.c = torch_dict["c"]
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
@@ -129,7 +119,6 @@ class MoccaClient(fl.client.NumPyClient):
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
             model=self.net,
-            c=self.c,
             R=self.R,
             boundary=self.rc.boundary,
             device=device,

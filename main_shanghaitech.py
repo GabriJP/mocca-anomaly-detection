@@ -372,7 +372,6 @@ def main(
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
             model=net,
-            c=st_dict["c"],
             R=st_dict["R"],
             boundary=boundary,
             device=device,

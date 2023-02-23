@@ -1,6 +1,5 @@
 import logging
 import time
-from collections import OrderedDict
 from pathlib import Path
 from typing import Callable
 from typing import Dict
@@ -13,7 +12,6 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 import torch
-import wandb
 from torch import nn
 from torch.optim import Adam
 from torch.optim import SGD
@@ -21,6 +19,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from models.shanghaitech_model import ShanghaiTechEncoder
 from utils import FullRunConfig
 from utils import RunConfig
 
@@ -39,6 +38,7 @@ def pretrain(
     out_dir: Path,
     device: str,
     rc: FullRunConfig,
+    log_func: Optional[Callable[[Dict[str, float]], None]] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -50,7 +50,6 @@ def pretrain(
     scheduler = MultiStepLR(optimizer, milestones=rc.ae_lr_milestones, gamma=0.1)
 
     ae_epochs = 1 if rc.debug else rc.ae_epochs
-    it_t = 0
     logger.info("Start Pretraining the autoencoder...")
     ae_net_checkpoint = Path()
     for epoch in range(ae_epochs):
@@ -73,8 +72,8 @@ def pretrain(
                     f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
                     f"Recon Loss: {recon_loss / idx:.4f}"
                 )
-                wandb.log("pretrain/recon_loss", recon_loss / idx, it_t)
-            it_t += 1
+                if log_func is not None:
+                    log_func({"pretrain/recon_loss": recon_loss / idx})
 
         scheduler.step()
         if epoch in rc.ae_lr_milestones:
@@ -96,10 +95,9 @@ def train(
     device: str,
     ae_net_checkpoint: Optional[Path],
     rc: Union[FullRunConfig, RunConfig],
-    c: Optional[Dict[str, torch.Tensor]] = None,
     r: Optional[Dict[str, torch.Tensor]] = None,
     mu: float = 0.0,
-    log_func: Callable[[Dict[str, float]], None] = None,
+    log_func: Optional[Callable[[Dict[str, float]], None]] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -117,11 +115,11 @@ def train(
     scheduler = MultiStepLR(optimizer, milestones=rc.lr_milestones, gamma=0.1)
 
     # Initialize hypersphere center c
-    if c is not None and r is not None:
-        keys = list(c.keys())
+    if r is not None:
+        keys = list(r.keys())
     else:
         logger.info("Evaluating hypersphere centers...")
-        c, keys = init_center_c(train_loader, net, idx_list_enc, device, rc.end_to_end_training, rc.debug)
+        keys = get_keys(idx_list_enc)
         logger.info(f"Keys: {keys}")
         logger.info("Done!")
 
@@ -162,7 +160,7 @@ def train(
                 _, d_lstms = net(data)
                 recon_loss_ = torch.tensor([0.0], device=device)
 
-            dist, one_class_loss_ = eval_ad_loss(d_lstms, c, r, rc.nu, rc.boundary, device)
+            dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
             objective_loss_ = one_class_loss_ + recon_loss_
 
             if mu > 0:
@@ -218,50 +216,32 @@ def train(
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.name.split("_")[-1].split(".p")[0]
         net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"
-        torch.save(dict(net_state_dict=net.state_dict(), R=r, c=c), net_checkpoint)
+        torch.save(dict(net_state_dict=net.state_dict(), R=r), net_checkpoint)
         logger.info(f"Saved model at: {net_checkpoint}")
         if objective_loss < best_loss or epoch == 0:
             best_loss = objective_loss
             best_model_checkpoint = out_dir / f"net_ckp_best_model_{time_}.pth"
-            torch.save(dict(net_state_dict=net.state_dict(), R=r, c=c), best_model_checkpoint)
+            torch.save(dict(net_state_dict=net.state_dict(), R=r), best_model_checkpoint)
 
     logger.info("Finished training.")
 
     return net_checkpoint
 
 
-@torch.no_grad()
-def init_center_c(
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
-    net: nn.Module,
-    idx_list_enc: Sequence[int],
-    device: Union[str, torch.device],
-    debug: bool,
-    eps: float = 0.1,
-) -> Tuple[Dict[str, torch.Tensor], List[str]]:
+def get_keys(idx_list_enc: Sequence[int]) -> List[str]:
     """Initialize hypersphere center c as the mean from an initial forward pass on the data."""
-    enc = net.get_submodule("encoder")
-    c: Dict[str, torch.Tensor] = OrderedDict()
-    for i in idx_list_enc:
-        k = enc.d_lstm_names[i]
-        c[k] = torch.zeros(4, 100, device=device)
-
-    return c, list(c.keys())
+    names = ShanghaiTechEncoder.get_names()
+    return [names[i] for i in idx_list_enc]
 
 
 def eval_ad_loss(
-    d_lstms: Dict[str, torch.Tensor],
-    c: Dict[str, torch.Tensor],
-    R: Dict[str, torch.Tensor],
-    nu: float,
-    boundary: str,
-    device: str,
+    d_lstms: Dict[str, torch.Tensor], R: Dict[str, torch.Tensor], nu: float, boundary: str, device: str
 ) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
     dist = dict()
     loss = torch.tensor(1.0, device=device)
 
-    for k in c.keys():
-        dist[k] = torch.sum((d_lstms[k] - c[k].unsqueeze(0)) ** 2, dim=-1)
+    for k in R.keys():
+        dist[k] = torch.sum(d_lstms[k] ** 2, dim=-1)
 
         if boundary == "soft":
             scores = dist[k] - R[k] ** 2

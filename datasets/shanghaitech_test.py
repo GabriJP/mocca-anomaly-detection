@@ -179,7 +179,6 @@ class VideoAnomalyDetectionResultHelper:
         self,
         dataset: VideoAnomalyDetectionDataset,
         model: nn.Module,
-        c: Dict[str, torch.Tensor],
         R: Dict[str, torch.Tensor],
         boundary: str,
         device: str,
@@ -195,8 +194,7 @@ class VideoAnomalyDetectionResultHelper:
         """
         self.dataset = dataset
         self.model = model
-        self.hc = c
-        self.keys = list(c.keys())
+        self.keys = list(R.keys())
         self.R = R
         self.boundary = boundary
         self.device = device
@@ -206,7 +204,7 @@ class VideoAnomalyDetectionResultHelper:
 
     def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
-        dists = {k: torch.sum((d_lstm[k] - self.hc[k].unsqueeze(0)) ** 2, dim=1) for k in self.keys}
+        dists = {k: torch.sum(d_lstm[k] ** 2, dim=1) for k in self.keys}
         scores = {k: torch.zeros((dist.shape[0],), device=self.device) for k, dist in dists.items()}
         overall_score = torch.zeros((dists[self.keys[0]].shape[0],), device=self.device)
         for k, dist in dists.items():

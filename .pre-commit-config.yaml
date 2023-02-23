@@ -43,5 +43,5 @@ repos:
     rev: v1.0.0
     hooks:
       - id: mypy
-        additional_dependencies: [ click, numpy, torch ]
+        additional_dependencies: [ click, numpy, torch, wandb ]
         args: [ --config-file=mypy.ini ]
