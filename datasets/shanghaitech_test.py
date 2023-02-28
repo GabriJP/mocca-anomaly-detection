@@ -241,9 +241,9 @@ class VideoAnomalyDetectionResultHelper:
         global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: list() for k in self.keys}
 
         # Get accumulators
-        results_accumulator_rc = ResultsAccumulator(nb_frames_per_clip=t)
-        results_accumulator_oc = ResultsAccumulator(nb_frames_per_clip=t)
-        results_accumulator_oc_by_layer = {k: ResultsAccumulator(nb_frames_per_clip=t) for k in self.keys}
+        ra_rc = ResultsAccumulator(nb_frames_per_clip=t)
+        ra_oc = ResultsAccumulator(nb_frames_per_clip=t)
+        ra_oc_by_layer = {k: ResultsAccumulator(nb_frames_per_clip=t) for k in self.keys}
         print(self.dataset.test_videos)
 
         # Start iteration over test videos
@@ -268,7 +268,7 @@ class VideoAnomalyDetectionResultHelper:
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
-                    recon_loss = torch.mean(torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim()))))
+                    recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
                 else:
                     _, d_lstm = self.model(x)
                     recon_loss = torch.tensor([0.0])
@@ -277,25 +277,25 @@ class VideoAnomalyDetectionResultHelper:
                 oc_loss_by_layer, oc_overall_loss = self._get_scores(d_lstm)
 
                 # Feed results accumulators
-                results_accumulator_rc.push(recon_loss.item())
-                sample_rc[i] = results_accumulator_rc.get_next()
-                results_accumulator_oc.push(oc_overall_loss.item())
-                sample_oc[i] = results_accumulator_oc.get_next()
+                ra_rc.push(recon_loss.item())
+                sample_rc[i] = ra_rc.get_next()
+                ra_oc.push(oc_overall_loss.item())
+                sample_oc[i] = ra_oc.get_next()
 
                 for k in self.keys:
                     if k in ("tdl_lstm_o_0", "tdl_lstm_o_1"):
                         continue
-                    results_accumulator_oc_by_layer[k].push(oc_loss_by_layer[k].item())
-                    sample_oc_by_layer[k][i] = results_accumulator_oc_by_layer[k].get_next()
+                    ra_oc_by_layer[k].push(oc_loss_by_layer[k].item())
+                    sample_oc_by_layer[k][i] = ra_oc_by_layer[k].get_next()
 
             # Get last results layer by layer
             for k in self.keys:
                 if k in ("tdl_lstm_o_0", "tdl_lstm_o_1"):
                     continue
 
-                while results_accumulator_oc_by_layer[k].results_left != 0:
-                    index = -results_accumulator_oc_by_layer[k].results_left
-                    sample_oc_by_layer[k][index] = results_accumulator_oc_by_layer[k].get_next()
+                while ra_oc_by_layer[k].results_left != 0:
+                    index = -ra_oc_by_layer[k].results_left
+                    sample_oc_by_layer[k][index] = ra_oc_by_layer[k].get_next()
 
                 min_, ptp = sample_oc_by_layer[k].min(), sample_oc_by_layer[k].ptp()
 
@@ -317,10 +317,10 @@ class VideoAnomalyDetectionResultHelper:
                     continue
 
             # Get last results
-            while results_accumulator_oc.results_left != 0:
-                index = -results_accumulator_oc.results_left
-                sample_oc[index] = results_accumulator_oc.get_next()
-                sample_rc[index] = results_accumulator_rc.get_next()
+            while ra_oc.results_left != 0:
+                index = -ra_oc.results_left
+                sample_oc[index] = ra_oc.get_next()
+                sample_rc[index] = ra_rc.get_next()
 
             min_oc, ptp_oc, min_rc, ptp_rc = sample_oc.min(), sample_oc.ptp(), sample_rc.min(), sample_rc.ptp()
 
