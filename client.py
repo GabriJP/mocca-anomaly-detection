@@ -1,8 +1,6 @@
 from collections import OrderedDict
 from dataclasses import asdict
-from itertools import count
 from pathlib import Path
-from typing import Callable
 from typing import Dict
 from typing import Tuple
 
@@ -37,15 +35,6 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
     return out_dir, tmp_name
 
 
-def get_log_func() -> Callable[[Dict[str, float]], None]:
-    counter = count()
-
-    def log_func(data: Dict[str, float]) -> None:
-        wandb.log(data, step=next(counter))
-
-    return log_func
-
-
 class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
@@ -53,7 +42,6 @@ class MoccaClient(fl.client.NumPyClient):
         self.data_holder = data_holder
         self.rc = rc
         self.R: Dict[str, torch.Tensor] = dict()
-        self.log_func = get_log_func()
 
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.R):
@@ -95,7 +83,6 @@ class MoccaClient(fl.client.NumPyClient):
             self.rc,
             self.R,
             float(config.get("proximal_mu", 0.0)),
-            log_func=self.log_func,
         )
 
         torch_dict = torch.load(net_checkpoint)
@@ -116,11 +103,9 @@ class MoccaClient(fl.client.NumPyClient):
             output_file=None,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
-        return (
-            float(global_oc.mean()),
-            len(global_oc),
-            dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)),
-        )
+        global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        wandb.log(dict(test=global_metrics_dict))
+        return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 
 @click.command(context_settings=dict(show_default=True))
@@ -186,6 +171,7 @@ def cli(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout)
+    wandb.watch(net)
     fl.client.start_numpy_client(
         server_address=server_address,
         client=MoccaClient(net, data_holder, rc),

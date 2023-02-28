@@ -1,7 +1,6 @@
 import logging
 import time
 from pathlib import Path
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -19,6 +18,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import wandb
 from models.shanghaitech_model import ShanghaiTechEncoder
 from utils import FullRunConfig
 from utils import RunConfig
@@ -38,7 +38,6 @@ def pretrain(
     out_dir: Path,
     device: str,
     rc: FullRunConfig,
-    log_func: Optional[Callable[[Dict[str, float]], None]] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -72,8 +71,7 @@ def pretrain(
                     f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
                     f"Recon Loss: {recon_loss / idx:.4f}"
                 )
-                if log_func is not None:
-                    log_func({"pretrain/recon_loss": recon_loss / idx})
+                wandb.log({"pretrain": {"recon_loss": recon_loss / idx}})
 
         scheduler.step()
         if epoch in rc.ae_lr_milestones:
@@ -97,7 +95,6 @@ def train(
     rc: Union[FullRunConfig, RunConfig],
     r: Optional[Dict[str, torch.Tensor]] = None,
     mu: float = 0.0,
-    log_func: Optional[Callable[[Dict[str, float]], None]] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -187,20 +184,18 @@ def train(
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
                     f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
                 )
-                if log_func is None:
-                    continue
                 data = {
-                    "train/recon_loss": recon_loss / n_batches,
-                    "train/one_class_loss": one_class_loss / n_batches,
-                    "train/objective_loss": objective_loss / n_batches,
+                    "recon_loss": recon_loss / n_batches,
+                    "one_class_loss": one_class_loss / n_batches,
+                    "objective_loss": objective_loss / n_batches,
                 }
                 for k in keys:
                     logger.info(
                         f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
                     )
-                    data[f"train/radius_{k}"] = r[k]
-                    data[f"train/distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                log_func(data)
+                    data[f"radius_{k}"] = r[k]
+                    data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
+                wandb.log(dict(train=data))
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:
