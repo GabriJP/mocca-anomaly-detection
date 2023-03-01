@@ -1,3 +1,4 @@
+import logging
 from collections import OrderedDict
 from dataclasses import asdict
 from pathlib import Path
@@ -166,6 +167,13 @@ def cli(
         idx_list_enc,
         nu,
     )
+    # Init logger & print training/warm-up summary
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(message)s",
+        handlers=[logging.FileHandler("./training.log"), logging.StreamHandler()],
+    )
+
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, config=asdict(rc))
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
