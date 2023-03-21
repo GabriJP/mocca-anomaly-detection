@@ -308,6 +308,7 @@ def main(
             use_selectors,
         )
         # End to end TRAIN
+        wandb.watch(ae_net)
         net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc)
     #
     #
@@ -357,6 +358,7 @@ def main(
         st_dict = torch.load(net_checkpoint)
 
         net.load_state_dict(st_dict["net_state_dict"])
+        wandb.watch(net)
         logging.info(f"Loaded model from: {net_checkpoint}")
         logging.info(
             f"Start test with params:"
@@ -387,7 +389,9 @@ def main(
             output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
         )
         # TEST
-        helper.test_video_anomaly_detection()
+        global_oc, global_metrics = helper.test_video_anomaly_detection()
+        global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        wandb.log(dict(test=global_metrics_dict))
         print("Test finished")
     #
     #
