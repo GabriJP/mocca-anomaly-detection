@@ -1,5 +1,6 @@
 import logging
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -7,6 +8,7 @@ from typing import Optional
 import click
 import torch
 
+import wandb
 from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
@@ -83,6 +85,8 @@ from utils import set_seeds
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--wandb_group", type=str, default=None)
+@click.option("--wandb_name", type=str, default=None)
 def main(
     seed: int,
     n_workers: int,
@@ -126,6 +130,8 @@ def main(
     epochs: int,
     ae_epochs: int,
     nu: float,
+    wandb_group: Optional[None],
+    wandb_name: Optional[None],
 ) -> None:
     rc = FullRunConfig(
         seed,
@@ -177,13 +183,14 @@ def main(
         format="%(asctime)s | %(message)s",
         handlers=[logging.FileHandler("./training.log"), logging.StreamHandler()],
     )
-    logger = logging.getLogger()
+
+    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
 
     if not any([train, pretrain, end_to_end_training]) and model_ckp is None:
-        logger.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
+        logging.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
         raise ValueError("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
 
-    logger.info(
+    logging.info(
         "Start run with params:\n"
         f"\n\t\t\t\tEnd to end training : {end_to_end_training}"
         f"\n\t\t\t\tPretrain model      : {pretrain}"
@@ -227,10 +234,10 @@ def main(
     )
     # Print data infos
     only_test = test and not train and not pretrain
-    logger.info("Dataset info:")
-    logger.info("\n" f"\n\t\t\t\tBatch size    : {batch_size}")
+    logging.info("Dataset info:")
+    logging.info("\n" f"\n\t\t\t\tBatch size    : {batch_size}")
     if not only_test:
-        logger.info(
+        logging.info(
             f"TRAIN:"
             f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"  # type: ignore
             f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // batch_size}"  # type: ignore
@@ -244,7 +251,7 @@ def main(
     if train and not end_to_end_training:
         if net_checkpoint is None:
             if model_ckp is None:
-                logger.info("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
+                logging.info("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
                 sys.exit(0)
             net_checkpoint = model_ckp
 
@@ -266,7 +273,7 @@ def main(
 
         # Load encoder weight from autoencoder
         net_dict = net.state_dict()
-        logger.info(f"Loading encoder from: {net_checkpoint}")
+        logging.info(f"Loading encoder from: {net_checkpoint}")
         ae_net_dict = torch.load(net_checkpoint, map_location=lambda storage, loc: storage)["ae_state_dict"]
 
         # Filter out decoder network keys
@@ -350,8 +357,8 @@ def main(
         st_dict = torch.load(net_checkpoint)
 
         net.load_state_dict(st_dict["net_state_dict"])
-        logger.info(f"Loaded model from: {net_checkpoint}")
-        logger.info(
+        logging.info(f"Loaded model from: {net_checkpoint}")
+        logging.info(
             f"Start test with params:"
             f"\n\t\t\t\tDataset        : {dataset_name}"
             f"\n\t\t\t\tCode length    : {code_length}"

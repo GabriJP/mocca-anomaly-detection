@@ -3,6 +3,7 @@ from collections import OrderedDict
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
+from typing import Optional
 from typing import Tuple
 
 import click
@@ -133,6 +134,7 @@ class MoccaClient(fl.client.NumPyClient):
 )
 @click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
 @click.option("--wandb_group", type=str, default=None)
+@click.option("--wandb_name", type=str, default=None)
 def cli(
     server_address: str,
     output_path: Path,
@@ -149,7 +151,8 @@ def cli(
     boundary: str,
     idx_list_enc: Tuple[int],
     nu: float,
-    wandb_group: str,
+    wandb_group: Optional[str],
+    wandb_name: Optional[str],
 ) -> None:
     rc = RunConfig(
         output_path,
@@ -174,7 +177,7 @@ def cli(
         handlers=[logging.FileHandler("./training.log"), logging.StreamHandler()],
     )
 
-    wandb.init(project="mocca", entity="gabijp", group=wandb_group, config=asdict(rc))
+    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
