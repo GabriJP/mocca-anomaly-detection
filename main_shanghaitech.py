@@ -81,7 +81,7 @@ from utils import set_seeds
 @click.option("-tbc", "--train-best-conf", is_flag=True, help="Train best configurations")
 @click.option("-bs", "--batch-size", type=int, default=4, help="Batch size")
 @click.option("-bd", "--boundary", type=click.Choice(("hard", "soft")), default="soft", help="Boundary")
-@click.option("-ile", "--idx-list-enc", type=int, multiple=True, default=[6], help="List of indices of model encoder")
+@click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
@@ -126,13 +126,14 @@ def main(
     train_best_conf: bool,
     batch_size: int,
     boundary: str,
-    idx_list_enc: List[int],
+    idx_list_enc: str,
     epochs: int,
     ae_epochs: int,
     nu: float,
-    wandb_group: Optional[None],
-    wandb_name: Optional[None],
+    wandb_group: Optional[str],
+    wandb_name: Optional[str],
 ) -> None:
+    idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = FullRunConfig(
         seed,
         n_workers,
@@ -166,7 +167,7 @@ def main(
         train_best_conf,
         batch_size,
         boundary,
-        idx_list_enc,
+        idx_list_enc_ilist,
         epochs,
         ae_epochs,
         nu,
@@ -212,7 +213,7 @@ def main(
         f"\n\t\t\t\tWeight decay        : {weight_decay}"
         f"\n\t\t\t\tCode length         : {code_length}"
         f"\n\t\t\t\tNu                  : {nu}"
-        f"\n\t\t\t\tEncoder list        : {idx_list_enc}\n"
+        f"\n\t\t\t\tEncoder list        : {idx_list_enc_ilist}\n"
         f"\n\t\t\t\tLSTMs"
         f"\n\t\t\t\tLoad LSTMs          : {load_lstm}"
         f"\n\t\t\t\tBidirectional       : {bidirectional}"
@@ -327,7 +328,7 @@ def main(
             batch_size,
             boundary,
             use_selectors,
-            idx_list_enc,
+            idx_list_enc_ilist,
             load_lstm,
             hidden_size,
             num_layers,
@@ -364,7 +365,7 @@ def main(
             f"Start test with params:"
             f"\n\t\t\t\tDataset        : {dataset_name}"
             f"\n\t\t\t\tCode length    : {code_length}"
-            f"\n\t\t\t\tEnc layer list : {idx_list_enc}"
+            f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
             f"\n\t\t\t\tBoundary       : {boundary}"
             f"\n\t\t\t\tUse Selectors  : {use_selectors}"
             f"\n\t\t\t\tBatch size     : {batch_size}"
