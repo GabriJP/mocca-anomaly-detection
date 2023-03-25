@@ -1,0 +1,48 @@
+program: main_shanghaitech.py -dp data/UCSDped2 --end-to-end-training --test --load-lstm --seed 3
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args_no_boolean_flags}
+method: grid
+metric:
+  name: train.objective_loss
+  goal: minimize
+parameters:
+  epochs:
+    distribution: categorical
+    values:
+      - 7
+      - 10
+  warm_up_n_epochs:
+    distribution: categorical
+    values:
+      - 3
+      - 5
+  clip_length:
+    distribution: categorical
+    values:
+      - 8
+      - 16
+      - 32
+  code_length:
+    distribution: categorical
+    values:
+      - 1024
+      - 2048
+  bidirectional:
+    distribution: categorical
+    values:
+      - true
+      - false
+  dropout:
+    distribution: categorical
+    values:
+      - "0.0"
+      - "0.15"
+      - "0.3"
+  idx-list-enc:
+    distribution: categorical
+    values:
+      - "6"
+      - "5,6"
