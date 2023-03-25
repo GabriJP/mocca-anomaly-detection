@@ -1,8 +1,15 @@
-program: main_shanghaitech.py -dp data/UCSDped2 --end-to-end-training --test --load-lstm --seed 3
+program: main_shanghaitech.py
 command:
   - ${env}
   - ${interpreter}
   - ${program}
+  - "-dp"
+  - "data/UCSDped2"
+  - "--end-to-end-training"
+  - "--test"
+  - "--load-lstm"
+  - "--seed"
+  - "3"
   - ${args_no_boolean_flags}
 method: grid
 metric:
