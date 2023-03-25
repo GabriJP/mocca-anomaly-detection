@@ -35,11 +35,11 @@ parameters:
   dropout:
     distribution: categorical
     values:
-      - 0.0
-      - 0.15
-      - 0.3
+      - "0.0"
+      - "0.15"
+      - "0.3"
   idx-list-enc:
     distribution: categorical
     values:
-      - 5
-      - 6
+      - "6"
+      - "5,6"
