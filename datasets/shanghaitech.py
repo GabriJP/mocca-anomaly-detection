@@ -1,8 +1,10 @@
+import random
 from pathlib import Path
 from typing import List
 from typing import Optional
 from typing import Tuple
 
+import numpy
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
@@ -16,6 +18,12 @@ from tqdm import tqdm
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 from .shanghaitech_test import ShanghaiTechTestHandler
+
+
+def seed_worker(_: int) -> None:
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 class ShanghaiTechDataHolder:
@@ -89,15 +97,27 @@ class ShanghaiTechDataHolder:
             Train and test data loaders
 
         """
+        g = torch.Generator()
+        g.manual_seed(0)
         train_loader = DataLoader(
             dataset=self.get_train_data(),
             batch_size=batch_size,
             shuffle=shuffle_train,
             pin_memory=pin_memory,
             num_workers=num_workers,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
+
+        g = torch.Generator()
+        g.manual_seed(0)
         test_loader = DataLoader(
-            dataset=self.get_test_data(), batch_size=batch_size, pin_memory=pin_memory, num_workers=num_workers
+            dataset=self.get_test_data(),
+            batch_size=batch_size,
+            pin_memory=pin_memory,
+            num_workers=num_workers,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
         return train_loader, test_loader
 

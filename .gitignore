@@ -6,3 +6,4 @@ output
 data
 .idea/workspace.xml
 wandb
+.mypy_cache

@@ -156,10 +156,14 @@ def set_seeds(seed: int) -> None:
 
     """
     # Set the seed only if the user specified it
-    if seed != -1:
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
+    if seed == -1:
+        return
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
 
 
 def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
