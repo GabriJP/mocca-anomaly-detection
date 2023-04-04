@@ -10,6 +10,7 @@ command:
   - "--load-lstm"
   - "--seed"
   - "3"
+  - "--bidirectional"
   - "--wandb_group"
   - "sweep2"
   - ${args_no_boolean_flags}
@@ -40,9 +41,6 @@ parameters:
       - "512"
       - "1024"
       - "2048"
-  bidirectional:
-    value:
-      - true
   dropout:
     distribution: categorical
     values:
