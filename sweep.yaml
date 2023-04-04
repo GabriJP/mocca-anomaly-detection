@@ -10,11 +10,13 @@ command:
   - "--load-lstm"
   - "--seed"
   - "3"
+  - "--wandb_group"
+  - "sweep2"
   - ${args_no_boolean_flags}
 method: grid
 metric:
-  name: train.objective_loss
-  goal: minimize
+  name: test.anomaly_score
+  goal: maximize
 parameters:
   epochs:
     distribution: categorical
@@ -29,27 +31,28 @@ parameters:
   clip-length:
     distribution: categorical
     values:
-      - 8
-      - 16
-      - 32
+      - "4"
+      - "8"
+      - "16"
   code-length:
     distribution: categorical
     values:
-      - 1024
-      - 2048
+      - "512"
+      - "1024"
+      - "2048"
   bidirectional:
-    distribution: categorical
-    values:
+    value:
       - true
-      - false
   dropout:
     distribution: categorical
     values:
-      - "0.0"
       - "0.15"
       - "0.3"
+      - "0.45"
   idx-list-enc:
     distribution: categorical
     values:
       - "6"
       - "5,6"
+      - "4,5,6"
+      - "3,4,5,6"
