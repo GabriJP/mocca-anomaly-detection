@@ -2,9 +2,9 @@
 
 cd "${HOME}/PycharmProjects/mocca-anomaly-detection/" || exit
 git pull
-export PATH="${HOME}/miniconda3/bin:$PATH"
-eval "$(conda shell.bash hook)"
-conda activate mocca
+#export PATH="${HOME}/miniconda3/bin:$PATH"
+#eval "$(conda shell.bash hook)"
+#conda activate mocca
 #gid=$(python -c "import wandb ; print(wandb.util.generate_id())")
 gid="baseline_fed_ped2"
 client_command="nohup ./execute.sh --data-path data/UCSDped2 --load-lstm --seed 3 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --wandb_group ${gid} >${gid}.log 2>&1 </dev/null &"

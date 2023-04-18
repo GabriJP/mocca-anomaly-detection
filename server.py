@@ -24,7 +24,7 @@ def cli(num_rounds: int, epochs: int, warm_up_n_epochs: int, batch_size: int, pr
     strategy = FedProx(
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs, batch_size), proximal_mu=proximal_mu
     )
-    certificates_path = Path.home() / "PycharmProjects/flower/examples/advanced_tensorflow/.cache/certificates"
+    certificates_path = Path.home() / "certs"
     fl.server.start_server(
         server_address="0.0.0.0:8080",
         config=fl.server.ServerConfig(num_rounds=num_rounds),
