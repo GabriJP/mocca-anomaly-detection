@@ -3,6 +3,7 @@ from collections import OrderedDict
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Tuple
 
@@ -20,6 +21,7 @@ from models import ShanghaiTech
 from trainers import get_keys
 from trainers import train
 from utils import RunConfig
+from utils import set_seeds
 
 device = "cuda"
 
@@ -70,6 +72,7 @@ class MoccaClient(fl.client.NumPyClient):
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
+        self.rc.warm_up_n_epochs = int(config["warm_up_n_epochs"])
         self.rc.batch_size = int(config["batch_size"])
         self.set_parameters(parameters)
         train_loader, _ = self.data_holder.get_loaders(
@@ -124,17 +127,17 @@ class MoccaClient(fl.client.NumPyClient):
 )
 @click.option("--clip-length", type=click.IntRange(1), default=16, help="Clip length")
 @click.option("--load-lstm", is_flag=True, help="Load LSTMs")
+@click.option("--bidirectional", is_flag=True, help="Bidirectional LSTMs")
 @click.option("--hidden-size", type=click.IntRange(1), default=100, help="Hidden size")
 @click.option("--num-layers", type=click.IntRange(1), default=1, help="Number of LSTMs layers")
 @click.option("--dropout", type=click.FloatRange(0, 1), default=0.0, help="Dropout probability")
 @click.option("--batch-size", type=click.IntRange(1), default=4, help="Batch size")
 @click.option("--boundary", type=click.Choice(["soft", "hard"]), default="soft", help="Boundary")
-@click.option(
-    "--idx_list_enc", type=click.IntRange(1), multiple=True, default=[6], help="List of indices of model encoder"
-)
+@click.option("--idx_list_enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
+@click.option("--seed", type=int, default=-1)
 def cli(
     server_address: str,
     output_path: Path,
@@ -144,16 +147,19 @@ def cli(
     data_path: Path,
     clip_length: int,
     load_lstm: bool,
+    bidirectional: bool,
     hidden_size: int,
     num_layers: int,
     dropout: float,
     batch_size: int,
     boundary: str,
-    idx_list_enc: Tuple[int],
+    idx_list_enc: str,
     nu: float,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
+    seed: int,
 ) -> None:
+    idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = RunConfig(
         output_path,
         code_length,
@@ -167,9 +173,10 @@ def cli(
         dropout,
         batch_size,
         boundary,
-        idx_list_enc,
+        idx_list_enc_ilist,
         nu,
     )
+    set_seeds(seed)
     # Init logger & print training/warm-up summary
     logging.basicConfig(
         level=logging.INFO,
@@ -181,7 +188,7 @@ def cli(
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
-    net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout)
+    net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
     fl.client.start_numpy_client(
         server_address=server_address,
