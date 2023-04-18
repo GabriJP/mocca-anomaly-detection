@@ -3,7 +3,6 @@ from collections import OrderedDict
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import Tuple
 
@@ -133,7 +132,7 @@ class MoccaClient(fl.client.NumPyClient):
 @click.option("--dropout", type=click.FloatRange(0, 1), default=0.0, help="Dropout probability")
 @click.option("--batch-size", type=click.IntRange(1), default=4, help="Batch size")
 @click.option("--boundary", type=click.Choice(["soft", "hard"]), default="soft", help="Boundary")
-@click.option("--idx_list_enc", type=str, default="6", help="List of indices of model encoder")
+@click.option("--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
@@ -159,7 +158,7 @@ def cli(
     wandb_name: Optional[str],
     seed: int,
 ) -> None:
-    idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
+    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
         output_path,
         code_length,

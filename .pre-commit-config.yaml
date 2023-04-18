@@ -45,3 +45,5 @@ repos:
       - id: mypy
         additional_dependencies: [ click, numpy, torch, wandb ]
         args: [ --config-file=mypy.ini ]
+
+exclude: '^.idea/'
