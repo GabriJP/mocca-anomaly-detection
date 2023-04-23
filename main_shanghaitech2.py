@@ -7,7 +7,6 @@ from typing import Tuple
 
 import click
 import torch
-from flwr.common import Config
 
 import wandb
 from client import get_out_dir
@@ -35,24 +34,14 @@ class MoccaClient:
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
         )
         out_dir, tmp = get_out_dir(self.rc)
-        net_checkpoint = train(
-            self.net,
-            train_loader,
-            out_dir,
-            device,
-            None,
-            self.rc,
-            self.R,
-            0.0,
-        )
+        net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0)
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
 
     def evaluate(self) -> None:
-        dataset = self.data_holder.get_test_data()
         helper = VideoAnomalyDetectionResultHelper(
-            dataset=dataset,
+            dataset=self.data_holder.get_test_data(),
             model=self.net,
             R=self.R,
             boundary=self.rc.boundary,
@@ -61,9 +50,8 @@ class MoccaClient:
             debug=False,
             output_file=None,
         )
-        global_oc, global_metrics = helper.test_video_anomaly_detection()
-        global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-        wandb.log(dict(test=global_metrics_dict))
+        _, global_metrics = helper.test_video_anomaly_detection()
+        wandb.log(dict(test=dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))))
 
 
 @click.command("cli", context_settings=dict(show_default=True))

@@ -93,7 +93,7 @@ def train(
     device: str,
     ae_net_checkpoint: Optional[Path],
     rc: Union[FullRunConfig, RunConfig],
-    r: Optional[Dict[str, torch.Tensor]] = None,
+    r: Dict[str, torch.Tensor],
     mu: float = 0.0,
 ) -> Path:
     logger = logging.getLogger()
@@ -112,7 +112,7 @@ def train(
     scheduler = MultiStepLR(optimizer, milestones=rc.lr_milestones, gamma=0.1)
 
     # Initialize hypersphere center c
-    if r is not None:
+    if len(r):
         keys = list(r.keys())
     else:
         logger.info("Evaluating hypersphere centers...")

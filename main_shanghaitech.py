@@ -283,7 +283,7 @@ def main(
         net.load_state_dict(net_dict)
 
         # TRAIN
-        net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc)
+        net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc, dict())
 
     #
     #
@@ -308,7 +308,7 @@ def main(
         )
         # End to end TRAIN
         wandb.watch(ae_net)
-        net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc)
+        net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc, dict())
     #
     #
 
