@@ -1,5 +1,4 @@
 import logging
-import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import List
@@ -252,8 +251,7 @@ def main(
     if train and not end_to_end_training:
         if net_checkpoint is None:
             if model_ckp is None:
-                logging.info("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
-                sys.exit(0)
+                raise ValueError("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
             net_checkpoint = model_ckp
 
         aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
