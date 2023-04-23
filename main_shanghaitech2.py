@@ -1,7 +1,8 @@
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict
+from typing import Optional
 from typing import Tuple
 
 import click
@@ -10,7 +11,8 @@ from flwr.common import Config
 
 import wandb
 from client import get_out_dir
-from datasets import ShanghaiTechDataHolder, VideoAnomalyDetectionResultHelper
+from datasets import ShanghaiTechDataHolder
+from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
@@ -28,7 +30,7 @@ class MoccaClient:
         self.rc = rc
         self.R: Dict[str, torch.Tensor] = dict()
 
-    def fit(self):
+    def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
         )
@@ -47,7 +49,7 @@ class MoccaClient:
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
 
-    def evaluate(self):
+    def evaluate(self) -> None:
         dataset = self.data_holder.get_test_data()
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
@@ -62,7 +64,6 @@ class MoccaClient:
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
         wandb.log(dict(test=global_metrics_dict))
-        return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 
 @click.command("cli", context_settings=dict(show_default=True))
@@ -126,7 +127,7 @@ def main(
     wandb_group: Optional[str],
     wandb_name: Optional[str],
 ) -> None:
-    idx_list_enc_ilist: Tuple[int] = tuple(int(a) for a in idx_list_enc.split(","))
+    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
     set_seeds(seed)
 
