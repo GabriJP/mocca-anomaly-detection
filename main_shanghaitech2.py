@@ -1,17 +1,68 @@
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 from typing import Tuple
 
 import click
+import torch
+from flwr.common import Config
 
 import wandb
-from client import MoccaClient
+from client import get_out_dir
+from datasets import ShanghaiTechDataHolder, VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
 from models.shanghaitech_model import ShanghaiTech
+from trainers import train
 from utils import RunConfig
 from utils import set_seeds
+
+device = "cuda"
+
+
+class MoccaClient:
+    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
+        super().__init__()
+        self.net = net.to(device)
+        self.data_holder = data_holder
+        self.rc = rc
+        self.R: Dict[str, torch.Tensor] = dict()
+
+    def fit(self):
+        train_loader, _ = self.data_holder.get_loaders(
+            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
+        )
+        out_dir, tmp = get_out_dir(self.rc)
+        net_checkpoint = train(
+            self.net,
+            train_loader,
+            out_dir,
+            device,
+            None,
+            self.rc,
+            self.R,
+            0.0,
+        )
+
+        torch_dict = torch.load(net_checkpoint)
+        self.R = torch_dict["R"]
+
+    def evaluate(self):
+        dataset = self.data_holder.get_test_data()
+        helper = VideoAnomalyDetectionResultHelper(
+            dataset=dataset,
+            model=self.net,
+            R=self.R,
+            boundary=self.rc.boundary,
+            device=device,
+            end_to_end_training=True,
+            debug=False,
+            output_file=None,
+        )
+        global_oc, global_metrics = helper.test_video_anomaly_detection()
+        global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        wandb.log(dict(test=global_metrics_dict))
+        return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 
 @click.command("cli", context_settings=dict(show_default=True))
@@ -114,11 +165,14 @@ def main(
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
 
+    rc.epochs = 1
+    rc.warm_up_n_epochs = 0
+
     mc = MoccaClient(net, data_holder, rc)
 
     for i in range(epochs):
-        mc.fit(mc.get_parameters(dict()), dict(epochs=1, warm_up_n_epochs=0, batch_size=batch_size))
-        mc.evaluate(mc.get_parameters(dict()), dict())
+        mc.fit()
+        mc.evaluate()
 
 
 if __name__ == "__main__":
