@@ -16,12 +16,6 @@ from utils import set_seeds
 
 @click.command("cli", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
-@click.option(
-    "--n_workers",
-    type=int,
-    default=8,
-    help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
-)
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 # Model config
