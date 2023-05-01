@@ -131,7 +131,7 @@ class EarlyStoppingDM:
         pend = current_mean - self.prev_mean
 
         self.es = self.es or current_std > pend
-        wandb.log(dict(train=dict(current_mean=current_mean, current_std=current_std, pend=pend)), commit=False)
+        wandb.log(dict(es=dict(mean=current_mean, std=current_std, pend=pend)), commit=False)
         self.step += 1
         self.prev_mean = current_mean
 
