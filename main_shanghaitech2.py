@@ -15,6 +15,7 @@ from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
+from utils import EarlyStoppingDM
 from utils import RunConfig
 from utils import set_seeds
 
@@ -22,11 +23,18 @@ device = "cuda"
 
 
 class MoccaClient:
-    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
+    def __init__(
+        self,
+        net: ShanghaiTech,
+        data_holder: ShanghaiTechDataHolder,
+        rc: RunConfig,
+        es: Optional[EarlyStoppingDM] = None,
+    ) -> None:
         super().__init__()
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
+        self.es = es
         self.R: Dict[str, torch.Tensor] = dict()
 
     def fit(self) -> None:
@@ -34,7 +42,7 @@ class MoccaClient:
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
         )
         out_dir, tmp = get_out_dir(self.rc)
-        net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0)
+        net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0, self.es)
 
         torch_dict = torch.load(net_checkpoint)
         self.R = torch_dict["R"]
@@ -157,11 +165,15 @@ def main(
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
-    mc = MoccaClient(net, data_holder, rc)
+    es = EarlyStoppingDM(initial_patience=100, rolling_factor=5)
+
+    mc = MoccaClient(net, data_holder, rc, es)
 
     for i in range(epochs):
         mc.fit()
         mc.evaluate()
+        if es.es:
+            break
 
 
 if __name__ == "__main__":

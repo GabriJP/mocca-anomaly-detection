@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 import wandb
 from models.shanghaitech_model import ShanghaiTechEncoder
+from utils import EarlyStoppingDM
 from utils import FullRunConfig
 from utils import RunConfig
 
@@ -95,6 +96,7 @@ def train(
     rc: Union[FullRunConfig, RunConfig],
     r: Dict[str, torch.Tensor],
     mu: float = 0.0,
+    es: Optional[EarlyStoppingDM] = None,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -160,6 +162,9 @@ def train(
             dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
             objective_loss_ = one_class_loss_ + recon_loss_
 
+            if es is not None:
+                es.log_loss(objective_loss_.item())
+
             if mu > 0:
                 proximal_term = sum(
                     (local_weights - global_weights).norm(2)
@@ -217,6 +222,9 @@ def train(
             best_loss = objective_loss
             best_model_checkpoint = out_dir / f"net_ckp_best_model_{time_}.pth"
             torch.save(dict(net_state_dict=net.state_dict(), R=r), best_model_checkpoint)
+        if es is not None and es.es:
+            logger.info("Early stopping")
+            break
 
     logger.info("Finished training.")
 

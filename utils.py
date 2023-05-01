@@ -1,9 +1,14 @@
 import logging
 import random
+import sys
 import timeit
+from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
+from statistics import mean as s_mean
+from statistics import stdev
+from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -19,6 +24,8 @@ from flwr.server.strategy import Strategy
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+import wandb
 
 
 class EarlyStopServer(Server):
@@ -103,6 +110,30 @@ class EarlyStopServer(Server):
         elapsed = end_time - start_time
         log(INFO, "FL finished in %s", elapsed)
         return history
+
+
+class EarlyStoppingDM:
+    def __init__(self, initial_patience: int = 0, rolling_factor: int = 2) -> None:
+        self.initial_patience = initial_patience
+        self.rolling_factor = rolling_factor
+        self.step = 0
+        self.prev_mean = sys.float_info.min
+        self.queue: Deque[float] = deque(maxlen=rolling_factor)
+        self.es = False
+
+    def log_loss(self, new_loss: float) -> None:
+        self.queue.append(new_loss)
+        if self.step < self.initial_patience or len(self.queue) < self.rolling_factor:
+            return
+
+        current_mean = s_mean(self.queue)
+        current_std = stdev(self.queue, xbar=current_mean)
+        pend = current_mean - self.prev_mean
+
+        self.es = self.es or current_std > pend
+        wandb.log(dict(train=dict(current_mean=current_mean, current_std=current_std, pend=pend)), commit=False)
+        self.step += 1
+        self.prev_mean = current_mean
 
 
 @dataclass
