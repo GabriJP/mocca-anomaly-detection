@@ -66,7 +66,7 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
         :param x: the input tensor.
         :return: the output tensor as result of the convolution.
         """
-        self.weight.data *= self.mask
+        self.weight.data = self.weight.data * self.mask
         return super().forward(x)
 
 
