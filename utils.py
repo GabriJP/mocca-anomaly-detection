@@ -25,8 +25,6 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import wandb
-
 
 class EarlyStopServer(Server):
     def __init__(
@@ -121,19 +119,19 @@ class EarlyStoppingDM:
         self.queue: Deque[float] = deque(maxlen=rolling_factor)
         self.es = False
 
-    def log_loss(self, new_loss: float) -> None:
+    def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.queue.append(new_loss)
         if self.step < self.initial_patience or len(self.queue) < self.rolling_factor:
-            return
+            return dict()
 
         current_mean = s_mean(self.queue)
         current_std = stdev(self.queue, xbar=current_mean)
         pend = current_mean - self.prev_mean
 
         self.es = self.es or current_std > pend
-        wandb.log(dict(es=dict(mean=current_mean, std=current_std, pend=pend)), commit=False)
         self.step += 1
         self.prev_mean = current_mean
+        return dict(mean=current_mean, std=current_std, pend=pend)
 
 
 @dataclass

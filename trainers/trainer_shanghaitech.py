@@ -132,6 +132,7 @@ def train(
     best_loss = 1e12
     epochs = 1 if rc.debug else rc.epochs
     net_checkpoint = Path()
+    es_data = dict()
     for epoch in range(epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -163,7 +164,7 @@ def train(
             objective_loss_ = one_class_loss_ + recon_loss_
 
             if es is not None:
-                es.log_loss(objective_loss_.item())
+                es_data = es.log_loss(objective_loss_.item())
 
             if mu > 0:
                 proximal_term = sum(
@@ -189,11 +190,12 @@ def train(
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
                     f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
                 )
-                data = {
-                    "recon_loss": recon_loss / n_batches,
-                    "one_class_loss": one_class_loss / n_batches,
-                    "objective_loss": objective_loss / n_batches,
-                }
+                data = dict(
+                    recon_loss=recon_loss / n_batches,
+                    one_class_loss=one_class_loss / n_batches,
+                    objective_loss=objective_loss / n_batches,
+                    **es_data,
+                )
                 for k in keys:
                     logger.info(
                         f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
