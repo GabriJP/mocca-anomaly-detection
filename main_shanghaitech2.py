@@ -169,7 +169,9 @@ def main(
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
-    es = EarlyStoppingDM(initial_patience=100, rolling_factor=5)
+    train_loader, _ = data_holder.get_loaders(batch_size=rc.batch_size, shuffle_train=True, pin_memory=True)
+
+    es = EarlyStoppingDM(initial_patience=len(train_loader) * 5, rolling_factor=5)
 
     mc = MoccaClient(net, data_holder, rc, es)
 
