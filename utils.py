@@ -122,6 +122,7 @@ class EarlyStoppingDM:
     def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.queue.append(new_loss)
         if self.step < self.initial_patience or len(self.queue) < self.rolling_factor:
+            self.step += 1
             return dict(mean=0.0, std=0.0, pend=0.0)
 
         current_mean = s_mean(self.queue)
