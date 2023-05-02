@@ -194,7 +194,6 @@ def train(
                     recon_loss=recon_loss / n_batches,
                     one_class_loss=one_class_loss / n_batches,
                     objective_loss=objective_loss / n_batches,
-                    **es_data,
                 )
                 for k in keys:
                     logger.info(
@@ -202,7 +201,7 @@ def train(
                     )
                     data[f"radius_{k}"] = r[k]
                     data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb.log(dict(train=data))
+                wandb.log(dict(train=data, es=es_data))
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:

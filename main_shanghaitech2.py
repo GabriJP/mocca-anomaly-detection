@@ -95,6 +95,7 @@ class MoccaClient:
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
+@click.option("--compile_net", is_flag=True)
 def main(
     seed: int,
     output_path: Path,
@@ -122,6 +123,7 @@ def main(
     nu: float,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
+    compile_net: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
@@ -161,6 +163,8 @@ def main(
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
+    if compile_net:
+        torch.compile(net)
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
