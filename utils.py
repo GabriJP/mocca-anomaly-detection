@@ -203,7 +203,7 @@ class RunConfig:
     debug: bool = False
     warm_up_n_epochs: int = 0
     epochs: int = 0
-    log_frequency: int = 5
+    log_frequency: int = 1
 
 
 def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
