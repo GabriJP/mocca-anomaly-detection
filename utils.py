@@ -129,7 +129,7 @@ class EarlyStoppingDM:
         current_std = stdev(self.queue, xbar=current_mean)
         pend = current_mean - self.prev_mean
 
-        self.es = self.es or current_std > pend
+        self.es = self.es or (current_std > pend and (pend + 0.5) > 0)
         self.prev_mean = current_mean
         return dict(mean=current_mean, std=current_std, pend=pend)
 
