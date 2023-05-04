@@ -1,13 +1,11 @@
 import logging
-import operator
 import random
 import timeit
 from collections import deque
 from dataclasses import dataclass
-from itertools import starmap
 from logging import INFO
 from pathlib import Path
-from statistics import mean as s_mean
+from statistics import median
 from statistics import stdev
 from typing import Deque
 from typing import Dict
@@ -118,8 +116,8 @@ class EarlyStoppingDM:
         self.step = -1
         self.losses: Deque[float] = deque(maxlen=rolling_factor)
         self.losses.append(0.0)
-        self.means: Deque[float] = deque(maxlen=rolling_factor)
-        self.means.append(0.0)
+        self.medians: Deque[float] = deque(maxlen=rolling_factor)
+        self.medians.append(0.0)
         self.stds: Deque[float] = deque(maxlen=rolling_factor)
         self.pends: Deque[float] = deque(maxlen=rolling_factor)
         self.early_stops: Deque[float] = deque(maxlen=es_patience)
@@ -128,23 +126,20 @@ class EarlyStoppingDM:
         self.step += 1
         self.losses.append(new_loss)
 
-        current_mean = s_mean(self.losses)
-        current_std = stdev(self.losses, xbar=current_mean)
-        pend = current_mean - self.means[-1]
+        current_median = median(self.losses)
+        current_std = stdev(self.losses, xbar=current_median)
+        current_pend = current_median - self.medians[-1]
 
-        self.means.append(current_mean)
+        self.medians.append(current_median)
         self.stds.append(current_std)
-        self.pends.append(pend)
-        self.early_stops.append(all(starmap(operator.gt, zip(self.stds, self.pends))))
+        self.pends.append(current_pend)
+        self.early_stops.append(current_std > current_pend)
 
-        return dict(mean=current_mean, std=current_std, pend=pend)
+        return dict(mean=current_median, std=current_std, pend=current_pend)
 
     @property
     def early_stop(self) -> bool:
-        if self.step < max(self.initial_patience, self.rolling_factor):
-            return False
-
-        return all(self.early_stops)
+        return self.step > max(self.initial_patience, self.rolling_factor) and all(self.early_stops)
 
 
 @dataclass
