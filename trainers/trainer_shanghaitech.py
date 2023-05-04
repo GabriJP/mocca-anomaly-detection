@@ -223,7 +223,7 @@ def train(
             best_loss = objective_loss
             best_model_checkpoint = out_dir / f"net_ckp_best_model_{time_}.pth"
             torch.save(dict(net_state_dict=net.state_dict(), R=r), best_model_checkpoint)
-        if es is not None and es.es:
+        if es is not None and es.early_stop:
             logger.info("Early stopping")
             break
 

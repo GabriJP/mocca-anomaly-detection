@@ -165,7 +165,7 @@ def main(
     wandb.watch(net)
     if compile_net:
         torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)
+        net = torch.compile(net)  # type: ignore
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
@@ -178,7 +178,7 @@ def main(
     for i in range(epochs):
         mc.fit()
         mc.evaluate()
-        if es.es:
+        if es.early_stop:
             break
 
 

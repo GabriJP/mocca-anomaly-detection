@@ -1,9 +1,10 @@
 import logging
+import operator
 import random
-import sys
 import timeit
 from collections import deque
 from dataclasses import dataclass
+from itertools import starmap
 from logging import INFO
 from pathlib import Path
 from statistics import mean as s_mean
@@ -111,27 +112,38 @@ class EarlyStopServer(Server):
 
 
 class EarlyStoppingDM:
-    def __init__(self, initial_patience: int = 0, rolling_factor: int = 2) -> None:
+    def __init__(self, initial_patience: int = 0, rolling_factor: int = 2, es_patience: int = 10) -> None:
         self.initial_patience = initial_patience
         self.rolling_factor = rolling_factor
         self.step = -1
-        self.prev_mean = sys.float_info.min
-        self.queue: Deque[float] = deque(maxlen=rolling_factor)
-        self.es = False
+        self.losses: Deque[float] = deque(maxlen=rolling_factor)
+        self.means: Deque[float] = deque(maxlen=rolling_factor)
+        self.means.append(float("-infinity"))
+        self.stds: Deque[float] = deque(maxlen=rolling_factor)
+        self.pends: Deque[float] = deque(maxlen=rolling_factor)
+        self.early_stops: Deque[float] = deque(maxlen=es_patience)
 
     def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.step += 1
-        self.queue.append(new_loss)
-        if self.step < self.initial_patience or len(self.queue) < self.rolling_factor:
-            return dict(mean=0.0, std=0.0, pend=0.0)
+        self.losses.append(new_loss)
 
-        current_mean = s_mean(self.queue)
-        current_std = stdev(self.queue, xbar=current_mean)
-        pend = current_mean - self.prev_mean
+        current_mean = s_mean(self.losses)
+        current_std = stdev(self.losses, xbar=current_mean)
+        pend = current_mean - self.means[-1]
 
-        self.es = self.es or (current_std > pend > -0.5)
-        self.prev_mean = current_mean
+        self.means.append(current_mean)
+        self.stds.append(current_std)
+        self.pends.append(pend)
+        self.early_stops.append(all(starmap(operator.gt, zip(self.stds, self.pends))))
+
         return dict(mean=current_mean, std=current_std, pend=pend)
+
+    @property
+    def early_stop(self) -> bool:
+        if self.step < max(self.initial_patience, self.rolling_factor):
+            return False
+
+        return all(self.early_stops)
 
 
 @dataclass
