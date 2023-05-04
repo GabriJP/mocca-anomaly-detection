@@ -183,8 +183,9 @@ def train(
             recon_loss += recon_loss_.item()
             objective_loss += objective_loss_.item()
 
-            if idx % (len(train_loader) // rc.log_frequency) == 0:
-                logger.info(
+            # if idx % (len(train_loader) // rc.log_frequency) == 0:
+            if True:
+                logger.debug(
                     f"TRAIN at epoch: {epoch} [{idx}]/[{len(train_loader)}] ==> "
                     f"\n\t\t\t\tReconstr Loss : {recon_loss / n_batches:.4f}"
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"

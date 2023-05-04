@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Dict
@@ -96,6 +97,9 @@ class MoccaClient:
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
+@click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=5, help="Early stopping initial patience")
+@click.option("--rolling_factor", type=click.IntRange(2), default=5, help="Early stopping rolling window size")
+@click.option("--es_patience", type=click.IntRange(1), default=10, help="Early stopping patience")
 def main(
     seed: int,
     output_path: Path,
@@ -124,6 +128,9 @@ def main(
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     compile_net: bool,
+    es_initial_patience_epochs: int,
+    rolling_factor: int,
+    es_patience: int,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
@@ -171,15 +178,24 @@ def main(
 
     train_loader, _ = data_holder.get_loaders(batch_size=rc.batch_size, shuffle_train=True, pin_memory=True)
 
-    es = EarlyStoppingDM(initial_patience=len(train_loader) * 5, rolling_factor=5)
+    es = EarlyStoppingDM(
+        initial_patience=len(train_loader) * es_initial_patience_epochs,
+        rolling_factor=rolling_factor,
+        es_patience=es_patience,
+    )
 
     mc = MoccaClient(net, data_holder, rc, es)
 
+    initial_time = time.perf_counter()
+
+    i = 0
     for i in range(epochs):
         mc.fit()
         mc.evaluate()
         if es.early_stop:
             break
+
+    logging.info(f"Fitted in {i} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
 
 
 if __name__ == "__main__":

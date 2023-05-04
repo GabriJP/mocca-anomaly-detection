@@ -112,7 +112,7 @@ class EarlyStopServer(Server):
 
 
 class EarlyStoppingDM:
-    def __init__(self, initial_patience: int = 0, rolling_factor: int = 2, es_patience: int = 10) -> None:
+    def __init__(self, initial_patience: int, rolling_factor: int, es_patience: int) -> None:
         self.initial_patience = initial_patience
         self.rolling_factor = rolling_factor
         self.step = -1
