@@ -117,10 +117,10 @@ class EarlyStoppingDM:
         self.rolling_factor = rolling_factor
         self.step = -1
         self.losses: Deque[float] = deque(maxlen=rolling_factor)
+        self.losses.append(0.0)
         self.means: Deque[float] = deque(maxlen=rolling_factor)
-        self.means.append(float("-infinity"))
+        self.means.append(0.0)
         self.stds: Deque[float] = deque(maxlen=rolling_factor)
-        self.stds.append(0.0)
         self.pends: Deque[float] = deque(maxlen=rolling_factor)
         self.early_stops: Deque[float] = deque(maxlen=es_patience)
 
