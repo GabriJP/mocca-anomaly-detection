@@ -118,9 +118,8 @@ class EarlyStoppingDM:
         self.losses.append(0.0)
         self.medians: Deque[float] = deque(maxlen=rolling_factor)
         self.medians.append(0.0)
-        self.stds: Deque[float] = deque(maxlen=rolling_factor)
-        self.pends: Deque[float] = deque(maxlen=rolling_factor)
-        self.early_stops: Deque[float] = deque(maxlen=es_patience)
+        self.early_stops: Deque[float] = deque([False] * es_patience, maxlen=es_patience)
+        self.es = False
 
     def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.step += 1
@@ -128,18 +127,22 @@ class EarlyStoppingDM:
 
         current_median = median(self.losses)
         current_std = stdev(self.losses, xbar=current_median)
-        current_pend = current_median - self.medians[-1]
+        current_pend = self.medians[-1] - current_median
 
         self.medians.append(current_median)
-        self.stds.append(current_std)
-        self.pends.append(current_pend)
         self.early_stops.append(current_std > current_pend)
+
+        self.early_stop = all(self.early_stops)
 
         return dict(mean=current_median, std=current_std, pend=current_pend)
 
     @property
     def early_stop(self) -> bool:
-        return self.step > max(self.initial_patience, self.rolling_factor) and all(self.early_stops)
+        return self.es
+
+    @early_stop.setter
+    def early_stop(self, es: bool) -> None:
+        self.es = self.es or (self.step >= max(self.initial_patience, self.rolling_factor) and es)
 
 
 @dataclass

@@ -195,7 +195,7 @@ def main(
         if es.early_stop:
             break
 
-    logging.info(f"Fitted in {i} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
+    logging.getLogger().info(f"Fitted in {i - 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
 
 
 if __name__ == "__main__":
