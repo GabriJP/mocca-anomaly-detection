@@ -116,20 +116,19 @@ class EarlyStoppingDM:
         self.step = -1
         self.losses: Deque[float] = deque(maxlen=rolling_factor)
         self.losses.append(0.0)
-        self.medians: Deque[float] = deque(maxlen=rolling_factor)
-        self.medians.append(0.0)
+        self.prev_median = 0.0
         self.early_stops: Deque[float] = deque([False] * es_patience, maxlen=es_patience)
         self.es = False
 
     def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.step += 1
-        self.losses.append(new_loss)
+        self.losses.append(new_loss - 1.0)
 
         current_median = median(self.losses)
-        current_std = stdev(self.losses, xbar=current_median)
-        current_pend = self.medians[-1] - current_median
+        current_std = stdev(self.losses)
+        current_pend = self.prev_median - current_median
 
-        self.medians.append(current_median)
+        self.prev_median = current_median
         self.early_stops.append(current_std > current_pend)
 
         self.early_stop = all(self.early_stops)
