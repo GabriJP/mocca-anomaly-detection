@@ -97,9 +97,9 @@ class MoccaClient:
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
-@click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=5, help="Early stopping initial patience")
-@click.option("--rolling_factor", type=click.IntRange(2), default=10, help="Early stopping rolling window size")
-@click.option("--es_patience", type=click.IntRange(1), default=20, help="Early stopping patience")
+@click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
+@click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
+@click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
 def main(
     seed: int,
     output_path: Path,

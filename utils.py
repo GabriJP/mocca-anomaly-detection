@@ -5,8 +5,6 @@ from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
-from statistics import median
-from statistics import stdev
 from typing import Deque
 from typing import Dict
 from typing import List
@@ -116,24 +114,25 @@ class EarlyStoppingDM:
         self.step = -1
         self.losses: Deque[float] = deque(maxlen=rolling_factor)
         self.losses.append(0.0)
-        self.prev_median = 0.0
+        self.prev_mean = 0.0
         self.early_stops: Deque[float] = deque([False] * es_patience, maxlen=es_patience)
         self.es = False
 
     def log_loss(self, new_loss: float) -> Dict[str, float]:
         self.step += 1
-        self.losses.append(new_loss - 1.0)
+        self.losses.append(new_loss)
 
-        current_median = median(self.losses)
-        current_std = stdev(self.losses)
-        current_pend = self.prev_median - current_median
+        losses = np.array(self.losses, dtype=np.float64)
+        current_mean = float(np.mean(np.sort(losses)[2:-2]))
+        current_std = float(np.std(losses, ddof=1))
+        current_pend = self.prev_mean - current_mean
 
-        self.prev_median = current_median
+        self.prev_mean = current_mean
         self.early_stops.append(current_std > current_pend)
 
         self.early_stop = all(self.early_stops)
 
-        return dict(mean=current_median, std=current_std, pend=current_pend)
+        return dict(mean=current_mean, std=current_std, pend=current_pend)
 
     @property
     def early_stop(self) -> bool:
