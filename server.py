@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Callable
+from typing import Optional
 
 import click
 import flwr as fl
@@ -23,26 +24,31 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int, batch_size: int) ->
 @click.option("--warm_up_n_epochs", type=click.IntRange(1), default=1)
 @click.option("--batch_size", type=click.IntRange(1), default=5)
 @click.option("--proximal_mu", type=click.FloatRange(0, 1), default=1.0)
-@click.option("--patience", type=click.IntRange(0), default=0)
-@click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=0.0)
+@click.option("--patience", type=click.IntRange(0), default=None)
+@click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=None)
 def cli(
     num_rounds: int,
     epochs: int,
     warm_up_n_epochs: int,
     batch_size: int,
     proximal_mu: float,
-    patience: int,
-    min_delta_pct: float,
+    patience: Optional[int],
+    min_delta_pct: Optional[float],
 ) -> None:
     strategy = FedProx(
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs, batch_size), proximal_mu=proximal_mu
     )
+    server = (
+        None
+        if patience is None or min_delta_pct is None
+        else EarlyStopServer(
+            client_manager=SimpleClientManager(), strategy=strategy, patience=patience, min_delta_pct=min_delta_pct
+        )
+    )
     certificates_path = Path.home() / "certs"
     fl.server.start_server(
         server_address="0.0.0.0:8080",
-        server=EarlyStopServer(
-            client_manager=SimpleClientManager(), strategy=strategy, patience=patience, min_delta_pct=min_delta_pct
-        ),
+        server=server,
         config=fl.server.ServerConfig(num_rounds=num_rounds),
         strategy=strategy,
         grpc_max_message_length=1024**3,
