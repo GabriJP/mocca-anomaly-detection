@@ -21,7 +21,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int, batch_size: int) ->
 @click.command()
 @click.option("--num_rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
-@click.option("--warm_up_n_epochs", type=click.IntRange(1), default=1)
+@click.option("--warm_up_n_epochs", type=click.IntRange(0), default=0)
 @click.option("--batch_size", type=click.IntRange(1), default=5)
 @click.option("--proximal_mu", type=click.FloatRange(0, 1), default=1.0)
 @click.option("--patience", type=click.IntRange(0), default=None)
