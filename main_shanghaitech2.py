@@ -19,6 +19,7 @@ from trainers import train
 from utils import EarlyStoppingDM
 from utils import RunConfig
 from utils import set_seeds
+from utils import wandb_logger
 
 device = "cuda"
 
@@ -60,7 +61,7 @@ class MoccaClient:
             output_file=None,
         )
         _, global_metrics = helper.test_video_anomaly_detection()
-        wandb.log(dict(test=dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))))
+        wandb_logger.log_test(dict(test=dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))))
 
 
 @click.command("cli", context_settings=dict(show_default=True))

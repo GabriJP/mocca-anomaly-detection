@@ -21,6 +21,7 @@ from trainers import get_keys
 from trainers import train
 from utils import RunConfig
 from utils import set_seeds
+from utils import wandb_logger
 
 device = "cuda"
 
@@ -108,7 +109,7 @@ class MoccaClient(fl.client.NumPyClient):
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-        wandb.log(dict(test=global_metrics_dict))
+        wandb_logger.log_test(global_metrics_dict)
         return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 

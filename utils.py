@@ -5,11 +5,13 @@ from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
+from typing import Any
 from typing import Deque
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import numpy as np
 import torch
@@ -21,6 +23,29 @@ from flwr.server.strategy import Strategy
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+import wandb
+
+WANDB_DATA = Dict[str, Union[float, int, bool]]
+
+
+class WandbLogger:
+    def __init__(self) -> None:
+        self.data: Dict[str, WANDB_DATA] = dict()
+
+    def log_train(self, data: WANDB_DATA, *, key: str = "train") -> None:
+        if key in self.data:
+            wandb.log(self.data)
+            self.data.clear()
+        self.data[key] = data
+
+    def log_test(self, data: Dict[str, Any], *, key: str = "test") -> None:
+        self.data[key] = data
+        wandb.log(self.data)
+        self.data.clear()
+
+
+wandb_logger = WandbLogger()
 
 
 class EarlyStopServer(Server):

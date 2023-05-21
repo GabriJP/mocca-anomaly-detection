@@ -18,11 +18,11 @@ from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import wandb
 from models.shanghaitech_model import ShanghaiTechEncoder
 from utils import EarlyStoppingDM
 from utils import FullRunConfig
 from utils import RunConfig
+from utils import wandb_logger
 
 
 def get_optimizer(ae_net: nn.Module, rc: Union[FullRunConfig, RunConfig]) -> torch.optim.Optimizer:
@@ -72,7 +72,7 @@ def pretrain(
                     f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
                     f"Recon Loss: {recon_loss / idx:.4f}"
                 )
-                wandb.log({"pretrain": {"recon_loss": recon_loss / idx}})
+                wandb_logger.log_train(dict(recon_loss=recon_loss / idx), key="pretrain")
 
         scheduler.step()
         if epoch in rc.ae_lr_milestones:
@@ -202,7 +202,8 @@ def train(
                     )
                     data[f"radius_{k}"] = r[k]
                     data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb.log(dict(train=data, es=es_data))
+                wandb_logger.log_train(data)
+                wandb_logger.log_train(es_data, key="es")
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:
