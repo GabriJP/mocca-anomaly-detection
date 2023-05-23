@@ -32,17 +32,21 @@ WANDB_DATA = Dict[str, Union[float, int, bool]]
 class WandbLogger:
     def __init__(self) -> None:
         self.data: Dict[str, WANDB_DATA] = dict()
+        self.step = 0
+
+    def _log(self) -> None:
+        wandb.log(self.data, step=self.step, commit=True)
+        self.step += 1
+        self.data.clear()
 
     def log_train(self, data: WANDB_DATA, *, key: str = "train") -> None:
         if key in self.data:
-            wandb.log(self.data)
-            self.data.clear()
+            self._log()
         self.data[key] = data
 
     def log_test(self, data: Dict[str, Any], *, key: str = "test") -> None:
-        self.data[key] = data
-        wandb.log(self.data)
-        self.data.clear()
+        self.log_train(data, key=key)
+        self._log()
 
 
 wandb_logger = WandbLogger()

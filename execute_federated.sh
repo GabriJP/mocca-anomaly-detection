@@ -14,7 +14,7 @@ ssh platano "cd mocca-anomaly-detection && git pull"
 ssh almogrote "cd mocca-anomaly-detection && git pull"
 
 # shellcheck disable=SC2029
-ssh xavier "nohup ./execute.sh --num_rounds 300 --epochs 2 --warm_up_n_epochs=0 --batch_size 8 --proximal_mu 1 >${gid}.log 2>&1 </dev/null &"
+ssh xavier "nohup ./execute.sh --num_rounds 50 --epochs 2 --warm_up_n_epochs=0 --batch_size 8 --proximal_mu 1 >${gid}.log 2>&1 </dev/null &"
 sleep 10
 # shellcheck disable=SC2029
 ssh platano "nohup ${client_command} --data-path data/UCSDped2 --wandb_name=platano >${gid}.log 2>&1 </dev/null &"
