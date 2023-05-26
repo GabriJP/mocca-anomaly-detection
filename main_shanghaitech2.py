@@ -61,7 +61,7 @@ class MoccaClient:
             output_file=None,
         )
         _, global_metrics = helper.test_video_anomaly_detection()
-        wandb_logger.log_test(dict(test=dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))))
+        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
 
 
 @click.command("cli", context_settings=dict(show_default=True))
