@@ -23,7 +23,7 @@ export PATH="\${HOME}/miniconda3/condabin:$PATH"
 eval "\$(conda shell.bash hook)"
 export FLWR_TELEMETRY_ENABLED=0
 conda activate mocca
-nohup sh -c '${client_command} -dp data/UCSDped12 --wandb_name ped12_earlytest_seed --batch-size 8 >ped12_earlytest_seed.out 2>&1 </dev/null ; ${client_command} -dp data/UCSDped2 --wandb_name ped2_earlytest_seed --batch-size 8 >ped2_earlytest_seed.out 2>&1 </dev/null' >/dev/null 2>&1 </dev/null &
+nohup sh -c '${client_command} -dp data/UCSDped12 --wandb_name ped12_earlytest_seed --batch-size 4 >ped12_earlytest_seed.out 2>&1 </dev/null ; ${client_command} -dp data/UCSDped2 --wandb_name ped2_earlytest_seed --batch-size 8 >ped2_earlytest_seed.out 2>&1 </dev/null' >/dev/null 2>&1 </dev/null &
 EOC
 
 # shellcheck disable=SC2087
