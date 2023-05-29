@@ -3,12 +3,11 @@
 GID=${1:-"fed_exp"}
 COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --wandb_group ${GID}"
 
-cd "mocca-anomaly-detection" || exit
+cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
 
 exec_client() {
-  CMDS=$(
-cat <<CMD
+  CMDS=$(cat <<CMD
 cd "\${HOME}/mocca-anomaly-detection" || exit
 rm -r output/* nohup.out 2>/dev/null
 git pull
