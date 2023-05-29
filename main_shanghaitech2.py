@@ -10,10 +10,10 @@ import click
 import torch
 
 import wandb
-from client import get_out_dir
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
+from fed import get_out_dir
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
