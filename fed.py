@@ -197,13 +197,14 @@ def client(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
-    wandb.watch(net)
+    mc = MoccaClient(net, data_holder, rc)
     fl.client.start_numpy_client(
         server_address=server_address,
-        client=MoccaClient(net, data_holder, rc),
+        client=mc,
         grpc_max_message_length=1024**3,  # 1 GB
         root_certificates=Path("ca.crt").read_bytes(),
     )
+    wandb_logger.log_artifact("final_model", "model", dict(net_state_dict=net.state_dict(), R=mc.R))
 
 
 def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], Config]:
