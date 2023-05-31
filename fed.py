@@ -77,7 +77,6 @@ class MoccaClient(fl.client.NumPyClient):
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
         self.rc.warm_up_n_epochs = int(config["warm_up_n_epochs"])
-        self.rc.batch_size = int(config["batch_size"])
         self.set_parameters(parameters)
         train_loader, _ = self.data_holder.get_loaders(
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
@@ -207,9 +206,9 @@ def client(
     )
 
 
-def create_fit_config_fn(epochs: int, warm_up_n_epochs: int, batch_size: int) -> Callable[[int], Config]:
+def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], Config]:
     def inner(_: int) -> Config:
-        return dict(epochs=epochs, warm_up_n_epochs=warm_up_n_epochs, batch_size=batch_size)
+        return dict(epochs=epochs, warm_up_n_epochs=warm_up_n_epochs)
 
     return inner
 
@@ -226,13 +225,12 @@ def server(
     num_rounds: int,
     epochs: int,
     warm_up_n_epochs: int,
-    batch_size: int,
     proximal_mu: float,
     patience: Optional[int],
     min_delta_pct: Optional[float],
 ) -> None:
     strategy = FedProx(
-        on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs, batch_size), proximal_mu=proximal_mu
+        on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs), proximal_mu=proximal_mu
     )
     fl_server = (
         None
