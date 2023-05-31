@@ -42,8 +42,6 @@ BATCH_SIZE=16
 exec_client
 
 #echo "Waiting for server to finish"
-#wait %1
-
-wait $SERVER_PID
+#wait $SERVER_PID
 
 # ffmpeg -http_persistent 0 -protocol_whitelist file,http,https,tcp,tls,crypto -i url.m3u8 -c copy video.mp4

@@ -229,9 +229,7 @@ def server(
     patience: Optional[int],
     min_delta_pct: Optional[float],
 ) -> None:
-    strategy = FedProx(
-        on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs), proximal_mu=proximal_mu
-    )
+    strategy = FedProx(on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs), proximal_mu=proximal_mu)
     fl_server = (
         None
         if patience is None or min_delta_pct is None
