@@ -5,7 +5,6 @@ from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from typing import Any
 from typing import Deque
 from typing import Dict
@@ -50,13 +49,11 @@ class WandbLogger:
         self.log_train(data, key=key)
         self._log()
 
-    def log_artifact(self, name: str, type_: str, save_dict: Dict[str, Any]) -> None:
-        if name not in self.artifacts:
-            self.artifacts[name] = wandb.Artifact(name=name, type=type_)
-        with NamedTemporaryFile() as fd:
-            torch.save(save_dict, fd)
-            self.artifacts[name].add_file(fd.name, name=name)
-            self.artifacts[name].save()
+    @staticmethod
+    def save_model(save_dict: Dict[str, Any]) -> None:
+        if wandb.run is None:
+            raise ValueError
+        torch.save(save_dict, Path(wandb.run.dir) / "model.pt")
 
 
 wandb_logger = WandbLogger()
