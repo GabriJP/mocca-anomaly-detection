@@ -23,9 +23,10 @@ EOC
 
 # shellcheck disable=SC2029
 echo "Starting server"
+eval "$(conda shell.bash hook)"
 conda activate mocca
 nohup python fed.py server --num_rounds 50 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}.log" 2>&1 </dev/null &
-SERVER_PID=$!
+#SERVER_PID=$!
 echo "Delay"
 sleep 10
 
