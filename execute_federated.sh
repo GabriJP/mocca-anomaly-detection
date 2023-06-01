@@ -25,7 +25,7 @@ EOC
 echo "Starting server"
 eval "$(conda shell.bash hook)"
 conda activate mocca
-nohup python fed.py server --num_rounds 20 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}.log" 2>&1 </dev/null &
+nohup python fed.py server --num_rounds 20 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
 sleep 10
