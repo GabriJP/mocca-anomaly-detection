@@ -17,7 +17,7 @@ export PATH="\${HOME}/miniconda3/condabin:$PATH"
 eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
 export FLWR_TELEMETRY_ENABLED=0
-nohup python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}.log 2>&1 </dev/null &
+nohup python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
 EOC
 }
 
@@ -32,18 +32,18 @@ sleep 10
 
 CLIENT_NAME="almogrote"
 BATCH_SIZE=2
-for i in 01 04 03 07 10 02 11 13
+for i in 01 04 03 07 10 02 11 13 05
 do
   DATA_PATH="data/shang$i"
-  WANDB_NAME="platano_$i"
+  WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
 done
 
 CLIENT_NAME="platano"
-for i in 05 08 12 06 09
+for i in 08 12 06 09
 do
   DATA_PATH="data/shang$i"
-  WANDB_NAME="platano_$i"
+  WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
 done
 
