@@ -50,10 +50,10 @@ class WandbLogger:
         self._log()
 
     @staticmethod
-    def save_model(save_dict: Dict[str, Any]) -> None:
+    def save_model(save_dict: Dict[str, Any], name: str = "model") -> None:
         if wandb.run is None:
             raise ValueError
-        torch.save(save_dict, Path(wandb.run.dir) / "model.pt")
+        torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
 
 
 wandb_logger = WandbLogger()
