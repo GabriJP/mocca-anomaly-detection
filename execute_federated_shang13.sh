@@ -32,7 +32,7 @@ sleep 5
 
 CLIENT_NAME="almogrote"
 BATCH_SIZE=2
-for i in 01 04 03 07 10 02 11 05
+for i in 01 04 03 07 10 05
 do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
@@ -41,7 +41,7 @@ done
 
 CLIENT_NAME="platano"
 BATCH_SIZE=1
-for i in 08 12 06 09
+for i in 08 12 06 09 11 02
 do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
