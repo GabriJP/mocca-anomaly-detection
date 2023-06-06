@@ -28,11 +28,11 @@ conda activate mocca
 nohup python fed.py server --num_rounds 20 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
-sleep 10
+sleep 5
 
 CLIENT_NAME="almogrote"
 BATCH_SIZE=2
-for i in 01 04 03 07 10 02 11 13 05
+for i in 01 04 03 07 10 02 11 05
 do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
@@ -40,6 +40,7 @@ do
 done
 
 CLIENT_NAME="platano"
+BATCH_SIZE=1
 for i in 08 12 06 09
 do
   DATA_PATH="data/shang$i"

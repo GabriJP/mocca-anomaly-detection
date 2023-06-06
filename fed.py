@@ -36,7 +36,7 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
         f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
         f"hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
     )
-    out_dir = rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name
+    out_dir = (rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name).resolve()
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
