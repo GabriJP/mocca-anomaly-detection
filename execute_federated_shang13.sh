@@ -16,7 +16,7 @@ git pull
 export PATH="\${HOME}/miniconda3/condabin:$PATH"
 eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
-export FLWR_TELEMETRY_ENABLED=0
+export FLWR_TELEMETRY_ENABLED=0; export MKL_NUM_THREADS=1; export OMP_NUM_THREADS=1
 nohup python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
 EOC
 }
