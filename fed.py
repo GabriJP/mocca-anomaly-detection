@@ -122,7 +122,7 @@ def cli() -> None:
 
 
 @cli.command(context_settings=dict(show_default=True))
-@click.argument("server_address", type=str, default="150.214.203.248:8080")
+@click.argument("server_address", type=str, default="xavier:8080")
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
 @click.option("--code-length", type=click.IntRange(1), default=1024, help="Code length")
 @click.option("--learning-rate", type=click.FloatRange(0, 1), default=1.0e-4, help="Learning rate")
