@@ -221,6 +221,8 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 @click.option("--proximal_mu", type=click.FloatRange(0, 1), default=1.0)
 @click.option("--patience", type=click.IntRange(0), default=None)
 @click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=None)
+@click.option("--min_fit_clients", type=click.IntRange(2), default=2)
+@click.option("--min_evaluate_clients", type=click.IntRange(2), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
 def server(
     num_rounds: int,
@@ -229,9 +231,13 @@ def server(
     proximal_mu: float,
     patience: Optional[int],
     min_delta_pct: Optional[float],
+    min_fit_clients: int,
+    min_evaluate_clients: int,
     min_available_clients: int,
 ) -> None:
     strategy = FedProx(
+        min_fit_clients=min_fit_clients,
+        min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
