@@ -25,8 +25,8 @@ EOC
 
 # shellcheck disable=SC2029
 echo "Starting server"
-eval "$(conda shell.bash hook)"
-conda activate mocca
+#eval "$(conda shell.bash hook)"
+#conda activate mocca
 nohup python fed.py server --num_rounds 100 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 12 --min_evaluate_clients 12 --min_available_clients 12 >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
