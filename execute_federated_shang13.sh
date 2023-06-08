@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_exp_noname"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --wandb_group ${GID}"
+COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --compile_net --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull

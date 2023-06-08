@@ -146,6 +146,7 @@ def cli() -> None:
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
+@click.option("--compile_net", is_flag=True)
 def client(
     server_address: str,
     output_path: Path,
@@ -166,6 +167,7 @@ def client(
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     seed: int,
+    compile_net: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
@@ -197,6 +199,9 @@ def client(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
+    if compile_net:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net)  # type: ignore
     mc = MoccaClient(net, data_holder, rc)
     fl.client.start_numpy_client(
         server_address=server_address,
