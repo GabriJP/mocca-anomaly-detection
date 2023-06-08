@@ -43,7 +43,7 @@ do
 done
 
 CLIENT_NAME="platano"
-for i in 06 02 09 11
+for i in 07 10 06
 do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
@@ -51,7 +51,8 @@ do
 done
 
 CLIENT_NAME="citic"
-for i in 07 10
+BATCH_SIZE=1
+for i in 02 09 11 13
 do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"

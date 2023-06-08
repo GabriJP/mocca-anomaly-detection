@@ -98,6 +98,8 @@ class MoccaClient(fl.client.NumPyClient):
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
+        if self.data_holder.root.name.endswith("13"):
+            return 0.0, 0, dict(oc_metric=0.0, recon_metric=0.0, anomaly_score=0.0)
         self.set_parameters(parameters)
         dataset = self.data_holder.get_test_data()
         helper = VideoAnomalyDetectionResultHelper(
