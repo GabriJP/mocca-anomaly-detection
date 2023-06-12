@@ -20,7 +20,7 @@ export FLWR_TELEMETRY_ENABLED=0
 export MKL_NUM_THREADS=1
 export OMP_NUM_THREADS=1
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
-nohup python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
+nohup nice -n $NICE_N python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
 EOC
 }
 
@@ -35,16 +35,17 @@ sleep 5
 
 CLIENT_NAME="almogrote"
 BATCH_SIZE=2
-for i in 01 05 04 08 03 12
-do
+NICE_N=0
+for i in 01 05 04 08 03; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
+  ((NICE_N))
 done
 
 CLIENT_NAME="platano"
-for i in 07 10 06
-do
+NICE_N=0
+for i in 12 07 10; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
@@ -52,8 +53,8 @@ done
 
 CLIENT_NAME="citic"
 BATCH_SIZE=1
-for i in 02 09 11 13
-do
+NICE_N=0
+for i in 06 02 09 11 13; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
@@ -61,5 +62,3 @@ done
 
 #echo "Waiting for server to finish"
 #wait $SERVER_PID
-
-# ffmpeg -http_persistent 0 -protocol_whitelist file,http,https,tcp,tls,crypto -i url.m3u8 -c copy video.mp4
