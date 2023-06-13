@@ -40,26 +40,27 @@ for i in 01 05 04 08 03; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
-  ((NICE_N--))
+  NICE_N=$((NICE_N - 1))
 done
 
 CLIENT_NAME="platano"
-NICE_N=0
-for i in 12 07 10; do
-  DATA_PATH="data/shang$i"
-  WANDB_NAME="${CLIENT_NAME}_$i"
-  exec_client
-  ((NICE_N--))
-done
-
-CLIENT_NAME="citic"
 BATCH_SIZE=1
 NICE_N=0
 for i in 06 02 09 11 13; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
-  ((NICE_N--))
+  NICE_N=$((NICE_N - 1))
+done
+
+CLIENT_NAME="citic"
+BATCH_SIZE=2
+NICE_N=0
+for i in 12 07 10; do
+  DATA_PATH="data/shang$i"
+  WANDB_NAME="${CLIENT_NAME}_$i"
+  exec_client
+  NICE_N=$((NICE_N - 1))
 done
 
 #echo "Waiting for server to finish"
