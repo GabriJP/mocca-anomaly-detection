@@ -5,6 +5,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
@@ -260,14 +261,22 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
+            view = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
             for i, x in tqdm(
                 enumerate(loader), total=len(loader), desc=f"Computing scores for {self.dataset}", leave=False
             ):
                 # x.shape = [1, 3, 16, 256, 512]
+                view[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[8] * 255).astype(
+                    np.uint8, casting="unsafe"
+                )
                 x = x.to(self.device)
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
+                    view[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[8] * 255).astype(
+                        np.uint8, casting="unsafe"
+                    )
+                    cv2.imwrite(str(Path.home() / "Escritorio" / "tmp" / f"ped2_{cl_idx:03d}_{i:03d}.png"), view)
                     recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
                 else:
                     _, d_lstm = self.model(x)
