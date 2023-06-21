@@ -151,7 +151,7 @@ class ParallelClient(MoccaClient):
             logging.info("Lock skipped")
             yield
             logging.info("Unlock skipped")
-            return 
+            return
         with open(__file__) as fd:
             try:
                 logging.info("Locking")
@@ -163,6 +163,7 @@ class ParallelClient(MoccaClient):
                 yield
             finally:
                 self.to_cpu()
+                torch.cuda.empty_cache()
                 logging.info("Unlocking")
                 self.is_locked = False
                 fcntl.flock(fd, fcntl.LOCK_UN)
