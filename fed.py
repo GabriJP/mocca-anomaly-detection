@@ -3,7 +3,6 @@ import logging
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import asdict
-from multiprocessing.synchronize import Lock as LockBase
 from pathlib import Path
 from typing import Callable
 from typing import Dict
@@ -134,7 +133,7 @@ def file_exclusive() -> Iterator[None]:
 
 
 class ParallelClient(MoccaClient):
-    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig, lock: LockBase) -> None:
+    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__(net, data_holder, rc)
         self.current_device = torch.device("cpu")
         self.to_cpu()
