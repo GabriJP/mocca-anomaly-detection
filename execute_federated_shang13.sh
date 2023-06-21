@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-GID=${1:-"fed_exp_noname"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --compile_net --wandb_group ${GID}"
+GID=${1:-"fed_shang13_autoname"}
+COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --compile_net --parallel --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -28,13 +28,17 @@ EOC
 echo "Starting server"
 #eval "$(conda shell.bash hook)"
 #conda activate mocca
+export FLWR_TELEMETRY_ENABLED=0
+export MKL_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
 nohup python fed.py server --num_rounds 100 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 13 --min_evaluate_clients 13 --min_available_clients 13 >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
 sleep 5
 
 CLIENT_NAME="almogrote"
-BATCH_SIZE=2
+BATCH_SIZE=16
 NICE_N=0
 for i in 01 05 04 08 03; do
   DATA_PATH="data/shang$i"
@@ -44,7 +48,7 @@ for i in 01 05 04 08 03; do
 done
 
 CLIENT_NAME="platano"
-BATCH_SIZE=1
+BATCH_SIZE=8
 NICE_N=0
 for i in 06 02 09 11 13; do
   DATA_PATH="data/shang$i"
@@ -54,6 +58,7 @@ for i in 06 02 09 11 13; do
 done
 
 CLIENT_NAME="citic"
+BATCH_SIZE=4
 NICE_N=0
 for i in 12 07 10; do
   DATA_PATH="data/shang$i"
