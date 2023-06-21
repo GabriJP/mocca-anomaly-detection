@@ -8,8 +8,8 @@ from typing import Tuple
 
 import click
 import torch
-
 import wandb
+
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager

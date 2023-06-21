@@ -6,8 +6,8 @@ from typing import Optional
 
 import click
 import torch
-
 import wandb
+
 from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech

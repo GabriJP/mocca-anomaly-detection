@@ -10,12 +10,12 @@ from typing import Tuple
 import click
 import flwr as fl
 import torch
+import wandb
 from flwr.common import Config
 from flwr.common import NDArrays
 from flwr.server import SimpleClientManager
 from flwr.server.strategy import FedProx
 
-import wandb
 from datasets import DataManager
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper

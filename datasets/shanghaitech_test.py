@@ -128,7 +128,7 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
         self.counts = np.zeros(shape=(nb_frames_per_clip,))
 
     def push(self, score: float) -> None:
