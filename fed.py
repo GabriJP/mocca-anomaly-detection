@@ -148,12 +148,15 @@ class ParallelClient(MoccaClient):
     def execution_exclusive_context(self, *, to_target_device: bool = False) -> Iterator[None]:
         with open(__file__) as fd:
             try:
+                logging.info("Locking")
                 fcntl.flock(fd, fcntl.LOCK_EX)
+                logging.info("Locked")
                 if to_target_device:
                     self.to_target_device()
                 yield
             finally:
                 self.to_cpu()
+                logging.info("Unlocking")
                 fcntl.flock(fd, fcntl.LOCK_UN)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
