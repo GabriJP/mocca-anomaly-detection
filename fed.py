@@ -127,6 +127,7 @@ class ParallelClient(MoccaClient):
         super().__init__(net, data_holder, rc)
         self.current_device = torch.device("cpu")
         self.to_cpu()
+        self.is_locked = False
 
     def to_device(self, device: torch.device) -> None:
         self.net.to(device)
@@ -146,10 +147,16 @@ class ParallelClient(MoccaClient):
 
     @contextmanager
     def execution_exclusive_context(self, *, to_target_device: bool = False) -> Iterator[None]:
+        if self.is_locked:
+            logging.info("Lock skipped")
+            yield
+            logging.info("Unlock skipped")
+            return 
         with open(__file__) as fd:
             try:
                 logging.info("Locking")
                 fcntl.flock(fd, fcntl.LOCK_EX)
+                self.is_locked = True
                 logging.info("Locked")
                 if to_target_device:
                     self.to_target_device()
@@ -157,6 +164,7 @@ class ParallelClient(MoccaClient):
             finally:
                 self.to_cpu()
                 logging.info("Unlocking")
+                self.is_locked = False
                 fcntl.flock(fd, fcntl.LOCK_UN)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
