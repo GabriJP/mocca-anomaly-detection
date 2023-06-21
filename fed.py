@@ -122,16 +122,6 @@ class MoccaClient(fl.client.NumPyClient):
         return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 
-@contextmanager
-def file_exclusive() -> Iterator[None]:
-    with open(__file__) as fd:
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            yield
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-
-
 class ParallelClient(MoccaClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__(net, data_holder, rc)
@@ -150,23 +140,28 @@ class ParallelClient(MoccaClient):
         self.to_device(torch.device(wanted_device))
 
     def set_parameters(self, parameters: NDArrays) -> None:
-        super().set_parameters(parameters)
-        self.to_device(self.current_device)
+        with self.execution_exclusive_context():
+            super().set_parameters(parameters)
+            self.to_device(self.current_device)
 
     @contextmanager
-    def device_context(self) -> Iterator[None]:
-        try:
-            self.to_target_device()
-            yield
-        finally:
-            self.to_cpu()
+    def execution_exclusive_context(self, *, to_target_device: bool = False) -> Iterator[None]:
+        with open(__file__) as fd:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                if to_target_device:
+                    self.to_target_device()
+                yield
+            finally:
+                self.to_cpu()
+                fcntl.flock(fd, fcntl.LOCK_UN)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
-        with file_exclusive(), self.device_context():
+        with self.execution_exclusive_context(to_target_device=True):
             return super().fit(parameters, config)
 
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
-        with file_exclusive(), self.device_context():
+        with self.execution_exclusive_context(to_target_device=True):
             return super().evaluate(parameters, config)
 
 
