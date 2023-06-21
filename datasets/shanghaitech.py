@@ -1,4 +1,5 @@
 import random
+from functools import lru_cache
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -121,6 +122,7 @@ class ShanghaiTechDataHolder:
         )
         return train_loader, test_loader
 
+    @lru_cache(maxsize=None)
     def load_train_ids(self) -> List[str]:
         """
         Loads the set of all train video ids.
@@ -129,6 +131,7 @@ class ShanghaiTechDataHolder:
         return sorted(d.name for d in self.train_dir.iterdir() if d.is_dir())
 
     @staticmethod
+    @lru_cache(maxsize=None)
     def create_clips(dir_path: Path, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
@@ -161,6 +164,10 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __len__(self) -> int:
         return len(self.clips)
 
+    @lru_cache(maxsize=None)
+    def load(self, index: int) -> npt.NDArray[np.uint8]:
+        return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
+
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         """
         Args:
@@ -169,7 +176,7 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
             triple: (image, target, index) where target is index of the target class.
             targets are all 0 target
         """
-        index_ = int(torch.randint(0, len(self.clips), size=(1,)).item())
-        sample = np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index_]])
+        # index = int(torch.randint(0, len(self.clips), size=(1,)).item())
+        sample = self.load(index)
         sample_t = self.transform(sample) if self.transform else torch.from_numpy(sample)
-        return sample_t, index_
+        return sample_t, index

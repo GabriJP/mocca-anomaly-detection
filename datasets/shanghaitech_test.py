@@ -1,3 +1,4 @@
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -38,7 +39,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_video_frames: npt.NDArray[np.uint8]
         self.cur_video_gt: npt.NDArray[np.uint8]
 
-    @property
+    @cached_property
     def test_ids(self) -> List[str]:
         """
         Loads the set of all test video ids.
@@ -46,6 +47,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
+    @lru_cache(maxsize=None)
     def load_test_sequence_frames(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads a test video in memory.
@@ -57,14 +59,14 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
+    @lru_cache(maxsize=None)
     def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
         :return: the groundtruth of the video in a np.ndarray, with shape (n_frames,).
         """
-        clip_gt = np.load(str(self.test_dir / "test_frame_mask" / f"{video_id}.npy"))
-        return clip_gt
+        return np.load(str(self.test_dir / "test_frame_mask" / f"{video_id}.npy"))
 
     def test(self, video_id: str, *_: Any) -> None:
         """
