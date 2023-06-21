@@ -123,16 +123,16 @@ class ShanghaiTechDataHolder:
         return train_loader, test_loader
 
     @lru_cache(maxsize=None)
-    def load_train_ids(self) -> List[str]:
+    def load_train_ids(self) -> Tuple[str]:
         """
         Loads the set of all train video ids.
         :return: The list of train ids.
         """
-        return sorted(d.name for d in self.train_dir.iterdir() if d.is_dir())
+        return tuple(sorted(d.name for d in self.train_dir.iterdir() if d.is_dir()))
 
     @staticmethod
     @lru_cache(maxsize=None)
-    def create_clips(dir_path: Path, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
+    def create_clips(dir_path: Path, ids: Tuple[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
