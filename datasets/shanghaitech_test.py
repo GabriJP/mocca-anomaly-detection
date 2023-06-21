@@ -1,4 +1,4 @@
-from functools import cached_property, lru_cache
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -47,7 +47,6 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    @lru_cache(maxsize=None)
     def load_test_sequence_frames(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads a test video in memory.
@@ -59,7 +58,6 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    @lru_cache(maxsize=None)
     def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.

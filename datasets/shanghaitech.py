@@ -123,7 +123,7 @@ class ShanghaiTechDataHolder:
         return train_loader, test_loader
 
     @lru_cache(maxsize=None)
-    def load_train_ids(self) -> Tuple[str]:
+    def load_train_ids(self) -> Tuple[str, ...]:
         """
         Loads the set of all train video ids.
         :return: The list of train ids.
@@ -131,8 +131,9 @@ class ShanghaiTechDataHolder:
         return tuple(sorted(d.name for d in self.train_dir.iterdir() if d.is_dir()))
 
     @staticmethod
-    @lru_cache(maxsize=None)
-    def create_clips(dir_path: Path, ids: Tuple[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
+    def create_clips(
+        dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1
+    ) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -164,7 +165,6 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __len__(self) -> int:
         return len(self.clips)
 
-    @lru_cache(maxsize=None)
     def load(self, index: int) -> npt.NDArray[np.uint8]:
         return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
 
