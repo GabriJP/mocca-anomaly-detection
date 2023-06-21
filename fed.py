@@ -1,11 +1,16 @@
+import fcntl
 import logging
 from collections import OrderedDict
+from contextlib import contextmanager
 from dataclasses import asdict
+from multiprocessing.synchronize import Lock as LockBase
 from pathlib import Path
 from typing import Callable
 from typing import Dict
+from typing import Iterator
 from typing import Optional
 from typing import Tuple
+from typing import Type
 
 import click
 import flwr as fl
@@ -27,7 +32,7 @@ from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
 
-device = "cuda"
+wanted_device = "cuda"
 
 
 def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
@@ -46,14 +51,14 @@ def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
 class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
-        self.net = net.to(device)
+        self.net = net.to(wanted_device)
         self.data_holder = data_holder
         self.rc = rc
         self.R: Dict[str, torch.Tensor] = dict()
 
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.R):
-            self.R = {k: torch.tensor(0.0, device=device) for k in get_keys(self.rc.idx_list_enc)}
+            self.R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(self.rc.idx_list_enc)}
 
         return [val.cpu().numpy() for val in self.net.state_dict().values()] + [
             val.cpu().numpy() for val in self.R.values()
@@ -72,7 +77,7 @@ class MoccaClient(fl.client.NumPyClient):
             raise ValueError("Keys, cs and rs differ in quantity")
 
         for k, rv in zip(keys, rs_list):
-            self.R[k] = torch.tensor(rv, device=device)
+            self.R[k] = torch.tensor(rv, device=wanted_device)
 
     def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
@@ -86,7 +91,7 @@ class MoccaClient(fl.client.NumPyClient):
             self.net,
             train_loader,
             out_dir,
-            device,
+            wanted_device,
             None,
             self.rc,
             self.R,
@@ -107,7 +112,7 @@ class MoccaClient(fl.client.NumPyClient):
             model=self.net,
             R=self.R,
             boundary=self.rc.boundary,
-            device=device,
+            device=wanted_device,
             end_to_end_training=True,
             debug=False,
             output_file=None,
@@ -116,6 +121,54 @@ class MoccaClient(fl.client.NumPyClient):
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
         wandb_logger.log_test(global_metrics_dict)
         return float(global_oc.mean()), len(global_oc), global_metrics_dict
+
+
+@contextmanager
+def file_exclusive() -> Iterator[None]:
+    with open(__file__) as fd:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+class ParallelClient(MoccaClient):
+    def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig, lock: LockBase) -> None:
+        super().__init__(net, data_holder, rc)
+        self.current_device = torch.device("cpu")
+        self.to_cpu()
+
+    def to_device(self, device: torch.device) -> None:
+        self.net.to(device)
+        self.R = {k: v.to(device) for k, v in self.R.items()}
+        self.current_device = device
+
+    def to_cpu(self) -> None:
+        self.to_device(torch.device("cpu"))
+
+    def to_target_device(self) -> None:
+        self.to_device(torch.device(wanted_device))
+
+    def set_parameters(self, parameters: NDArrays) -> None:
+        super().set_parameters(parameters)
+        self.to_device(self.current_device)
+
+    @contextmanager
+    def device_context(self) -> Iterator[None]:
+        try:
+            self.to_target_device()
+            yield
+        finally:
+            self.to_cpu()
+
+    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
+        with file_exclusive(), self.device_context():
+            return super().fit(parameters, config)
+
+    def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
+        with file_exclusive(), self.device_context():
+            return super().evaluate(parameters, config)
 
 
 @click.group()
@@ -149,6 +202,7 @@ def cli() -> None:
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
+@click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 def client(
     server_address: str,
     output_path: Path,
@@ -170,6 +224,7 @@ def client(
     wandb_name: Optional[str],
     seed: int,
     compile_net: bool,
+    parallel: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
@@ -204,7 +259,8 @@ def client(
     if compile_net:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net)  # type: ignore
-    mc = MoccaClient(net, data_holder, rc)
+    client_class: Type[MoccaClient] = ParallelClient if parallel else MoccaClient
+    mc = client_class(net, data_holder, rc)
     fl.client.start_numpy_client(
         server_address=server_address,
         client=mc,
