@@ -4,6 +4,8 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
+from time import sleep
+from time import perf_counter
 from typing import Callable
 from typing import Dict
 from typing import Iterator
@@ -153,9 +155,11 @@ class ParallelClient(MoccaClient):
             logging.info("Unlock skipped")
             return
         with open(__file__) as fd:
+            start = 0.0
             try:
                 logging.info("Locking")
                 fcntl.flock(fd, fcntl.LOCK_EX)
+                start = perf_counter()
                 self.is_locked = True
                 logging.info("Locked")
                 if to_target_device:
@@ -164,7 +168,8 @@ class ParallelClient(MoccaClient):
             finally:
                 self.to_cpu()
                 torch.cuda.empty_cache()
-                logging.info("Unlocking")
+                sleep(5)
+                logging.info(f"Unlocking after {perf_counter() - start:02f} seconds")
                 self.is_locked = False
                 fcntl.flock(fd, fcntl.LOCK_UN)
 
