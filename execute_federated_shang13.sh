@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_shang13_autoname"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --compile_net --parallel --wandb_group ${GID}"
+COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --seed 2 --parallel --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
