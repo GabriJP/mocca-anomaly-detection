@@ -155,7 +155,13 @@ def train(
             # Update network parameters via backpropagation: forward + backward + optimize
             if rc.end_to_end_training:
                 x_r, _, d_lstms = net(data)
-                recon_loss_ = torch.mean(torch.sum((x_r - data) ** 2, dim=tuple(range(1, x_r.dim()))))
+                # x_r[2,3,16,256,512]
+                recon_loss_ = torch.mean(
+                    torch.sum(
+                        (x_r[:, :, :, 5:-5, 5:-5] - data[:, :, :, 5:-5, 5:-5]) ** 2,
+                        dim=tuple(range(1, x_r.dim())),
+                    )
+                )
             else:
                 _, d_lstms = net(data)
                 recon_loss_ = torch.tensor([0.0], device=device)
