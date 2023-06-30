@@ -276,7 +276,16 @@ class VideoAnomalyDetectionResultHelper:
                     view[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[8] * 255).astype(
                         np.uint8, casting="unsafe"
                     )
-                    cv2.imwrite(str(Path.home() / "Escritorio" / "tmp" / f"ped2_{cl_idx:03d}_{i:03d}.png"), view)
+                    cv2.imwrite(
+                        str(
+                            Path.home()
+                            / "Escritorio"
+                            / "rec"
+                            / "dataset_weights"
+                            / f"dataset_data_{cl_idx:03d}_{i:03d}.png"
+                        ),
+                        view,
+                    )
                     recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
                 else:
                     _, d_lstm = self.model(x)
