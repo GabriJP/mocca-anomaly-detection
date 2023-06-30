@@ -228,6 +228,7 @@ class FullRunConfig:
 
 @dataclass
 class RunConfig:
+    n_workers: int
     output_path: Path
     code_length: int
     learning_rate: float

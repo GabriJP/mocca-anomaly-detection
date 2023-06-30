@@ -1,6 +1,7 @@
 import logging
 import time
 from dataclasses import asdict
+from os import cpu_count
 from pathlib import Path
 from typing import Dict
 from typing import Optional
@@ -41,7 +42,7 @@ class MoccaClient:
 
     def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
-            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
+            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
         )
         out_dir, tmp = get_out_dir(self.rc)
         net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0, self.es)
@@ -66,6 +67,12 @@ class MoccaClient:
 
 @click.command("cli", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
+@click.option(
+    "--n_workers",
+    type=click.IntRange(0),
+    default=cpu_count(),
+    help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
+)
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 # Model config
@@ -103,6 +110,7 @@ class MoccaClient:
 @click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
 def main(
     seed: int,
+    n_workers: int,
     output_path: Path,
     disable_logging: bool,
     # Model config,
@@ -148,6 +156,7 @@ def main(
     )
 
     rc = RunConfig(
+        n_workers,
         output_path,
         code_length,
         learning_rate,
@@ -177,7 +186,9 @@ def main(
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
-    train_loader, _ = data_holder.get_loaders(batch_size=rc.batch_size, shuffle_train=True, pin_memory=True)
+    train_loader, _ = data_holder.get_loaders(
+        batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
+    )
 
     es = EarlyStoppingDM(
         initial_patience=len(train_loader) * es_initial_patience_epochs,

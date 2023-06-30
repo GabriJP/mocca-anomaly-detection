@@ -41,7 +41,7 @@ class ShanghaiTechDataHolder:
         for creating a clip what should be the size of sliding window
     """
 
-    def __init__(self, root: Path, clip_length: int = 16, stride: int = 1) -> None:
+    def __init__(self, root: Path, clip_length: int = 16, stride: int = 1, seed: int = -1) -> None:
         self.root: Path = root
         self.clip_length = clip_length
         self.stride = stride
@@ -49,6 +49,7 @@ class ShanghaiTechDataHolder:
         self.train_dir = root / "training" / "nobackground_frames_resized"
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
+        self.seed = seed
 
     def get_test_data(self) -> VideoAnomalyDetectionDataset:
         """Load test dataset
@@ -99,7 +100,8 @@ class ShanghaiTechDataHolder:
 
         """
         g = torch.Generator()
-        g.manual_seed(0)
+        if self.seed != -1:
+            g.manual_seed(self.seed)
         train_loader = DataLoader(
             dataset=self.get_train_data(),
             batch_size=batch_size,
@@ -111,7 +113,8 @@ class ShanghaiTechDataHolder:
         )
 
         g = torch.Generator()
-        g.manual_seed(0)
+        if self.seed != -1:
+            g.manual_seed(self.seed)
         test_loader = DataLoader(
             dataset=self.get_test_data(),
             batch_size=batch_size,

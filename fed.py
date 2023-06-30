@@ -85,7 +85,7 @@ class MoccaClient(fl.client.NumPyClient):
         self.rc.warm_up_n_epochs = int(config["warm_up_n_epochs"])
         self.set_parameters(parameters)
         train_loader, _ = self.data_holder.get_loaders(
-            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True
+            batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
         )
         out_dir, tmp = get_out_dir(self.rc)
         net_checkpoint = train(

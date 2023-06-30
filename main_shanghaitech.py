@@ -1,5 +1,6 @@
 import logging
 from dataclasses import asdict
+from os import cpu_count
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -23,8 +24,8 @@ from utils import set_seeds
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
     "--n_workers",
-    type=int,
-    default=8,
+    type=click.IntRange(0),
+    default=cpu_count(),
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
