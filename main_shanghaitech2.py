@@ -176,7 +176,7 @@ def main(
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
 
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)

@@ -3,9 +3,10 @@ import logging
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import asdict
+from os import cpu_count
 from pathlib import Path
-from time import sleep
 from time import perf_counter
+from time import sleep
 from typing import Callable
 from typing import Dict
 from typing import Iterator
@@ -189,6 +190,12 @@ def cli() -> None:
 
 @cli.command(context_settings=dict(show_default=True))
 @click.argument("server_address", type=str, default="xavier:8080")
+@click.option(
+    "--n_workers",
+    type=click.IntRange(0),
+    default=cpu_count(),
+    help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
+)
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
 @click.option("--code-length", type=click.IntRange(1), default=1024, help="Code length")
 @click.option("--learning-rate", type=click.FloatRange(0, 1), default=1.0e-4, help="Learning rate")
@@ -215,6 +222,7 @@ def cli() -> None:
 @click.option("--compile_net", is_flag=True)
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 def client(
+    n_workers: int,
     server_address: str,
     output_path: Path,
     code_length: int,
@@ -239,6 +247,7 @@ def client(
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
+        n_workers,
         output_path,
         code_length,
         learning_rate,
@@ -264,7 +273,7 @@ def client(
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, clip_length=clip_length
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     if compile_net:

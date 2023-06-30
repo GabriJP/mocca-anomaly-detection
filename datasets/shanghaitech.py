@@ -41,7 +41,13 @@ class ShanghaiTechDataHolder:
         for creating a clip what should be the size of sliding window
     """
 
-    def __init__(self, root: Path, clip_length: int = 16, stride: int = 1, seed: int = -1) -> None:
+    def __init__(
+        self,
+        root: Path,
+        seed: int,
+        clip_length: int = 16,
+        stride: int = 1,
+    ) -> None:
         self.root: Path = root
         self.clip_length = clip_length
         self.stride = stride
