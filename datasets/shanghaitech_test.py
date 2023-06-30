@@ -1,3 +1,4 @@
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -39,7 +40,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_video_frames: npt.NDArray[np.uint8]
         self.cur_video_gt: npt.NDArray[np.uint8]
 
-    @property
+    @cached_property
     def test_ids(self) -> List[str]:
         """
         Loads the set of all test video ids.
@@ -64,8 +65,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
         :return: the groundtruth of the video in a np.ndarray, with shape (n_frames,).
         """
-        clip_gt = np.load(str(self.test_dir / "test_frame_mask" / f"{video_id}.npy"))
-        return clip_gt
+        return np.load(str(self.test_dir / "test_frame_mask" / f"{video_id}.npy"))
 
     def test(self, video_id: str, *_: Any) -> None:
         """
@@ -129,7 +129,7 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
         self.counts = np.zeros(shape=(nb_frames_per_clip,))
 
     def push(self, score: float) -> None:

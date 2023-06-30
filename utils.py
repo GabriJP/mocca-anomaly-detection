@@ -14,7 +14,9 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
+import wandb
 from flwr.common.logger import log
 from flwr.server import ClientManager
 from flwr.server import History
@@ -23,8 +25,6 @@ from flwr.server.strategy import Strategy
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-import wandb
 
 WANDB_DATA = Dict[str, Union[float, int, bool]]
 
@@ -158,7 +158,7 @@ class EarlyStoppingDM:
         self.step += 1
         self.losses.append(new_loss)
 
-        losses = np.array(self.losses, dtype=np.float64)
+        losses: npt.NDArray[np.float64] = np.array(self.losses, dtype=np.float64)
         current_mean = float(np.mean(np.sort(losses)[2:-2]))
         current_std = float(np.std(losses, ddof=1))
         current_pend = self.prev_mean - current_mean
@@ -213,7 +213,6 @@ class FullRunConfig:
     warm_up_n_epochs: int
     use_selectors: bool
     batch_accumulation: int
-    pretrain: bool
     train: bool
     test: bool
     train_best_conf: bool
@@ -228,6 +227,7 @@ class FullRunConfig:
 
 @dataclass
 class RunConfig:
+    n_workers: int
     output_path: Path
     code_length: int
     learning_rate: float

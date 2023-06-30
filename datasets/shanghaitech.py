@@ -1,4 +1,5 @@
 import random
+from functools import lru_cache
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -40,7 +41,13 @@ class ShanghaiTechDataHolder:
         for creating a clip what should be the size of sliding window
     """
 
-    def __init__(self, root: Path, clip_length: int = 16, stride: int = 1) -> None:
+    def __init__(
+        self,
+        root: Path,
+        seed: int,
+        clip_length: int = 16,
+        stride: int = 1,
+    ) -> None:
         self.root: Path = root
         self.clip_length = clip_length
         self.stride = stride
@@ -48,6 +55,7 @@ class ShanghaiTechDataHolder:
         self.train_dir = root / "training" / "nobackground_frames_resized"
         # Transform
         self.transform = transforms.Compose([ToFloatTensor3D(normalize=True)])
+        self.seed = seed
 
     def get_test_data(self) -> VideoAnomalyDetectionDataset:
         """Load test dataset
@@ -98,7 +106,8 @@ class ShanghaiTechDataHolder:
 
         """
         g = torch.Generator()
-        g.manual_seed(0)
+        if self.seed != -1:
+            g.manual_seed(self.seed)
         train_loader = DataLoader(
             dataset=self.get_train_data(),
             batch_size=batch_size,
@@ -110,7 +119,8 @@ class ShanghaiTechDataHolder:
         )
 
         g = torch.Generator()
-        g.manual_seed(0)
+        if self.seed != -1:
+            g.manual_seed(self.seed)
         test_loader = DataLoader(
             dataset=self.get_test_data(),
             batch_size=batch_size,
@@ -121,15 +131,18 @@ class ShanghaiTechDataHolder:
         )
         return train_loader, test_loader
 
-    def load_train_ids(self) -> List[str]:
+    @lru_cache(maxsize=None)
+    def load_train_ids(self) -> Tuple[str, ...]:
         """
         Loads the set of all train video ids.
         :return: The list of train ids.
         """
-        return sorted(d.name for d in self.train_dir.iterdir() if d.is_dir())
+        return tuple(sorted(d.name for d in self.train_dir.iterdir() if d.is_dir()))
 
     @staticmethod
-    def create_clips(dir_path: Path, ids: List[str], clip_length: int = 16, stride: int = 1) -> npt.NDArray[np.str_]:
+    def create_clips(
+        dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1
+    ) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -161,6 +174,9 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __len__(self) -> int:
         return len(self.clips)
 
+    def load(self, index: int) -> npt.NDArray[np.uint8]:
+        return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
+
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
         """
         Args:
@@ -169,7 +185,7 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
             triple: (image, target, index) where target is index of the target class.
             targets are all 0 target
         """
-        index_ = int(torch.randint(0, len(self.clips), size=(1,)).item())
-        sample = np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index_]])
+        # index = int(torch.randint(0, len(self.clips), size=(1,)).item())
+        sample = self.load(index)
         sample_t = self.transform(sample) if self.transform else torch.from_numpy(sample)
-        return sample_t, index_
+        return sample_t, index
