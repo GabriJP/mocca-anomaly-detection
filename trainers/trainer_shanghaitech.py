@@ -9,7 +9,6 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -23,68 +22,6 @@ from utils import EarlyStoppingDM
 from utils import FullRunConfig
 from utils import RunConfig
 from utils import wandb_logger
-
-
-def get_optimizer(ae_net: nn.Module, rc: Union[FullRunConfig, RunConfig]) -> torch.optim.Optimizer:
-    return (
-        Adam(ae_net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay)
-        if rc.optimizer == "adam"
-        else SGD(ae_net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, momentum=0.9)
-    )
-
-
-def pretrain(
-    ae_net: nn.Module,
-    train_loader: DataLoader[npt.NDArray[np.uint8]],
-    out_dir: Path,
-    device: str,
-    rc: FullRunConfig,
-) -> Path:
-    logger = logging.getLogger()
-
-    ae_net = ae_net.train().to(device)
-
-    # Set optimizer
-    optimizer = get_optimizer(ae_net, rc)
-
-    scheduler = MultiStepLR(optimizer, milestones=rc.ae_lr_milestones, gamma=0.1)
-
-    ae_epochs = 1 if rc.debug else rc.ae_epochs
-    logger.info("Start Pretraining the autoencoder...")
-    ae_net_checkpoint = Path()
-    for epoch in range(ae_epochs):
-        recon_loss = 0.0
-        for idx, (data, _) in enumerate(tqdm(train_loader), 1):
-            if rc.debug and idx == 2:
-                break
-
-            data = data.to(device)
-            optimizer.zero_grad()
-            x_r = ae_net(data)[0]
-            recon_loss_ = torch.mean(torch.sum((x_r - data) ** 2, dim=tuple(range(1, x_r.dim()))))
-            recon_loss_.backward()
-            optimizer.step()
-
-            recon_loss += recon_loss_.item()
-
-            if idx % (len(train_loader) // rc.log_frequency) == 0:
-                logger.info(
-                    f"PreTrain at epoch: {epoch + 1} [{idx}]/[{len(train_loader)}] ==> "
-                    f"Recon Loss: {recon_loss / idx:.4f}"
-                )
-                wandb_logger.log_train(dict(recon_loss=recon_loss / idx), key="pretrain")
-
-        scheduler.step()
-        if epoch in rc.ae_lr_milestones:
-            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
-
-        ae_net_checkpoint = out_dir / f"ae_ckp_epoch_{epoch}_{time.time()}.pth"
-        torch.save(dict(ae_state_dict=ae_net.state_dict()), ae_net_checkpoint)
-
-    logger.info("Finished pretraining.")
-    logger.info(f"Saved autoencoder at: {ae_net_checkpoint}")
-
-    return ae_net_checkpoint
 
 
 def train(
@@ -108,7 +45,11 @@ def train(
     net = net.to(device)
 
     # Set optimizer
-    optimizer = get_optimizer(net, rc)
+    optimizer = (
+        Adam(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay)
+        if rc.optimizer == "adam"
+        else SGD(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, momentum=0.9)
+    )
 
     # Set learning rate scheduler
     scheduler = MultiStepLR(optimizer, milestones=rc.lr_milestones, gamma=0.1)
@@ -130,10 +71,9 @@ def train(
     net.train()
 
     best_loss = 1e12
-    epochs = 1 if rc.debug else rc.epochs
     net_checkpoint = Path()
     es_data = dict()
-    for epoch in range(epochs):
+    for epoch in range(1 if rc.debug else rc.epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
         objective_loss = 0.0

@@ -9,7 +9,13 @@ class DataManager:
     """ "Init class to manage and load data"""
 
     def __init__(
-        self, dataset_name: str, data_path: Path, normal_class: int, clip_length: int = 16, only_test: bool = False
+        self,
+        dataset_name: str,
+        data_path: Path,
+        normal_class: int,
+        seed: int,
+        clip_length: int = 16,
+        only_test: bool = False,
     ):
         """Init the DataManager
 
@@ -30,6 +36,7 @@ class DataManager:
         self.dataset_name = dataset_name
         self.data_path = data_path
         self.normal_class = normal_class
+        self.seed = seed
         self.clip_length = clip_length
         self.only_test = only_test
 
@@ -51,4 +58,4 @@ class DataManager:
 
         """
 
-        return ShanghaiTechDataHolder(root=self.data_path, clip_length=self.clip_length)
+        return ShanghaiTechDataHolder(self.data_path, self.seed, clip_length=self.clip_length)

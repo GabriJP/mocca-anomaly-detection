@@ -75,7 +75,6 @@ from utils import set_seeds
 @click.option("-we", "--warm_up_n_epochs", type=int, default=5, help="Warm up epochs")
 @click.option("-use", "--use-selectors", is_flag=True, help="Use features selector")
 @click.option("-ba", "--batch-accumulation", type=int, default=-1, help="Batch accumulation")
-@click.option("-ptr", "--pretrain", is_flag=True, help="Pretrain model")
 @click.option("-tr", "--train", is_flag=True, help="Train model")
 @click.option("-tt", "--test", is_flag=True, help="Test model")
 @click.option("-tbc", "--train-best-conf", is_flag=True, help="Train best configurations")
@@ -120,7 +119,6 @@ def main(
     warm_up_n_epochs: int,
     use_selectors: bool,
     batch_accumulation: int,
-    pretrain: bool,
     train: bool,
     test: bool,
     train_best_conf: bool,
@@ -161,7 +159,6 @@ def main(
         warm_up_n_epochs,
         use_selectors,
         batch_accumulation,
-        pretrain,
         train,
         test,
         train_best_conf,
@@ -187,14 +184,13 @@ def main(
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
 
-    if not any([train, pretrain, end_to_end_training]) and model_ckp is None:
+    if not any([train, end_to_end_training]) and model_ckp is None:
         logging.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
         raise ValueError("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
 
     logging.info(
         "Start run with params:\n"
         f"\n\t\t\t\tEnd to end training : {end_to_end_training}"
-        f"\n\t\t\t\tPretrain model      : {pretrain}"
         f"\n\t\t\t\tTrain model         : {train}"
         f"\n\t\t\t\tTest model          : {test}"
         f"\n\t\t\t\tBatch size          : {batch_size}\n"
@@ -226,7 +222,7 @@ def main(
 
     # Init DataHolder class
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, only_test=test
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=test
     ).get_data_holder()
 
     # Load data
@@ -234,7 +230,7 @@ def main(
         batch_size=batch_size, shuffle_train=True, pin_memory=device == "cuda", num_workers=n_workers
     )
     # Print data infos
-    only_test = test and not train and not pretrain
+    only_test = test and not train
     logging.info("Dataset info:")
     logging.info("\n" f"\n\t\t\t\tBatch size    : {batch_size}")
     if not only_test:

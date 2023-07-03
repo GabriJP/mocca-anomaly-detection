@@ -213,7 +213,6 @@ class FullRunConfig:
     warm_up_n_epochs: int
     use_selectors: bool
     batch_accumulation: int
-    pretrain: bool
     train: bool
     test: bool
     train_best_conf: bool
