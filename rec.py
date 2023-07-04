@@ -88,9 +88,12 @@ def main(
     net = model_cls(
         data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
     )
-    st_dict = torch.load(model_ckp)
+    if disable_cuda:
+        st_dict = torch.load(model_ckp, map_location="cpu")
+    else:
+        st_dict = torch.load(model_ckp)
 
-    net.load_state_dict(st_dict["net_state_dict"])
+    net.load_state_dict(st_dict["net_state_dict"], strict=False)
     logging.info(f"Loaded model from: {model_ckp}")
     logging.info(
         f"Start test with params:"
