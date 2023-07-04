@@ -97,10 +97,7 @@ def train(
                 x_r, _, d_lstms = net(data)
                 # x_r[2,3,16,256,512]
                 recon_loss_ = torch.mean(
-                    torch.sum(
-                        (x_r[:, :, :, 5:-5, 5:-5] - data[:, :, :, 5:-5, 5:-5]) ** 2,
-                        dim=tuple(range(1, x_r.dim())),
-                    )
+                    torch.sum((x_r[..., 5:-5, 5:-5] - data[..., 5:-5, 5:-5]) ** 2, dim=tuple(range(1, x_r.dim())))
                 )
             else:
                 _, d_lstms = net(data)
