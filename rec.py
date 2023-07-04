@@ -13,7 +13,12 @@ from utils import extract_arguments_from_checkpoint
 from utils import set_seeds
 
 
-@click.command("cli", context_settings=dict(show_default=True))
+@click.group()
+def cli() -> None:
+    pass
+
+
+@cli.command("test_network", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
     "--n_workers",
@@ -40,8 +45,16 @@ from utils import set_seeds
     default="./ShanghaiTech",
     help="Dataset main path",
 )
-def main(
-    seed: int, n_workers: int, disable_cuda: bool, disable_logging: bool, debug: bool, model_ckp: Path, data_path: Path
+@click.option("--view", is_flag=True, help="Save output to desktop")
+def test_network(
+    seed: int,
+    n_workers: int,
+    disable_cuda: bool,
+    disable_logging: bool,
+    debug: bool,
+    model_ckp: Path,
+    data_path: Path,
+    view: bool,
 ) -> None:
     # Set seed
     set_seeds(seed)
@@ -124,9 +137,9 @@ def main(
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
     )
     # TEST
-    helper.test_video_anomaly_detection()
+    helper.test_video_anomaly_detection(view=view)
     logging.info("Test finished")
 
 
 if __name__ == "__main__":
-    main()
+    cli()
