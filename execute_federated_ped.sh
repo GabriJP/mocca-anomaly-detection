@@ -21,12 +21,8 @@ nohup python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WAN
 EOC
 }
 
-# shellcheck disable=SC2029
 echo "Starting server"
-#eval "$(conda shell.bash hook)"
-#conda activate mocca
-nohup python fed.py server --num_rounds 20 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
-#SERVER_PID=$!
+nohup python fed.py server --num_rounds 50 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
@@ -41,6 +37,3 @@ WANDB_NAME="platano"
 CLIENT_NAME="platano"
 BATCH_SIZE=8
 exec_client
-
-#echo "Waiting for server to finish"
-#wait $SERVER_PID
