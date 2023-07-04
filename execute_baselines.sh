@@ -2,7 +2,7 @@
 
 cd "${HOME}/PycharmProjects/mocca-anomaly-detection/" || exit
 git pull
-client_command='python main_shanghaitech2.py --load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --epochs=300 --idx-list-enc=3,4,5,6 --wandb_group baseline --es_initial_patience_epochs 1 --es_patience 10 --seed=3'
+client_command='python main_shanghaitech2.py --load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --epochs=300 --idx-list-enc=3,4,5,6 --wandb_group baseline --es_initial_patience_epochs 1 --es_patience 10 --seed=2'
 
 # shellcheck disable=SC2087
 ssh -T almogrote <<EOC
