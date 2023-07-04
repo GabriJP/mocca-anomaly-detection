@@ -250,9 +250,9 @@ class VideoAnomalyDetectionResultHelper:
 
         # Start iteration over test videos
         for cl_idx, video_id in tqdm(
-            enumerate(self.dataset.test_videos), total=len(self.dataset.test_videos), desc="Test on Video"
+            enumerate(self.dataset.test_videos, start=1), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
-            view_root_path = Path.home() / "Escritorio" / "view" / "weights_name" / "dataset_name" / f"{cl_idx:03d}"
+            view_root_path = Path.home() / "Escritorio" / "view" / "weights_name" / "dataset_name" / f"{cl_idx}"
             rmtree(view_root_path, ignore_errors=True)
             view_root_path.mkdir(parents=True)
             # Run the test
