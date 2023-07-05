@@ -3,6 +3,8 @@ from os import cpu_count
 from pathlib import Path
 
 import click
+import cv2
+import numpy as np
 import torch
 
 from datasets.data_manager import DataManager
@@ -137,8 +139,30 @@ def test_network(
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
     )
     # TEST
-    helper.test_video_anomaly_detection(view=view)
+    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))
     logging.info("Test finished")
+
+
+@cli.command("label_path")
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def label_path(data_path: Path) -> None:
+    files = sorted(p for p in data_path.iterdir() if p.suffix == ".png")
+    y_trues = np.load(str(data_path / "sample_y.npy"))
+    y_preds = np.load(str(data_path / "sample_as.npy"))
+    for file, y_true, y_pred in zip(files[14:], y_trues, y_preds):
+        img = cv2.imread(str(file))
+        img[:, 512 : 512 + 5, :] = 0
+        img[:128, 512 : 512 + 5, 2 if y_true else 1] = 255
+        img[128:, 512 : 512 + 5, 2 if y_pred > 1 else 1] = 255
+        cv2.imwrite(str(file), img)
+
+
+@cli.command("label_paths")
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.pass_context
+def label_paths(ctx: click.Context, data_path: Path) -> None:
+    for p in data_path.iterdir():
+        ctx.invoke(label_path, data_path=p)
 
 
 if __name__ == "__main__":

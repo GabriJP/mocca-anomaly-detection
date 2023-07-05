@@ -220,10 +220,13 @@ class VideoAnomalyDetectionResultHelper:
         return {k: v / len(self.keys) for k, v in scores.items()}, overall_score / len(self.keys)
 
     @torch.no_grad()
-    def test_video_anomaly_detection(self, view: bool = False) -> Tuple[npt.NDArray[np.float64], List[float]]:
+    def test_video_anomaly_detection(
+        self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
+    ) -> Tuple[npt.NDArray[np.float64], List[float]]:
         """
         Actually performs tests.
         """
+        weights_name, dataset_name = view_data
         self.model.eval().to(self.device)
 
         c, t, h, w = self.dataset.raw_shape
@@ -252,7 +255,7 @@ class VideoAnomalyDetectionResultHelper:
         for cl_idx, video_id in tqdm(
             enumerate(self.dataset.test_videos, start=1), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
-            view_root_path = Path.home() / "Escritorio" / "view" / "weights_name" / "dataset_name" / f"{cl_idx}"
+            view_root_path = Path.home() / "Escritorio" / "view" / weights_name / dataset_name / f"{cl_idx}"
             rmtree(view_root_path, ignore_errors=True)
             view_root_path.mkdir(parents=True)
             # Run the test
