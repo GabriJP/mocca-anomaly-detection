@@ -3,6 +3,8 @@ from os import cpu_count
 from pathlib import Path
 
 import click
+import cv2
+import numpy as np
 import torch
 
 from datasets.data_manager import DataManager
@@ -13,7 +15,12 @@ from utils import extract_arguments_from_checkpoint
 from utils import set_seeds
 
 
-@click.command("cli", context_settings=dict(show_default=True))
+@click.group()
+def cli() -> None:
+    pass
+
+
+@cli.command("test_network", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
     "--n_workers",
@@ -40,8 +47,16 @@ from utils import set_seeds
     default="./ShanghaiTech",
     help="Dataset main path",
 )
-def main(
-    seed: int, n_workers: int, disable_cuda: bool, disable_logging: bool, debug: bool, model_ckp: Path, data_path: Path
+@click.option("--view", is_flag=True, help="Save output to desktop")
+def test_network(
+    seed: int,
+    n_workers: int,
+    disable_cuda: bool,
+    disable_logging: bool,
+    debug: bool,
+    model_ckp: Path,
+    data_path: Path,
+    view: bool,
 ) -> None:
     # Set seed
     set_seeds(seed)
@@ -88,9 +103,12 @@ def main(
     net = model_cls(
         data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
     )
-    st_dict = torch.load(model_ckp)
+    if disable_cuda:
+        st_dict = torch.load(model_ckp, map_location="cpu")
+    else:
+        st_dict = torch.load(model_ckp)
 
-    net.load_state_dict(st_dict["net_state_dict"])
+    net.load_state_dict(st_dict["net_state_dict"], strict=False)
     logging.info(f"Loaded model from: {model_ckp}")
     logging.info(
         f"Start test with params:"
@@ -121,9 +139,31 @@ def main(
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
     )
     # TEST
-    helper.test_video_anomaly_detection()
+    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))
     logging.info("Test finished")
 
 
+@cli.command("label_path")
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def label_path(data_path: Path) -> None:
+    files = sorted(p for p in data_path.iterdir() if p.suffix == ".png")
+    y_trues = np.load(str(data_path / "sample_y.npy"))
+    y_preds = np.load(str(data_path / "sample_as.npy"))
+    for file, y_true, y_pred in zip(files[14:], y_trues, y_preds):
+        img = cv2.imread(str(file))
+        img[:, 512 : 512 + 5, :] = 0
+        img[:128, 512 : 512 + 5, 2 if y_true else 1] = 255
+        img[128:, 512 : 512 + 5, 2 if y_pred > 1 else 1] = 255
+        cv2.imwrite(str(file), img)
+
+
+@cli.command("label_paths")
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.pass_context
+def label_paths(ctx: click.Context, data_path: Path) -> None:
+    for p in data_path.iterdir():
+        ctx.invoke(label_path, data_path=p)
+
+
 if __name__ == "__main__":
-    main()
+    cli()

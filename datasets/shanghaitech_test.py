@@ -1,11 +1,13 @@
 from functools import cached_property
 from pathlib import Path
+from shutil import rmtree
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
@@ -218,10 +220,13 @@ class VideoAnomalyDetectionResultHelper:
         return {k: v / len(self.keys) for k, v in scores.items()}, overall_score / len(self.keys)
 
     @torch.no_grad()
-    def test_video_anomaly_detection(self) -> Tuple[npt.NDArray[np.float64], List[float]]:
+    def test_video_anomaly_detection(
+        self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
+    ) -> Tuple[npt.NDArray[np.float64], List[float]]:
         """
         Actually performs tests.
         """
+        weights_name, dataset_name = view_data
         self.model.eval().to(self.device)
 
         c, t, h, w = self.dataset.raw_shape
@@ -248,8 +253,11 @@ class VideoAnomalyDetectionResultHelper:
 
         # Start iteration over test videos
         for cl_idx, video_id in tqdm(
-            enumerate(self.dataset.test_videos), total=len(self.dataset.test_videos), desc="Test on Video"
+            enumerate(self.dataset.test_videos, start=1), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
+            view_root_path = Path.home() / "Escritorio" / "view" / weights_name / dataset_name / f"{cl_idx}"
+            rmtree(view_root_path, ignore_errors=True)
+            view_root_path.mkdir(parents=True)
             # Run the test
             self.dataset.test(video_id)
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
@@ -260,14 +268,24 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
+            view_img: npt.NDArray[np.uint8] = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
             for i, x in tqdm(
                 enumerate(loader), total=len(loader), desc=f"Computing scores for {self.dataset}", leave=False
             ):
                 # x.shape = [1, 3, 16, 256, 512]
+                if view:
+                    view_img[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+                        np.uint8, casting="unsafe"
+                    )
                 x = x.to(self.device)
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
+                    if view:
+                        view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+                            np.uint8, casting="unsafe"
+                        )
+                    cv2.imwrite(str(view_root_path / f"{i:03d}.png"), view_img)
                     recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
                 else:
                     _, d_lstm = self.model(x)
@@ -329,6 +347,12 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc = (sample_oc - min_oc) / ptp_oc
             sample_rc = (sample_rc - min_rc) / ptp_rc if ptp_rc > 0 else np.zeros_like(sample_rc)
             sample_as = sample_oc + sample_rc
+
+            if view:
+                np.save(str(view_root_path / "sample_oc"), sample_oc)
+                np.save(str(view_root_path / "sample_rc"), sample_rc)
+                np.save(str(view_root_path / "sample_as"), sample_as)
+                np.save(str(view_root_path / "sample_y"), sample_y)
 
             # Update global scores (used for global metrics)
             global_oc.append(sample_oc)

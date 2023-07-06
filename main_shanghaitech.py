@@ -182,7 +182,7 @@ def main(
         handlers=[logging.FileHandler("./training.log"), logging.StreamHandler()],
     )
 
-    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
+    # wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
 
     if not any([train, end_to_end_training]) and model_ckp is None:
         logging.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
@@ -353,8 +353,8 @@ def main(
         )
         st_dict = torch.load(net_checkpoint)
 
-        net.load_state_dict(st_dict["net_state_dict"])
-        wandb.watch(net)
+        net.load_state_dict(st_dict["net_state_dict"], strict=False)
+        # wandb.watch(net)
         logging.info(f"Loaded model from: {net_checkpoint}")
         logging.info(
             f"Start test with params:"
@@ -380,14 +380,14 @@ def main(
             R=st_dict["R"],
             boundary=boundary,
             device=device,
-            end_to_end_training=True if train_type == "train_end_to_end" else False,
+            end_to_end_training=train_type == "train_end_to_end",
             debug=debug,
             output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
         )
         # TEST
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-        wandb.log(dict(test=global_metrics_dict))
+        # wandb.log(dict(test=global_metrics_dict))
         print("Test finished")
     #
     #
