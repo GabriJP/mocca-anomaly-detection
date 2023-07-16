@@ -1,5 +1,7 @@
 import fcntl
 import logging
+import pickle
+import time
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -333,10 +335,10 @@ def server(
         )
     )
     certificates_path = Path.home() / "certs"
-    fl.server.start_server(
+    hist = fl.server.start_server(
         server_address="0.0.0.0:8080",
         server=fl_server,
-        config=fl.server.ServerConfig(num_rounds=num_rounds),
+        config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=86_400.0),  # Timeout==1 day
         strategy=strategy,
         grpc_max_message_length=1024**3,
         certificates=(
@@ -345,6 +347,8 @@ def server(
             (certificates_path / "server.key").read_bytes(),
         ),
     )
+    with Path(f"server_hist_{int(time.time())}.pckl").open("wb") as fd:
+        pickle.dump(hist, fd)
 
 
 if __name__ == "__main__":
