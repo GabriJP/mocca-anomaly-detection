@@ -286,7 +286,7 @@ def client(
     fl.client.start_numpy_client(
         server_address=server_address,
         client=mc,
-        grpc_max_message_length=1024**3,  # 1 GB
+        grpc_max_message_length=1024**3,  # 1 GiB
         root_certificates=Path("ca.crt").read_bytes(),
     )
     wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R), name="last_model")
@@ -338,9 +338,9 @@ def server(
     hist = fl.server.start_server(
         server_address="0.0.0.0:8080",
         server=fl_server,
-        config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=86_400.0),  # Timeout==1 day
+        config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=172_800.0),  # Timeout==2 days
         strategy=strategy,
-        grpc_max_message_length=1024**3,
+        grpc_max_message_length=1024**3,  # 1 GiB
         certificates=(
             (certificates_path / "ca.crt").read_bytes(),
             (certificates_path / "server.pem").read_bytes(),

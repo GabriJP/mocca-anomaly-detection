@@ -32,7 +32,7 @@ echo "Delay"
 sleep 5
 
 CLIENT_NAME="almogrote"
-BATCH_SIZE=16
+BATCH_SIZE=12
 NICE_N=0
 for i in 01 05 04 08 03; do
   DATA_PATH="data/shang$i"
