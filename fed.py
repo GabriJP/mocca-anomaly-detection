@@ -300,6 +300,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 
 
 @cli.command(context_settings=dict(show_default=True))
+@click.option("--port", type=click.IntRange(0, 10_000), default=8080)
 @click.option("--num_rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
 @click.option("--warm_up_n_epochs", type=click.IntRange(0), default=0)
@@ -310,6 +311,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 @click.option("--min_evaluate_clients", type=click.IntRange(2), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
 def server(
+    port: int,
     num_rounds: int,
     epochs: int,
     warm_up_n_epochs: int,
@@ -336,7 +338,7 @@ def server(
     )
     certificates_path = Path.home() / "certs"
     hist = fl.server.start_server(
-        server_address="0.0.0.0:8080",
+        server_address=f"0.0.0.0:{port}",
         server=fl_server,
         config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=172_800.0),  # Timeout==2 days
         strategy=strategy,

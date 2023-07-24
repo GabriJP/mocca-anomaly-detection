@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_shang13_autoname"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -26,7 +26,7 @@ echo "Starting server"
 #eval "$(conda shell.bash hook)"
 #conda activate mocca
 export FLWR_TELEMETRY_ENABLED=0
-nohup python fed.py server --num_rounds 100 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 13 --min_evaluate_clients 13 --min_available_clients 13 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server --port 8081 --num_rounds 100 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 13 --min_evaluate_clients 13 --min_available_clients 13 >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
 sleep 5
