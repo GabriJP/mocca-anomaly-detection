@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_shang13_autoname"}
-COMMON_OPTS="citic:8081 --load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --n_workers 4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -32,7 +32,7 @@ echo "Delay"
 sleep 5
 
 CLIENT_NAME="almogrote"
-BATCH_SIZE=12
+BATCH_SIZE=16
 NICE_N=0
 for i in 01 05 04 08 03; do
   DATA_PATH="data/shang$i"
