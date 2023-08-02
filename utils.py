@@ -13,14 +13,10 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+import flwr
 import numpy as np
 import torch
 import wandb
-from flwr.common.logger import log
-from flwr.server import ClientManager
-from flwr.server import History
-from flwr.server import Server
-from flwr.server.strategy import Strategy
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -58,12 +54,12 @@ class WandbLogger:
 wandb_logger = WandbLogger()
 
 
-class EarlyStopServer(Server):
+class EarlyStopServer(flwr.server.Server):
     def __init__(
         self,
         *,
-        client_manager: ClientManager,
-        strategy: Optional[Strategy] = None,
+        client_manager: flwr.server.ClientManager,
+        strategy: Optional[flwr.server.strategy.Strategy] = None,
         patience: int = 0,
         min_delta_pct: float = 0.0,
     ) -> None:
@@ -83,22 +79,22 @@ class EarlyStopServer(Server):
         return self.counter >= self.patience
 
     # pylint: disable=too-many-locals
-    def fit(self, num_rounds: int, timeout: Optional[float]) -> History:
+    def fit(self, num_rounds: int, timeout: Optional[float]) -> flwr.server.History:
         """Run federated averaging for a number of rounds."""
-        history = History()
+        history = flwr.server.History()
 
         # Initialize parameters
-        log(INFO, "Initializing global parameters")
+        flwr.common.logger.log(INFO, "Initializing global parameters")
         self.parameters = self._get_initial_parameters(timeout=timeout)
-        log(INFO, "Evaluating initial parameters")
+        flwr.common.logger.log(INFO, "Evaluating initial parameters")
         res = self.strategy.evaluate(0, parameters=self.parameters)
         if res is not None:
-            log(INFO, "initial parameters (loss, other metrics): %s, %s", res[0], res[1])
+            flwr.common.logger.log(INFO, "initial parameters (loss, other metrics): %s, %s", res[0], res[1])
             history.add_loss_centralized(server_round=0, loss=res[0])
             history.add_metrics_centralized(server_round=0, metrics=res[1])
 
         # Run federated learning for num_rounds
-        log(INFO, "FL starting")
+        flwr.common.logger.log(INFO, "FL starting")
         start_time = timeit.default_timer()
 
         for current_round in range(1, num_rounds + 1):
@@ -113,7 +109,7 @@ class EarlyStopServer(Server):
             res_cen = self.strategy.evaluate(current_round, parameters=self.parameters)
             if res_cen is not None:
                 loss_cen, metrics_cen = res_cen
-                log(
+                flwr.common.logger.log(
                     INFO,
                     "fit progress: (%s, %s, %s, %s)",
                     current_round,
@@ -132,13 +128,13 @@ class EarlyStopServer(Server):
                     history.add_loss_distributed(server_round=current_round, loss=loss_fed)
                     history.add_metrics_distributed(server_round=current_round, metrics=evaluate_metrics_fed)
                 if self.early_stop(loss_fed):
-                    log(INFO, "FL early stop")
+                    flwr.common.logger.log(INFO, "FL early stop")
                     break
 
         # Bookkeeping
         end_time = timeit.default_timer()
         elapsed = end_time - start_time
-        log(INFO, "FL finished in %s", elapsed)
+        flwr.common.logger.log(INFO, "FL finished in %s", elapsed)
         return history
 
 
@@ -308,6 +304,19 @@ def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str =
     out_dir.mkdir(parents=True, exist_ok=True)
 
     return out_dir, tmp
+
+
+def get_out_dir2(rc: RunConfig) -> Tuple[Path, str]:
+    tmp_name = (
+        f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
+        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
+        f"hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
+    )
+    out_dir = (rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name).resolve()
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    return out_dir, tmp_name
 
 
 def set_seeds(seed: int) -> None:

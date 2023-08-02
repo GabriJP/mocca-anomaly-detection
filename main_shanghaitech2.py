@@ -14,10 +14,10 @@ import wandb
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
-from fed import get_out_dir
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
+from utils import get_out_dir2 as get_out_dir
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger

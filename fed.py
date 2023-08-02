@@ -32,24 +32,12 @@ from models import ShanghaiTech
 from trainers import get_keys
 from trainers import train
 from utils import EarlyStopServer
+from utils import get_out_dir2 as get_out_dir
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
 
 wanted_device = "cuda"
-
-
-def get_out_dir(rc: RunConfig) -> Tuple[Path, str]:
-    tmp_name = (
-        f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
-        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
-        f"hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
-    )
-    out_dir = (rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name).resolve()
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    return out_dir, tmp_name
 
 
 class MoccaClient(fl.client.NumPyClient):
