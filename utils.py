@@ -529,12 +529,14 @@ def copy_path_skip_prefix(source: Path, dst_path: Path, prefix: str) -> None:
         if p.is_dir():
             if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
                 dst_path.mkdir(parents=True, exist_ok=True)
-                (dst_path / p.name).symlink_to(p.absolute())
+                absolute_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
+                (dst_path / p.name).symlink_to(absolute_path)
             else:
                 copy_path_skip_prefix(p, dst_path / p.name, prefix)
         elif p.is_file():
             dst_path.mkdir(parents=True, exist_ok=True)
-            (dst_path / p.name).symlink_to(p.absolute())
+            absolute_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
+            (dst_path / p.name).symlink_to(absolute_path)
         else:
             raise ValueError
 
@@ -546,7 +548,8 @@ def separated_shang(shang_path: Path) -> None:
     for path in nfs.iterdir():
         output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.symlink_to(path.absolute())
+        absolute_path = Path("../" * (len(path.relative_to(Path()).parts) + 1) / path.relative_to(Path()))
+        output_path.symlink_to(absolute_path)
 
 
 def one_out_shang(shang_path: Path) -> None:
