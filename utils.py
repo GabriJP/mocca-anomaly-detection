@@ -5,6 +5,7 @@ from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
+from shutil import rmtree
 from typing import Any
 from typing import Deque
 from typing import Dict
@@ -517,3 +518,51 @@ def init_center_c(
         c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps
 
     return c
+
+
+def copy_path_skip_prefix(source: Path, dst_path: Path, prefix: str) -> None:
+    for p in source.iterdir():
+        if p.name.startswith(prefix):
+            continue
+
+        if p.is_dir():
+            if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
+                dst_path.mkdir(parents=True, exist_ok=True)
+                (dst_path / p.name).symlink_to(p.absolute())
+            else:
+                copy_path_skip_prefix(p, dst_path / p.name, prefix)
+        elif p.is_file():
+            dst_path.mkdir(parents=True, exist_ok=True)
+            (dst_path / p.name).symlink_to(p.absolute())
+        else:
+            raise ValueError
+
+
+def separated_shang(shang_path: Path) -> None:
+    separated_path = shang_path / "separated"
+    rmtree(separated_path, ignore_errors=True)
+    nfs = shang_path / "training" / "nobackground_frames_resized"
+    for path in nfs.iterdir():
+        output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.symlink_to(path.absolute())
+
+
+def one_out_shang(shang_path: Path) -> None:
+    one_out_path = shang_path / "one_out"
+    rmtree(one_out_path, ignore_errors=True)
+
+    # Training
+    nfs = shang_path / "training" / "nobackground_frames_resized"
+    all_shangs = {f"{i:02d}" for i in range(1, 14)}
+    for path in nfs.iterdir():
+        for current_shang in all_shangs - {path.name[:2]}:
+            output_path = (
+                one_out_path / f"shang{current_shang}" / "training" / "nobackground_frames_resized" / path.name
+            )
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.symlink_to(path.absolute())
+
+    # Training
+    for current_shang in all_shangs:
+        copy_path_skip_prefix(shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", current_shang)
