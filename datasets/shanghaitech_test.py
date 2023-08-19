@@ -9,6 +9,7 @@ from typing import Tuple
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
@@ -37,8 +38,8 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # Other utilities
         self.cur_len = 0
         self.cur_video_id: str
-        self.cur_video_frames: np.ndarray
-        self.cur_video_gt: np.ndarray
+        self.cur_video_frames: npt.NDArray[np.uint8]
+        self.cur_video_gt: npt.NDArray[np.uint8]
 
     @cached_property
     def test_ids(self) -> List[str]:
@@ -48,7 +49,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    def load_test_sequence_frames(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_frames(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads a test video in memory.
         :param video_id: the id of the test video to be loaded
@@ -59,7 +60,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    def load_test_sequence_gt(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -129,8 +130,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: np.ndarray = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts: np.ndarray = np.zeros(shape=(nb_frames_per_clip,))
+        self.buffer: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.counts = np.zeros(shape=(nb_frames_per_clip,))
 
     def push(self, score: float) -> None:
         """
@@ -221,7 +222,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[np.ndarray, List[float]]:
+    ) -> Tuple[npt.NDArray[np.float64], List[float]]:
         """
         Actually performs tests.
         """
@@ -240,9 +241,9 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[np.ndarray]] = {k: list() for k in self.keys}
+        global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: list() for k in self.keys}
         global_y = list()
-        global_y_by_layer: Dict[str, List[np.ndarray]] = {k: list() for k in self.keys}
+        global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: list() for k in self.keys}
 
         # Get accumulators
         ra_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -267,7 +268,7 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
-            view_img: np.ndarray = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
+            view_img: npt.NDArray[np.uint8] = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
             for i, x in tqdm(
                 enumerate(loader), total=len(loader), desc=f"Computing scores for {self.dataset}", leave=False
             ):
