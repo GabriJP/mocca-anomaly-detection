@@ -521,9 +521,13 @@ def init_center_c(
     return c
 
 
-def copy_path_skip_prefix(source: Path, dst_path: Path, prefix: str) -> None:
+def copy_path_prefix(
+    source: Path, dst_path: Path, *, exclude_prefix: Optional[str] = None, include_prefix: Optional[str] = None
+) -> None:
     for p in source.iterdir():
-        if p.name.startswith(prefix):
+        if (exclude_prefix is not None and p.name.startswith(exclude_prefix)) or (
+            include_prefix is not None and not p.name.startswith(include_prefix)
+        ):
             continue
 
         if p.is_dir():
@@ -532,7 +536,7 @@ def copy_path_skip_prefix(source: Path, dst_path: Path, prefix: str) -> None:
                 relative_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
                 (dst_path / p.name).symlink_to(relative_path)
             else:
-                copy_path_skip_prefix(p, dst_path / p.name, prefix)
+                copy_path_prefix(p, dst_path / p.name, exclude_prefix=exclude_prefix)
         elif p.is_file():
             dst_path.mkdir(parents=True, exist_ok=True)
             relative_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
@@ -541,15 +545,18 @@ def copy_path_skip_prefix(source: Path, dst_path: Path, prefix: str) -> None:
             raise ValueError
 
 
-def separated_shang(shang_path: Path) -> None:
-    separated_path = shang_path / "separated"
+def separated_shang(root_path: Path) -> None:
+    separated_path = root_path / "separated"
     rmtree(separated_path, ignore_errors=True)
-    nfs = shang_path / "training" / "nobackground_frames_resized"
+    nfs = root_path / "training" / "nobackground_frames_resized"
     for path in nfs.iterdir():
-        output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
+        current_shang = path.name[:2]
+        sep_path = separated_path / f"shang{current_shang}"
+        output_path = sep_path / "training" / "nobackground_frames_resized" / path.name
         output_path.parent.mkdir(parents=True, exist_ok=True)
         relative_path = Path("../" * (len(path.relative_to(Path()).parts) + 1) / path.relative_to(Path()))
         output_path.symlink_to(relative_path)
+        copy_path_prefix(root_path / "testing", sep_path / f"shang{current_shang}" / "testing", include_prefix=current_shang)
 
 
 def one_out_shang(shang_path: Path) -> None:
@@ -568,6 +575,6 @@ def one_out_shang(shang_path: Path) -> None:
             relative_path = Path("../" * (len(path.relative_to(Path()).parts) + 1) / path.relative_to(Path()))
             output_path.symlink_to(relative_path)
 
-    # Training
+    # Testing
     for current_shang in all_shangs:
-        copy_path_skip_prefix(shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", current_shang)
+        copy_path_prefix(shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", exclude_prefix=current_shang)
