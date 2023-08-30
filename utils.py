@@ -607,7 +607,7 @@ def avo_shang(root_path: Path) -> None:
         )
 
 
-def generate_all_subsets(shang_path: Optional[Path]) -> None:
+def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
     if shang_path is None:
         shang_path = Path("data/shanghaitech")
 
