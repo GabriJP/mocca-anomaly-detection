@@ -590,3 +590,27 @@ def one_out_shang(shang_path: Path) -> None:
         copy_path_exclude_prefix(
             shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", exclude_prefix=current_shang
         )
+
+
+def avo_shang(root_path: Path) -> None:
+    separated_path = root_path / "avo"
+    rmtree(separated_path, ignore_errors=True)
+    nfs = root_path / "training" / "nobackground_frames_resized"
+    for current_shang in range(1, 14):
+        output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        relative_path = Path("../" * (len(nfs.relative_to(Path()).parts) + 1) / nfs.relative_to(Path()))
+        output_path.symlink_to(relative_path)
+
+        copy_path_include_prefix(
+            root_path / "testing", separated_path / f"shang{current_shang:02d}" / "testing", f"{current_shang:02d}_"
+        )
+
+
+def generate_all_subsets(shang_path: Optional[Path]) -> None:
+    if shang_path is None:
+        shang_path = Path("data/shanghaitech")
+
+    separated_shang(shang_path)
+    one_out_shang(shang_path)
+    avo_shang(shang_path)
