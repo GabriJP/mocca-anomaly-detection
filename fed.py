@@ -296,7 +296,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 @click.option("--patience", type=click.IntRange(0), default=None)
 @click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=None)
 @click.option("--min_fit_clients", type=click.IntRange(2), default=2)
-@click.option("--min_evaluate_clients", type=click.IntRange(2), default=2)
+@click.option("--min_evaluate_clients", type=click.IntRange(1), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
 def server(
     port: int,
@@ -311,6 +311,8 @@ def server(
     min_available_clients: int,
 ) -> None:
     strategy = FedProx(
+        fraction_fit=0.0,
+        fraction_evaluate=0.0,
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
