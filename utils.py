@@ -615,11 +615,11 @@ def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
     all_shangs = [f"{cs:02d}_" for cs in range(1, 14)]
     shang_partitions = [set(all_shangs[i::partitions]) for i in range(partitions)]
 
-    for i, current_partition in enumerate(shang_partitions):
+    for i, node_partitions in enumerate(shang_partitions):
         current_node_path = continuous_path / str(i)
         for clip in nfs.iterdir():
             cn = clip.name
-            if cn not in current_partition:
+            if cn[:3] not in node_partitions:
                 continue
 
             copy_path_include_prefix(root_path / "training", current_node_path / cn / "training", cn)
@@ -636,3 +636,6 @@ def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
     continuous_shang(shang_path)
     continuous_shang(shang_path, partitions=2)
     continuous_shang(shang_path, partitions=3)
+
+
+continuous_shang(Path("data/shanghaitech"), partitions=2)
