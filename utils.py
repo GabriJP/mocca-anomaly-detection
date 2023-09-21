@@ -636,6 +636,3 @@ def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
     continuous_shang(shang_path)
     continuous_shang(shang_path, partitions=2)
     continuous_shang(shang_path, partitions=3)
-
-
-continuous_shang(Path("data/shanghaitech"), partitions=2)
