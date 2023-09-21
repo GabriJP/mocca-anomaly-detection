@@ -525,7 +525,7 @@ def copy_path_include_prefix(source: Path, dst_path: Path, include_prefix: str) 
     for p in source.iterdir():
         if p.name.startswith(include_prefix):
             dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
+            relative_path = Path("../" * (len(p.parts) + 1) / p)
             (dst_path / p.name).symlink_to(relative_path)
             continue
 
@@ -541,13 +541,13 @@ def copy_path_exclude_prefix(source: Path, dst_path: Path, exclude_prefix: str) 
         if p.is_dir():
             if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
                 dst_path.mkdir(parents=True, exist_ok=True)
-                relative_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
+                relative_path = Path("../" * (len(p.parts) + 1) / p)
                 (dst_path / p.name).symlink_to(relative_path)
             else:
                 copy_path_exclude_prefix(p, dst_path / p.name, exclude_prefix)
         elif p.is_file():
             dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.relative_to(Path()).parts) + 1) / p.relative_to(Path()))
+            relative_path = Path("../" * (len(p.parts) + 1) / p)
             (dst_path / p.name).symlink_to(relative_path)
         else:
             raise ValueError
@@ -560,7 +560,7 @@ def separated_shang(root_path: Path) -> None:
     for path in nfs.iterdir():
         output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(path.relative_to(Path()).parts) + 1) / path.relative_to(Path()))
+        relative_path = Path("../" * (len(path.parts) + 1) / path)
         output_path.symlink_to(relative_path)
 
     for current_shang in range(1, 14):
@@ -582,7 +582,7 @@ def one_out_shang(shang_path: Path) -> None:
                 one_out_path / f"shang{current_shang}" / "training" / "nobackground_frames_resized" / path.name
             )
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(path.relative_to(Path()).parts) + 1) / path.relative_to(Path()))
+            relative_path = Path("../" * (len(path.parts) + 1) / path)
             output_path.symlink_to(relative_path)
 
     # Testing
@@ -599,7 +599,7 @@ def avo_shang(root_path: Path) -> None:
     for current_shang in range(1, 14):
         output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(nfs.relative_to(Path()).parts) + 1) / nfs.relative_to(Path()))
+        relative_path = Path("../" * (len(nfs.parts) + 1) / nfs)
         output_path.symlink_to(relative_path)
 
         copy_path_include_prefix(
