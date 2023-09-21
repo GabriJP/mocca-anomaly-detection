@@ -607,6 +607,20 @@ def avo_shang(root_path: Path) -> None:
         )
 
 
+def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
+    continuous_path = root_path / f"continuous_{partitions}"
+    rmtree(continuous_path, ignore_errors=True)
+
+    all_shangs = [f"{cs:02d}_" for cs in range(1, 14)]
+    shang_partitions = [set(all_shangs[i::partitions]) for i in range(partitions)]
+
+    for i, current_partition in enumerate(shang_partitions):
+        current_node_path = continuous_path / str(i)
+        for partition in current_partition:
+            copy_path_include_prefix(root_path / "training", current_node_path / "training", partition)
+            copy_path_include_prefix(root_path / "testing", current_node_path / "testing", partition)
+
+
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
     if shang_path is None:
         shang_path = Path("data/shanghaitech")
@@ -614,3 +628,6 @@ def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
     separated_shang(shang_path)
     one_out_shang(shang_path)
     avo_shang(shang_path)
+    continuous_shang(shang_path)
+    continuous_shang(shang_path, partitions=2)
+    continuous_shang(shang_path, partitions=3)
