@@ -617,8 +617,8 @@ def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
     for i, current_partition in enumerate(shang_partitions):
         current_node_path = continuous_path / str(i)
         for partition in current_partition:
-            copy_path_include_prefix(root_path / "training", current_node_path / "training", partition)
-            copy_path_include_prefix(root_path / "testing", current_node_path / "testing", partition)
+            copy_path_include_prefix(root_path / "training", current_node_path / partition / "training", partition)
+            copy_path_include_prefix(root_path / "testing", current_node_path / partition / "testing", partition)
 
 
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
