@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"continuous2"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --compile_net --wandb_group ${GID}"
+COMMON_OPTS="--load-lstm --n_workers 2 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -18,7 +18,7 @@ eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
 export FLWR_TELEMETRY_ENABLED=0
 ls data/shanghaitech/continuous_2/$NODE_N/ | xargs -i \
-nohup python fed.py client $COMMON_OPTS --data-path data/shanghaitech/continuous_2/$NODE_N/{} --wandb_name {} --batch-size $BATCH_SIZE >$GID_{}.log 2>&1 </dev/null &
+nohup sh -c "python fed.py client $COMMON_OPTS --data-path data/shanghaitech/continuous_2/$NODE_N/{} --wandb_name {} --batch-size $BATCH_SIZE >$GID_{}.log 2>&1 </dev/null &"
 EOC
 }
 
