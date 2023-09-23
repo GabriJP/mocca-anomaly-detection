@@ -5,19 +5,21 @@ pip3 uninstall -y torch torchvision
 TORCH_RELEASE="2.0.1"
 VISION_RELEASE="0.15.2"
 
-sudo apt install -y clang-8 python3-pip cmake libopenblas-dev libopenmpi-dev
-sudo ln -s /usr/bin/clang-8 /usr/bin/clang
-sudo ln -s /usr/bin/clang++-8 /usr/bin/clang++
+sudo apt install -y clang python3-pip cmake libopenblas-dev libopenmpi-dev
 
 # Torch
 [ ! -d pytorch ] && git clone "https://github.com/pytorch/pytorch.git"
 cd pytorch || exit
 git reset --hard
+git checkout main
 git pull
 git submodule sync
 git submodule update --init --recursive
 git checkout "v${TORCH_RELEASE}"
-export CC=clang CXX=clang++ USE_NCCL=0 USE_DISTRIBUTED=0 USE_QNNPACK=0 USE_PYTORCH_QNNPACK=0 TORCH_CUDA_ARCH_LIST="7.2;8.7" PYTORCH_BUILD_VERSION=${TORCH_RELEASE} PYTORCH_BUILD_NUMBER=1
+export BUILD_CAFFE2_OPS=OFF BUILD_TEST=OFF CC=clang CUDACXX=/usr/local/cuda/bin/nvcc CXX=clang++ USE_CUDA=ON
+export USE_CUDNN=ON USE_DISTRIBUTED=OFF USE_FBGEMM=OFF USE_FAKELOWP=OFF USE_MKLDNN=OFF USE_NCCL=OFF USE_NNPACK=OFF
+export USE_OPENCV=OFF USE_PYTORCH_QNNPACK=OFF USE_QNNPACK=OFF USE_SYSTEM_NCCL=OFF USE_XNNPACK=OFF
+export PYTORCH_BUILD_VERSION=${TORCH_RELEASE} PYTORCH_BUILD_NUMBER=1 TORCH_CUDA_ARCH_LIST="7.2;8.7"
 export PATH=/usr/lib/ccache:$PATH
 #nano torch/utils/cpp_extension.py -> https://gist.github.com/dusty-nv/ce51796085178e1f38e3c6a1663a93a1#file-pytorch-1-11-jetpack-5-0-patch
 #make triton
