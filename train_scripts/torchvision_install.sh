@@ -5,7 +5,7 @@ pip3 uninstall -y torch torchvision
 TORCH_RELEASE="2.0.1"
 VISION_RELEASE="0.15.2"
 
-#sudo apt install -y clang python3-pip cmake libopenblas-dev libopenmpi-dev
+#sudo apt install -y clang python3-pip cmake libopenblas-dev libopenmpi-dev libjpeg-dev zlib1g-dev libpython3-dev libopenblas-dev libavcodec-dev libavformat-dev libswscale-dev
 
 # Torch
 cd || exit
