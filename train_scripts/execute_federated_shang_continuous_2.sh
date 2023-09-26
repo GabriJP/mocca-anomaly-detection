@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"continuous2"}
-COMMON_OPTS="--load-lstm --n_workers 2 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --compile_net --parallel --continuous --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --n_workers 2 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --compile_net --parallel --continuous --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -23,7 +23,7 @@ EOC
 }
 
 echo "Starting server"
-nohup python fed.py server --num_rounds 15000 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server --port 8081 --num_rounds 15000 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
