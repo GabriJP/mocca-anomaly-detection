@@ -610,20 +610,18 @@ def avo_shang(root_path: Path) -> None:
 def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
     continuous_path = root_path / f"continuous_{partitions}"
     rmtree(continuous_path, ignore_errors=True)
-    nfs = root_path / "training" / "nobackground_frames_resized"
+    separated = root_path / "separated"
 
-    all_shangs = [f"{cs:02d}_" for cs in range(1, 14)]
-    shang_partitions = [set(all_shangs[i::partitions]) for i in range(partitions)]
+    separated_shangs = sorted(p for p in separated.iterdir())
 
-    for i, node_partitions in enumerate(shang_partitions):
+    for i, current_sepshang in enumerate(separated_shangs[::2]):
         current_node_path = continuous_path / str(i)
-        for clip in nfs.iterdir():
-            cn = clip.name
-            if cn[:3] not in node_partitions:
-                continue
-
-            copy_path_include_prefix(root_path / "training", current_node_path / cn / "training", cn)
-            copy_path_include_prefix(root_path / "testing", current_node_path / cn / "testing", cn[:3])
+        copy_path_include_prefix(
+            current_sepshang / "training",
+            current_node_path / current_sepshang.name / "training",
+            current_sepshang.name[:3],
+        )
+        (current_node_path / current_sepshang.name / "testing").symlink_to(root_path / "testing")
 
 
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
