@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from .shanghaitech import ContinuousShanghaiTechDataHolder
 from .shanghaitech import ShanghaiTechDataHolder
 
 AVAILABLE_DATASETS = ("cifar10", "ShanghaiTech", "MVTec_Anomaly")
@@ -59,3 +60,8 @@ class DataManager:
         """
 
         return ShanghaiTechDataHolder(self.data_path, self.seed, clip_length=self.clip_length)
+
+
+class ContinuousDataManager(DataManager):
+    def get_data_holder(self) -> ShanghaiTechDataHolder:
+        return ContinuousShanghaiTechDataHolder(self.data_path, self.seed, clip_length=self.clip_length)

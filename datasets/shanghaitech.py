@@ -165,6 +165,25 @@ class ShanghaiTechDataHolder:
         return np.array(clips)
 
 
+class ContinuousShanghaiTechDataHolder(ShanghaiTechDataHolder):
+    def __init__(self, root: Path, seed: int, clip_length: int = 16, stride: int = 1) -> None:
+        super().__init__(root, seed, clip_length, stride)
+        self.current_id_index = 0
+
+    def get_train_data(self) -> "MySHANGHAI":
+        # Load all ids
+        self.train_ids = self.load_train_ids()
+        # Create clips with given clip_length and stride
+        self.train_clips = self.create_clips(
+            self.train_dir, (self.train_ids[self.current_id_index],), clip_length=self.clip_length, stride=self.stride
+        )
+        self.current_id_index += 1
+        return MySHANGHAI(self.train_clips, self.transform, clip_length=self.clip_length)
+
+    def reset(self) -> None:
+        self.current_id_index = 0
+
+
 class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __init__(self, clips: npt.NDArray[np.str_], transform: Optional[Compose] = None, clip_length: int = 16):
         self.clips = clips

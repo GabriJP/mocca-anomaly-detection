@@ -5,7 +5,7 @@
     <option name="enabledOnReformat" value="true" />
     <option name="executionMode" value="BINARY" />
     <option name="pathToExecutable" value="$USER_HOME$/.local/bin/black" />
-    <option name="sdkUUID" value="94cfefa7-b4d0-423b-80c8-d0561fb1ba1a" />
+    <option name="sdkUUID" value="2d0e4385-4b0f-42b0-85c2-ab979ce180bd" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="mocca" project-jdk-type="Python SDK" />
   <component name="PythonCompatibilityInspectionAdvertiser">

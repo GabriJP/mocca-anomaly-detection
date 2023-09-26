@@ -15,6 +15,7 @@ from typing import Iterator
 from typing import Optional
 from typing import Tuple
 from typing import Type
+from typing import Union
 
 import click
 import flwr as fl
@@ -25,6 +26,8 @@ from flwr.common import NDArrays
 from flwr.server import SimpleClientManager
 from flwr.server.strategy import FedProx
 
+from datasets import ContinuousDataManager
+from datasets import ContinuousShanghaiTechDataHolder
 from datasets import DataManager
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
@@ -44,7 +47,7 @@ class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
         self.net = net.to(wanted_device)
-        self.data_holder = data_holder
+        self.data_holder: Union[ShanghaiTechDataHolder, ContinuousShanghaiTechDataHolder] = data_holder
         self.rc = rc
         self.R: Dict[str, torch.Tensor] = dict()
 
@@ -146,7 +149,7 @@ class ParallelClient(MoccaClient):
             logging.info("Unlock skipped")
             return
         with open(__file__) as fd:
-            start = 0.0
+            start = float("inf")
             try:
                 logging.info("Locking")
                 fcntl.flock(fd, fcntl.LOCK_EX)
@@ -171,6 +174,18 @@ class ParallelClient(MoccaClient):
     def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
         with self.execution_exclusive_context(to_target_device=True):
             return super().evaluate(parameters, config)
+
+
+class ContinuousClient(ParallelClient):
+    def __init__(self, net: ShanghaiTech, data_holder: ContinuousShanghaiTechDataHolder, rc: RunConfig) -> None:
+        super().__init__(net, data_holder, rc)
+
+    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
+        if not isinstance(self.data_holder, ContinuousShanghaiTechDataHolder):
+            raise ValueError
+        if config.get("reset", False):
+            self.data_holder.reset()
+        return super().fit(parameters, config)
 
 
 @click.group()
@@ -211,6 +226,7 @@ def cli() -> None:
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
+@click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
     n_workers: int,
     server_address: str,
@@ -234,6 +250,7 @@ def client(
     seed: int,
     compile_net: bool,
     parallel: bool,
+    continuous: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
@@ -262,7 +279,8 @@ def client(
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
-    data_holder = DataManager(
+    data_holder_cl: Type[DataManager] = ContinuousDataManager if continuous else DataManager
+    data_holder = data_holder_cl(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
