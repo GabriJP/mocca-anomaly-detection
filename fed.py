@@ -287,7 +287,13 @@ def client(
     if compile_net:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net)  # type: ignore
-    client_class: Type[MoccaClient] = ParallelClient if parallel else MoccaClient
+    client_class: Type[MoccaClient]
+    if continuous:
+        client_class = ContinuousClient
+    elif parallel:
+        client_class = ParallelClient
+    else:
+        client_class = MoccaClient
     mc = client_class(net, data_holder, rc)
     fl.client.start_numpy_client(
         server_address=server_address,
