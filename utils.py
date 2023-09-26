@@ -614,14 +614,13 @@ def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
 
     separated_shangs = sorted(p for p in separated.iterdir())
 
-    for i, current_sepshang in enumerate(separated_shangs[::2]):
-        current_node_path = continuous_path / str(i)
-        copy_path_include_prefix(
-            current_sepshang / "training",
-            current_node_path / current_sepshang.name / "training",
-            current_sepshang.name[:3],
-        )
-        (current_node_path / current_sepshang.name / "testing").symlink_to(root_path / "testing")
+    for current_partition in range(partitions):
+        for current_sepshang in separated_shangs[current_partition::partitions]:
+            current_contshang_path = continuous_path / str(current_partition) / current_sepshang.name
+            current_contshang_path.mkdir(parents=True, exist_ok=True)
+            relative_path = Path("../" * (len(current_contshang_path.parts)))
+            (current_contshang_path / "training").symlink_to(relative_path / current_sepshang / "training")
+            (current_contshang_path / "testing").symlink_to(relative_path / root_path / "testing")
 
 
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
