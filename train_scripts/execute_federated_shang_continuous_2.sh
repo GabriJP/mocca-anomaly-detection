@@ -18,7 +18,7 @@ eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
 export FLWR_TELEMETRY_ENABLED=0
 ls data/shanghaitech/continuous_2/$NODE_N/ | xargs -i \
-nohup sh -c "python fed.py client $COMMON_OPTS --data-path data/shanghaitech/continuous_2/$NODE_N/{} --wandb_name {} --batch-size $BATCH_SIZE >$GID_{}.log 2>&1 </dev/null &"
+nohup sh -c "python fed.py client $COMMON_OPTS --data-path data/shanghaitech/continuous_2/$NODE_N/{} --wandb_name {} --batch-size $BATCH_SIZE >${GID}_{}.log 2>&1 </dev/null &"
 EOC
 }
 
