@@ -177,7 +177,7 @@ class ContinuousShanghaiTechDataHolder(ShanghaiTechDataHolder):
         self.train_clips = self.create_clips(
             self.train_dir, (self.train_ids[self.current_id_index],), clip_length=self.clip_length, stride=self.stride
         )
-        self.current_id_index += 1
+        self.current_id_index = (self.current_id_index + 1) % len(self.train_ids)
         return MySHANGHAI(self.train_clips, self.transform, clip_length=self.clip_length)
 
     def reset(self) -> None:
