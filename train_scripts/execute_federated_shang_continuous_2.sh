@@ -33,6 +33,6 @@ NODE_N=0
 exec_client
 
 CLIENT_NAME="platano"
-BATCH_SIZE=8
+BATCH_SIZE=6
 NODE_N=1
 exec_client
