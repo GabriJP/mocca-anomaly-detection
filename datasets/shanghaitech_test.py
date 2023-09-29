@@ -129,7 +129,7 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: np.ndarray = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: np.ndarray = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float16)
         self.counts = np.zeros(shape=(nb_frames_per_clip,))
 
     def push(self, score: float) -> None:
@@ -262,9 +262,9 @@ class VideoAnomalyDetectionResultHelper:
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
-            sample_rc = np.zeros(shape=(len(loader) + t - 1,))
-            sample_oc = np.zeros(shape=(len(loader) + t - 1,))
-            sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
+            sample_rc = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float16)
+            sample_oc = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float16)
+            sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,), dtype=np.float16) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
             view_img: np.ndarray = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
