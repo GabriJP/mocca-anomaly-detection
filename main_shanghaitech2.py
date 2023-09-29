@@ -181,7 +181,7 @@ def main(
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
     torch.set_float32_matmul_precision("medium")
-    torch.set_default_tensor_type("float16")
+    torch.set_default_dtype(torch.float16)
     torch.set_default_tensor_type(torch.HalfTensor)
     if compile_net:
         net = torch.compile(net)  # type: ignore
