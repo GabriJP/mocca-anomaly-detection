@@ -59,7 +59,7 @@ class EarlyStopServer(flwr.server.Server):
     def __init__(
         self,
         *,
-        client_manager: flwr.server.ClientManager,
+        client_manager: Any,
         strategy: Optional[flwr.server.strategy.Strategy] = None,
         patience: int = 0,
         min_delta_pct: float = 0.0,
