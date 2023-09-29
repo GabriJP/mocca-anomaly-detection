@@ -158,7 +158,7 @@ class ShanghaiTechDataHolder:
             # Slide the window with stride to collect clips
             for window in range(0, len(frames) - clip_length + 1, stride):
                 clips.append(frames[window : window + clip_length])
-        return np.array(clips, dtype=np.float16)
+        return np.array(clips)
 
 
 class ContinuousShanghaiTechDataHolder(ShanghaiTechDataHolder):

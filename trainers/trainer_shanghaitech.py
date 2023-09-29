@@ -80,6 +80,9 @@ def train(
         n_batches = 0
         d_from_c = {k: 0.0 for k in keys}
 
+        # Zero the network parameter gradients
+        optimizer.zero_grad()
+
         for idx, (data, _) in enumerate(
             tqdm(train_loader, total=len(train_loader), desc=f"Training epoch: {epoch + 1}"), 1
         ):
@@ -88,9 +91,6 @@ def train(
 
             n_batches += 1
             data = data.to(device)
-
-            # Zero the network parameter gradients
-            optimizer.zero_grad()
 
             # Update network parameters via backpropagation: forward + backward + optimize
             if rc.end_to_end_training:
@@ -117,7 +117,10 @@ def train(
                 d_from_c[k] += torch.mean(dist[k]).item()
 
             objective_loss_.backward()
-            optimizer.step()
+            if (idx + 1) % 5 == 0:
+                optimizer.step()
+                # Zero the network parameter gradients
+                optimizer.zero_grad()
 
             one_class_loss += one_class_loss_.item()
             recon_loss += recon_loss_.item()
