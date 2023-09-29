@@ -5,9 +5,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-import numpy
 import numpy as np
-import numpy.typing as npt
 import skimage.io as io
 import torch
 from torch.utils.data import DataLoader
@@ -23,7 +21,7 @@ from .shanghaitech_test import ShanghaiTechTestHandler
 
 def seed_worker(_: int) -> None:
     worker_seed = torch.initial_seed() % 2**32
-    numpy.random.seed(worker_seed)
+    np.random.seed(worker_seed)
     random.seed(worker_seed)
 
 
@@ -140,9 +138,7 @@ class ShanghaiTechDataHolder:
         return tuple(sorted(d.name for d in self.train_dir.iterdir() if d.is_dir()))
 
     @staticmethod
-    def create_clips(
-        dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1
-    ) -> npt.NDArray[np.str_]:
+    def create_clips(dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1) -> np.ndarray:
         """
         Gets frame directory and ids of the directories in the frame dir
         Creates clips which consist of number of clip_length at each clip.
@@ -185,7 +181,7 @@ class ContinuousShanghaiTechDataHolder(ShanghaiTechDataHolder):
 
 
 class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
-    def __init__(self, clips: npt.NDArray[np.str_], transform: Optional[Compose] = None, clip_length: int = 16):
+    def __init__(self, clips: np.ndarray, transform: Optional[Compose] = None, clip_length: int = 16):
         self.clips = clips
         self.transform = transform
         self.shape = (3, clip_length, 256, 512)
@@ -193,7 +189,7 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def __len__(self) -> int:
         return len(self.clips)
 
-    def load(self, index: int) -> npt.NDArray[np.uint8]:
+    def load(self, index: int) -> np.ndarray:
         return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
 
     def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
