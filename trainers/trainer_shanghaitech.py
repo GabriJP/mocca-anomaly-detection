@@ -95,13 +95,16 @@ def train(
             # Update network parameters via backpropagation: forward + backward + optimize
             if rc.end_to_end_training:
                 x_r, _, d_lstms = net(data)
-                recon_loss_ = torch.mean(torch.sum((x_r - data) ** 2, dim=tuple(range(1, x_r.dim()))))
+                recon_loss_ = torch.mean(torch.sum(torch.abs(x_r - data), dim=tuple(range(1, x_r.dim()))))
             else:
                 _, d_lstms = net(data)
                 recon_loss_ = torch.tensor([0.0], device=device)
 
             dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
             objective_loss_ = one_class_loss_ + recon_loss_
+
+            if torch.isinf(objective_loss_):
+                objective_loss_.fill_(torch.finfo(torch.float16).max)
 
             if es is not None:
                 es_data = es.log_loss(objective_loss_.item())
