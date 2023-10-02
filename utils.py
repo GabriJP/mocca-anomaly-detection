@@ -154,8 +154,16 @@ class EarlyStoppingDM:
         self.step += 1
         self.losses.append(new_loss)
 
-        losses: np.ndarray = np.array(self.losses, dtype=np.float16)
-        current_mean = float(np.mean(np.sort(losses)[2:-2]))
+        losses: np.ndarray = np.sort(np.array(self.losses, dtype=np.float64))
+
+        if len(losses) <= 5:
+            clipped_losses = losses
+        elif len(losses) <= 10:
+            clipped_losses = losses[1:-1]
+        else:
+            clipped_losses = losses[2:-2]
+
+        current_mean = float(np.mean(clipped_losses))
         current_std = float(np.std(losses, ddof=1))
         current_pend = self.prev_mean - current_mean
 
@@ -330,6 +338,7 @@ def set_seeds(seed: int) -> None:
 
     """
     # Set the seed only if the user specified it
+    np.seterr(all="raise")
     if seed == -1:
         return
 
