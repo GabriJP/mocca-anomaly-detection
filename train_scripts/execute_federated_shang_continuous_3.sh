@@ -37,7 +37,7 @@ BATCH_SIZE=6
 NODE_N=1
 exec_client
 
-CLIENT_NAME="platano"
+CLIENT_NAME="citic"
 BATCH_SIZE=4
 NODE_N=2
 exec_client
