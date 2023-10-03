@@ -90,6 +90,7 @@ def train(
                 break
 
             n_batches += 1
+            data = data.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
             if rc.end_to_end_training:
