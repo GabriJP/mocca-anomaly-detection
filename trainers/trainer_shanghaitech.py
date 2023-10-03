@@ -90,7 +90,6 @@ def train(
                 break
 
             n_batches += 1
-            data = data.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
             if rc.end_to_end_training:
@@ -146,7 +145,7 @@ def train(
                     f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
                     f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
                 )
-                data = dict(
+                log_data = dict(
                     recon_loss=recon_loss / n_batches,
                     one_class_loss=one_class_loss / n_batches,
                     objective_loss=objective_loss / n_batches,
@@ -155,9 +154,9 @@ def train(
                     logger.info(
                         f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
                     )
-                    data[f"radius_{k}"] = r[k]
-                    data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb_logger.log_train(data)
+                    log_data[f"radius_{k}"] = r[k]
+                    log_data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
+                wandb_logger.log_train(log_data)
                 wandb_logger.log_train(es_data, key="es")
 
             # Update hypersphere radius R on mini-batch distances

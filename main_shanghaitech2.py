@@ -179,8 +179,8 @@ def main(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
     torch.set_float32_matmul_precision("medium")
-    torch.set_default_dtype(torch.bfloat16)
-    torch.set_default_tensor_type(torch.cuda.BFloat16Tensor)
+    torch.set_default_dtype(torch.float16)
+    torch.set_default_tensor_type(torch.HalfTensor)
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
     if compile_net:
