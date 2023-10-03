@@ -103,16 +103,16 @@ def train(
             dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
 
             if torch.isinf(one_class_loss_):
-                one_class_loss_.fill_(torch.finfo(torch.bfloat16).max)
+                one_class_loss_.fill_(torch.finfo(torch.float16).max)
             if torch.isinf(recon_loss_):
-                recon_loss_.fill_(torch.finfo(torch.bfloat16).max)
+                recon_loss_.fill_(torch.finfo(torch.float16).max)
 
             one_class_loss_ /= 2
             recon_loss_ /= 2
 
             objective_loss_ = one_class_loss_ + recon_loss_
             if torch.isinf(objective_loss_):
-                objective_loss_.fill_(torch.finfo(torch.bfloat16).max)
+                objective_loss_.fill_(torch.finfo(torch.float16).max)
 
             if es is not None:
                 es_data = es.log_loss(objective_loss_.item())
