@@ -101,10 +101,18 @@ def train(
                 recon_loss_ = torch.tensor([0.0], device=device)
 
             dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
-            objective_loss_ = one_class_loss_ + recon_loss_
 
+            if torch.isinf(one_class_loss_):
+                one_class_loss_.fill_(torch.finfo(torch.bfloat16).max)
+            if torch.isinf(recon_loss_):
+                recon_loss_.fill_(torch.finfo(torch.bfloat16).max)
+
+            one_class_loss_ /= 2
+            recon_loss_ /= 2
+
+            objective_loss_ = one_class_loss_ + recon_loss_
             if torch.isinf(objective_loss_):
-                objective_loss_.fill_(torch.finfo(torch.float16).max)
+                objective_loss_.fill_(torch.finfo(torch.bfloat16).max)
 
             if es is not None:
                 es_data = es.log_loss(objective_loss_.item())
@@ -120,7 +128,8 @@ def train(
                 d_from_c[k] += torch.mean(dist[k]).item()
 
             objective_loss_.backward()
-            if (idx + 1) % 5 == 0:
+            if (idx + 1) % 2 == 0 or (idx + 1 == len(train_loader)):
+                torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
                 optimizer.step()
                 # Zero the network parameter gradients
                 optimizer.zero_grad()
@@ -158,8 +167,9 @@ def train(
                 r[k].data = torch.tensor(
                     np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - rc.nu), device=device
                 )
+            if idx == 2:
+                break
 
-        scheduler.step()
         if epoch in rc.lr_milestones:
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
@@ -173,6 +183,8 @@ def train(
         if es is not None and es.early_stop:
             logger.info("Early stopping")
             break
+
+        break
 
     logger.info("Finished training.")
 

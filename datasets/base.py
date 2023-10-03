@@ -116,4 +116,4 @@ class ToFloatTensor3D:
         if self._normalize:
             x = x / 255.0
 
-        return torch.from_numpy(x.astype(np.float16))
+        return torch.from_numpy(x.astype(np.float32))
