@@ -336,7 +336,7 @@ def server(
 ) -> None:
     strategy = FedProx(
         fraction_fit=0.0,
-        fraction_evaluate=0.0,
+        fraction_evaluate=1e-5,
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
