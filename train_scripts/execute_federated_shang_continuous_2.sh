@@ -23,7 +23,7 @@ EOC
 }
 
 echo "Starting server"
-nohup python fed.py server --port 8081 --num_rounds 500 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_evaluate_clients 1 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server --port 8081 --num_rounds 500 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_evaluate_clients 0 --min_available_clients 13 --wandb_group "${GID}" >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
