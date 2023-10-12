@@ -32,6 +32,12 @@ class WandbLogger:
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
 
+    def manual_step(self) -> None:
+        if len(self.data):
+            self._log()
+        else:
+            self.step += 1
+
     def _log(self) -> None:
         wandb.log(self.data, step=self.step, commit=True)
         self.step += 1
