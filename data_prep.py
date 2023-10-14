@@ -4,13 +4,21 @@ from shutil import rmtree
 import click
 import cv2
 import numpy as np
-import requests
+import numpy.typing as npt
+
+U8_NDTYPE = npt.NDArray[np.uint8]
 
 
-def _process_background_gpu(video: np.ndarray):
+@click.group()
+def tui() -> None:
+    pass
+
+
+def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     img_gpu = cv2.cuda_GpuMat(video[0].shape, cv2.CV_8U)
 
-    mog = cv2.cuda.createBackgroundSubtractorMOG2()
+    # noinspection PyUnresolvedReferences
+    mog = cv2.cuda.createBackgroundSubtractorMOG2(history=200, detectShadows=False)
     stream = cv2.cuda.Stream_Null()
 
     for frame in video:
@@ -21,13 +29,27 @@ def _process_background_gpu(video: np.ndarray):
     return img_gpu.download()
 
 
-def _process_background_cpu(video: np.ndarray):
-    mog = cv2.createBackgroundSubtractorMOG2()
+def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
+    mog = cv2.createBackgroundSubtractorMOG2(history=200, detectShadows=False)
     for frame in video:
-        mog.apply(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR))
+        mog.apply(frame)
 
     bg = mog.getBackgroundImage()
-    return cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
+    return bg
+
+
+def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float) -> U8_NDTYPE:
+    diff_array = np.empty_like(video)
+    tmp_array = np.empty_like(video, shape=video.shape[1:])
+    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    for i, frame in enumerate(video):
+        cv2.absdiff(frame, background, tmp_array)
+        mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
+        mask = cv2.dilate(mask, dilate_kernel)
+
+        diff_array[i, :, :] = frame * mask
+
+    return diff_array
 
 
 def _process_ucsd(data_root: Path, ucsd_name: str, use_cuda: bool) -> None:
@@ -42,40 +64,54 @@ def _process_ucsd(data_root: Path, ucsd_name: str, use_cuda: bool) -> None:
     for train_clip_path in pre_training_path.iterdir():
         if train_clip_path.name.endswith("_gt") or not train_clip_path.is_dir():
             continue
-        frames_path.with_name(train_clip_path.name).symlink_to(
+        (frames_path / train_clip_path.name).symlink_to(
             Path("../" * (len(train_clip_path.parents) - 1) / train_clip_path)
         )
 
         no_bg_clip_path = no_bg_path / train_clip_path.name
-        no_bg_clip_path.mkdir(parents=True, exist_ok=True)
+        no_bg_clip_path.parent.mkdir(parents=True, exist_ok=True)
 
-        imgs = np.empty((200, 256, 512), dtype=np.uint8)
+        imgs: U8_NDTYPE = np.empty((200, 256, 512), dtype=np.uint8)
         for i, img_path in enumerate(sorted(p for p in train_clip_path.iterdir() if not p.name.startswith("."))):
             img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
             imgs[i, :, :] = cv2.resize(img, (512, 256), interpolation=cv2.INTER_CUBIC)
 
         bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
+        wo_bg = remove_background(imgs, bg, 20)
+
+        np.save(no_bg_clip_path, wo_bg, allow_pickle=True, fix_imports=True)
 
 
-@click.command()
+@tui.command()
 @click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
-def process_ucsd(data_root: Path) -> None:
-    _process_ucsd(data_root, "UCSDped1")
-    _process_ucsd(data_root, "UCSDped2")
+@click.option("--cuda", is_flag=True)
+def process_ucsd(data_root: Path, cuda: bool) -> None:
+    _process_ucsd(data_root, "UCSDped1", cuda)
+    _process_ucsd(data_root, "UCSDped2", cuda)
 
 
-@click.command()
+@tui.command()
 @click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
-def process_shanghai(data_root: Path) -> None:
-    download_path = data_root / "raw"
-    download_path.mkdir(parents=True, exist_ok=True)
-    with requests.get("http://www.svcl.ucsd.edu/projects/anomaly/UCSD_Anomaly_Dataset.tar.gz", stream=True) as r, (
-        download_path / "UCSD_Anomaly_Dataset.tar.gz"
-    ).open("wb") as f:
-        r.raise_for_status()
-        for chunk in r.iter_content(chunk_size=8192):
-            f.write(chunk)
+@click.option("--cuda", is_flag=True)
+def process_shanghai(data_root: Path, cuda: bool) -> None:
+    raise NotImplementedError
+
+
+@tui.command()
+@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+def show_no_bg(data_root: Path) -> None:
+    cv2.namedWindow("Frames", cv2.WINDOW_GUI_EXPANDED)
+    for npy_path in data_root.glob("**/*.npy"):
+        wo_bg = np.load(npy_path)
+        for frame in wo_bg:
+            cv2.imshow("Frames", frame)
+            k = cv2.waitKey(100)
+            if k == ord("q"):
+                break
+            if k == ord("e"):
+                return
 
 
 if __name__ == "__main__":
+    # tui()
     _process_ucsd(Path("data"), "UCSDped1", True)
