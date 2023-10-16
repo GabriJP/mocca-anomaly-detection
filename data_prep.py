@@ -45,7 +45,7 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     for i, frame in enumerate(video):
         cv2.absdiff(frame, background, tmp_array)
         mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
-        mask = cv2.dilate(mask, dilate_kernel)
+        mask = cv2.dilate(mask, dilate_kernel, iterations=5)
 
         diff_array[i, :, :] = frame * mask
 
@@ -53,33 +53,36 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
 
 
 def _process_ucsd(data_root: Path, ucsd_name: str, use_cuda: bool) -> None:
-    pre_training_path = data_root / "pre" / ucsd_name / "Train"
-    out_training_path = data_root / ucsd_name / "training"
+    for pre_phase, out_phase in (("Train", "training"), ("Test", "testing")):
+        pre_training_path = data_root / "pre" / ucsd_name / pre_phase
+        out_training_path = data_root / ucsd_name / out_phase
 
-    frames_path = out_training_path / "frames"
-    no_bg_path = out_training_path / "nobackground_frames_resized"
-    rmtree(frames_path.parent)
-    frames_path.mkdir(parents=True, exist_ok=True)
+        frames_path = out_training_path / "frames"
+        no_bg_path = out_training_path / "nobackground_frames_resized"
+        rmtree(frames_path.parent, ignore_errors=True)
+        frames_path.mkdir(parents=True, exist_ok=True)
 
-    for train_clip_path in pre_training_path.iterdir():
-        if train_clip_path.name.endswith("_gt") or not train_clip_path.is_dir():
-            continue
-        (frames_path / train_clip_path.name).symlink_to(
-            Path("../" * (len(train_clip_path.parents) - 1) / train_clip_path)
-        )
+        for train_clip_path in pre_training_path.iterdir():
+            if train_clip_path.name.endswith("_gt") or not train_clip_path.is_dir():
+                continue
+            (frames_path / train_clip_path.name).symlink_to(
+                Path("../" * (len(train_clip_path.parents) - 1) / train_clip_path)
+            )
 
-        no_bg_clip_path = no_bg_path / train_clip_path.name
-        no_bg_clip_path.parent.mkdir(parents=True, exist_ok=True)
+            no_bg_clip_path = no_bg_path / train_clip_path.name
+            no_bg_clip_path.mkdir(parents=True, exist_ok=True)
 
-        imgs: U8_NDTYPE = np.empty((200, 256, 512), dtype=np.uint8)
-        for i, img_path in enumerate(sorted(p for p in train_clip_path.iterdir() if not p.name.startswith("."))):
-            img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
-            imgs[i, :, :] = cv2.resize(img, (512, 256), interpolation=cv2.INTER_CUBIC)
+            img_paths = [p for p in train_clip_path.iterdir() if p.suffix == ".tif"]
+            imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512), dtype=np.uint8)
+            for i, img_path in enumerate(sorted(img_paths)):
+                img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
+                imgs[i, :, :] = cv2.resize(img, (512, 256), interpolation=cv2.INTER_CUBIC)
 
-        bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-        wo_bg = remove_background(imgs, bg, 20)
+            bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
+            wo_bg = remove_background(imgs, bg, 50)
 
-        np.save(no_bg_clip_path, wo_bg, allow_pickle=True, fix_imports=True)
+            for i, frame in enumerate(wo_bg):
+                cv2.imwrite(str(no_bg_clip_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
 
 
 @tui.command()
@@ -115,3 +118,4 @@ def show_no_bg(data_root: Path) -> None:
 if __name__ == "__main__":
     # tui()
     _process_ucsd(Path("data"), "UCSDped1", True)
+    _process_ucsd(Path("data"), "UCSDped2", True)
