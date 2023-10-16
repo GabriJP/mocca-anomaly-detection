@@ -16,7 +16,7 @@ def tui() -> None:
 
 
 def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
-    img_gpu = cv2.cuda_GpuMat(video[0].shape, cv2.CV_8U)
+    img_gpu = cv2.cuda_GpuMat(video.shape[1:], cv2.CV_8U)
 
     # noinspection PyUnresolvedReferences
     mog = cv2.cuda.createBackgroundSubtractorMOG2(history=200, detectShadows=False)
@@ -42,15 +42,18 @@ def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
 
 
 def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float) -> U8_NDTYPE:
+    cv2.blur(background, (3, 3), dst=background)
     diff_array = np.empty_like(video)
     tmp_array = np.empty_like(video, shape=video.shape[1:])
     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     for i, frame in enumerate(video):
         cv2.absdiff(frame, background, tmp_array)
         mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
-        mask = cv2.dilate(mask, dilate_kernel, iterations=5)
+        mask = cv2.erode(mask, dilate_kernel, iterations=2)
+        cv2.medianBlur(mask, 5, dst=mask)
+        mask = cv2.dilate(mask, dilate_kernel, iterations=7)
 
-        diff_array[i, :, :] = frame * mask
+        np.multiply(frame, mask, out=diff_array[i, :, :])
 
     return diff_array
 
@@ -97,7 +100,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
                 cv2.resize(img, (512, 256), dst=imgs[i, :, :], interpolation=cv2.INTER_CUBIC)
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-            wo_bg = remove_background(imgs, bg, 50)
+            wo_bg = remove_background(imgs, bg, 7)
 
             for i, frame in enumerate(wo_bg):
                 cv2.imwrite(str(no_bg_clip_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
@@ -123,4 +126,4 @@ def process_shanghai(data_root: Path, cuda: bool) -> None:
 
 if __name__ == "__main__":
     # tui()
-    _process_ucsd(Path("data"), True)
+    _process_ucsd(Path("data"), False)
