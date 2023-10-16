@@ -373,7 +373,7 @@ def get_evaluate_fn(
 
 
 @cli.command(context_settings=dict(show_default=True))
-@click.option("--port", type=click.IntRange(0, 10_000), default=8080)
+@click.option("--port", type=click.IntRange(0, 65_535), default=8080)
 @click.option("--num_rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
 @click.option("--warm_up_n_epochs", type=click.IntRange(0), default=0)
