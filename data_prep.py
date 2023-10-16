@@ -30,11 +30,13 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
 
 
 def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
-    mog = cv2.createBackgroundSubtractorMOG2(history=200, detectShadows=False)
+    mog = cv2.bgsegm.createBackgroundSubtractorCNT()
     for frame in video:
         mog.apply(frame)
 
     bg = mog.getBackgroundImage()
+    if len(bg.shape) > 2:
+        bg = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
     return bg
 
 
@@ -98,21 +100,6 @@ def process_ucsd(data_root: Path, cuda: bool) -> None:
 @click.option("--cuda", is_flag=True)
 def process_shanghai(data_root: Path, cuda: bool) -> None:
     raise NotImplementedError
-
-
-@tui.command()
-@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
-def show_no_bg(data_root: Path) -> None:
-    cv2.namedWindow("Frames", cv2.WINDOW_GUI_EXPANDED)
-    for npy_path in data_root.glob("**/*.npy"):
-        wo_bg = np.load(npy_path)
-        for frame in wo_bg:
-            cv2.imshow("Frames", frame)
-            k = cv2.waitKey(100)
-            if k == ord("q"):
-                break
-            if k == ord("e"):
-                return
 
 
 if __name__ == "__main__":
