@@ -19,7 +19,7 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     img_gpu = cv2.cuda_GpuMat(video.shape[1:], cv2.CV_8U)
 
     # noinspection PyUnresolvedReferences
-    mog = cv2.cuda.createBackgroundSubtractorMOG2(history=200, detectShadows=False)
+    mog = cv2.cuda.createBackgroundSubtractorMOG2(history=video.shape[0], detectShadows=False)
     stream = cv2.cuda.Stream_Null()
 
     for frame in video:
@@ -35,27 +35,28 @@ def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
     for frame in video:
         mog.apply(frame)
 
-    bg = mog.getBackgroundImage()
-    if len(bg.shape) > 2:
+    bg: U8_NDTYPE = mog.getBackgroundImage()
+    if video.ndim == bg.ndim:  # Video is grayscale and bg is not
         bg = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
     return bg
 
 
 def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float) -> U8_NDTYPE:
     cv2.blur(background, (3, 3), dst=background)
-    diff_array = np.empty_like(video)
+    no_bg_video = np.empty_like(video)
     tmp_array = np.empty_like(video, shape=video.shape[1:])
     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     for i, frame in enumerate(video):
-        cv2.absdiff(frame, background, tmp_array)
+        cv2.absdiff(frame, background, dst=tmp_array)
+        cv2.blur(tmp_array, (3, 3), dst=tmp_array)
         mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
         mask = cv2.erode(mask, dilate_kernel, iterations=2)
         cv2.medianBlur(mask, 5, dst=mask)
-        mask = cv2.dilate(mask, dilate_kernel, iterations=7)
+        mask = cv2.dilate(mask, dilate_kernel, iterations=5)
 
-        np.multiply(frame, mask, out=diff_array[i, :, :])
+        np.multiply(frame, mask, out=no_bg_video[i, :, :])
 
-    return diff_array
+    return no_bg_video
 
 
 def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
@@ -100,7 +101,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
                 cv2.resize(img, (512, 256), dst=imgs[i, :, :], interpolation=cv2.INTER_CUBIC)
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-            wo_bg = remove_background(imgs, bg, 7)
+            wo_bg = remove_background(imgs, bg, 10)
 
             for i, frame in enumerate(wo_bg):
                 cv2.imwrite(str(no_bg_clip_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
