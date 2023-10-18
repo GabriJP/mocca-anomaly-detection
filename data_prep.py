@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import product
 from pathlib import Path
 from shutil import rmtree
@@ -31,6 +32,7 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
 
 
 def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
+    # noinspection PyUnresolvedReferences
     mog = cv2.bgsegm.createBackgroundSubtractorCNT()
     for frame in video:
         mog.apply(frame)
@@ -59,12 +61,48 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     return no_bg_video
 
 
+ucsd_names = ("UCSDped1", "UCSDped2")
+
+
+def relative_symlink(from_path: Path, to_path: Path) -> None:
+    from_path.parent.mkdir(parents=True, exist_ok=True)
+    from_path.symlink_to(Path("../" * (len(from_path.parents) - 1) / to_path))
+
+
+def _process_ucsd_gt(data_root: Path) -> None:
+    ped12_path = data_root / "UCSDped12" / "testing" / "test_frame_mask"
+    rmtree(ped12_path, ignore_errors=True)
+    ped12_path.mkdir(parents=True)
+
+    for current_ucsd_name in ucsd_names:
+        current_ped_frame_mask_path = data_root / current_ucsd_name / "testing" / "test_frame_mask"
+        rmtree(current_ped_frame_mask_path, ignore_errors=True)
+        current_ped_frame_mask_path.mkdir(parents=True)
+
+        dot_m_path = data_root / "pre" / current_ucsd_name / "Test" / f"{current_ucsd_name}.m"
+        dot_m_lines = dot_m_path.read_text().splitlines()[1:]
+        test_clips = sorted(p for p in dot_m_path.parent.iterdir() if p.is_dir() and not p.name.endswith("_gt"))
+        clip_path: Path
+        clip_gt_line: str
+        for clip_path, clip_gt_line in zip(test_clips, dot_m_lines):
+            n_frames = sum(1 for p in clip_path.iterdir() if p.suffix == ".tif")
+            clip_labels = np.zeros(n_frames, dtype=np.uint8)
+            ranges = clip_gt_line[clip_gt_line.rfind("[") + 1 : clip_gt_line.rfind("]")].split(",")
+            for positive_range in ranges:
+                positive_range = positive_range.strip()
+                start, end = positive_range.split(":")
+                clip_labels[int(start) : int(end)] = 1
+
+            np_path = current_ped_frame_mask_path / f"{clip_path.name}.npy"
+            np.save(np_path, clip_labels)
+            relative_symlink(ped12_path / f"P{current_ucsd_name[-1]}_{clip_path.name}.npy", np_path)
+
+
 def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
     ucsd_12 = data_root / "UCSDped12"
     rmtree(ucsd_12, ignore_errors=True)
-    for ucsd_name, (pre_phase, out_phase) in product(
-        ("UCSDped1", "UCSDped2"), (("Train", "training"), ("Test", "testing"))
-    ):
+
+    for ucsd_name, (pre_phase, out_phase) in product(ucsd_names, (("Train", "training"), ("Test", "testing"))):
         pre_training_path = data_root / "pre" / ucsd_name / pre_phase
         out_training_path = data_root / ucsd_name / out_phase
         out_training_path12 = ucsd_12 / out_phase
@@ -81,12 +119,8 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
         for train_clip_path in pre_training_path.iterdir():
             if train_clip_path.name.endswith("_gt") or not train_clip_path.is_dir():
                 continue
-            (frames_path / train_clip_path.name).symlink_to(
-                Path("../" * (len(train_clip_path.parents) - 1) / train_clip_path)
-            )
-            (frames_path12 / f"P{ucsd_name[-1]}_{train_clip_path.name}").symlink_to(
-                Path("../" * (len(train_clip_path.parents) - 1) / train_clip_path)
-            )
+            relative_symlink(frames_path / train_clip_path.name, train_clip_path)
+            relative_symlink(frames_path12 / f"P{ucsd_name[-1]}_{train_clip_path.name}", train_clip_path)
 
             no_bg_clip_path = no_bg_path / train_clip_path.name
             no_bg_clip_path.mkdir(parents=True, exist_ok=True)
@@ -105,6 +139,8 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
 
             for i, frame in enumerate(wo_bg):
                 cv2.imwrite(str(no_bg_clip_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
+
+    _process_ucsd_gt(data_root)
 
 
 def _process_shang(data_root: Path, use_cuda: bool) -> None:
@@ -127,4 +163,4 @@ def process_shanghai(data_root: Path, cuda: bool) -> None:
 
 if __name__ == "__main__":
     # tui()
-    _process_ucsd(Path("data"), False)
+    _process_ucsd(Path("data2"), False)
