@@ -1,7 +1,8 @@
-from collections import defaultdict
 from itertools import product
 from pathlib import Path
 from shutil import rmtree
+from typing import Callable
+from typing import Optional
 
 import click
 import cv2
@@ -61,6 +62,11 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     return no_bg_video
 
 
+def n_subpaths(path: Path, count_filter: Optional[Callable[[Path], bool]] = None) -> int:
+    count_filter = count_filter or (lambda _: True)
+    return sum(1 for _ in filter(count_filter, path.iterdir()))
+
+
 ucsd_names = ("UCSDped1", "UCSDped2")
 
 
@@ -70,14 +76,20 @@ def relative_symlink(from_path: Path, to_path: Path) -> None:
 
 
 def _process_ucsd_gt(data_root: Path) -> None:
-    ped12_path = data_root / "UCSDped12" / "testing" / "test_frame_mask"
-    rmtree(ped12_path, ignore_errors=True)
-    ped12_path.mkdir(parents=True)
+    ped12_fm_path = data_root / "UCSDped12" / "testing" / "test_frame_mask"
+    ped12_pm_path = data_root / "UCSDped12" / "testing" / "test_pixel_mask"
+    rmtree(ped12_fm_path, ignore_errors=True)
+    rmtree(ped12_pm_path, ignore_errors=True)
+    ped12_fm_path.mkdir(parents=True)
+    ped12_pm_path.mkdir(parents=True)
 
     for current_ucsd_name in ucsd_names:
-        current_ped_frame_mask_path = data_root / current_ucsd_name / "testing" / "test_frame_mask"
-        rmtree(current_ped_frame_mask_path, ignore_errors=True)
-        current_ped_frame_mask_path.mkdir(parents=True)
+        current_ped_fm_path = data_root / current_ucsd_name / "testing" / "test_frame_mask"
+        current_ped_pm_path = data_root / current_ucsd_name / "testing" / "test_pixel_mask"
+        rmtree(current_ped_fm_path, ignore_errors=True)
+        rmtree(current_ped_pm_path, ignore_errors=True)
+        current_ped_fm_path.mkdir(parents=True)
+        current_ped_pm_path.mkdir(parents=True)
 
         dot_m_path = data_root / "pre" / current_ucsd_name / "Test" / f"{current_ucsd_name}.m"
         dot_m_lines = dot_m_path.read_text().splitlines()[1:]
@@ -85,17 +97,28 @@ def _process_ucsd_gt(data_root: Path) -> None:
         clip_path: Path
         clip_gt_line: str
         for clip_path, clip_gt_line in zip(test_clips, dot_m_lines):
-            n_frames = sum(1 for p in clip_path.iterdir() if p.suffix == ".tif")
-            clip_labels = np.zeros(n_frames, dtype=np.uint8)
+            n_frames = n_subpaths(clip_path, lambda p: p.suffix == ".tif")
+            clip_labels: npt.NDArray[np.uint8] = np.zeros(n_frames, dtype=np.uint8)
             ranges = clip_gt_line[clip_gt_line.rfind("[") + 1 : clip_gt_line.rfind("]")].split(",")
             for positive_range in ranges:
                 positive_range = positive_range.strip()
                 start, end = positive_range.split(":")
                 clip_labels[int(start) : int(end)] = 1
 
-            np_path = current_ped_frame_mask_path / f"{clip_path.name}.npy"
+            np_path = current_ped_fm_path / f"{clip_path.name}.npy"
             np.save(np_path, clip_labels)
-            relative_symlink(ped12_path / f"P{current_ucsd_name[-1]}_{clip_path.name}.npy", np_path)
+            relative_symlink(ped12_fm_path / f"P{current_ucsd_name[-1]}_{clip_path.name}.npy", np_path)
+
+        for gt_path in dot_m_path.parent.iterdir():
+            if not gt_path.is_dir() or not gt_path.name.endswith("_gt"):
+                continue
+
+            imgs: U8_NDTYPE = np.empty((n_subpaths(gt_path), 256, 512), dtype=np.uint8)
+            for i, bmp_path in enumerate(sorted(p for p in gt_path.iterdir() if p.suffix == ".bmp")):
+                img = cv2.imread(str(bmp_path), cv2.IMREAD_UNCHANGED)
+                cv2.resize(img, (512, 256), dst=imgs[i, :, :], interpolation=cv2.INTER_NEAREST_EXACT)
+
+            np.save(current_ped_pm_path / gt_path.name[:-3], imgs)
 
 
 def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
