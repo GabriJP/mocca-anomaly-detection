@@ -45,11 +45,16 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     return img_gpu.download()
 
 
+def save_video(video: U8_NDTYPE, save_path: Path) -> None:
+    for i, frame in enumerate(video):
+        cv2.imwrite(str(save_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
+
+
 def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
     # noinspection PyUnresolvedReferences
     mog = cv2.bgsegm.createBackgroundSubtractorCNT()
 
-    if len(video.shape) == 2:  # Grayscale
+    if len(video.shape) == 3:  # Grayscale
         for frame in video:
             mog.apply(frame)
     else:  # BGR
@@ -183,9 +188,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
             wo_bg = remove_background(imgs, bg, 10)
-
-            for i, frame in enumerate(wo_bg):
-                cv2.imwrite(str(no_bg_clip_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
+            save_video(wo_bg, no_bg_clip_path)
 
     _process_ucsd_gt(data_root)
 
@@ -212,17 +215,39 @@ def read_video(video_path: Path) -> U8_NDTYPE:
 
 
 def _process_shang_train(data_root: Path, use_cuda: bool) -> None:
-    training_path = data_root / "pre" / "shanghaitech" / "training" / "videos"
-    for video_path in training_path.iterdir():
-        print(video_path)
+    videos_path = data_root / "pre" / "shanghaitech" / "training" / "videos"
+    training_path = data_root / "shanghaitech" / "complete" / "training"
+    rmtree(training_path, ignore_errors=True)
+    training_path.mkdir(parents=True)
+    relative_symlink(training_path / "videos", videos_path)
+    nobg_videos_path = training_path / "nobackground_frames_resized"
+    for video_path in videos_path.iterdir():
         imgs = read_video(video_path)
         bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
         wo_bg = remove_background(imgs, bg, 10)
-        show_video(wo_bg, delay=30)
+        save_video(wo_bg, nobg_videos_path / video_path.stem)
+
+
+def _process_shang_test(data_root: Path, use_cuda: bool) -> None:
+    frames_path = data_root / "pre" / "shanghaitech" / "testing" / "frames"
+    testing_path = data_root / "shanghaitech" / "complete" / "testing"
+    rmtree(testing_path, ignore_errors=True)
+    testing_path.mkdir(parents=True)
+    relative_symlink(testing_path / "videos", frames_path)
+    nobg_videos_path = testing_path / "nobackground_frames_resized"
+    for video_path in frames_path.iterdir():
+        imgs = read_video(video_path / "%03d.jpg")
+        bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
+        wo_bg = remove_background(imgs, bg, 10)
+        save_video(wo_bg, nobg_videos_path / video_path.stem)
+
+    relative_symlink(testing_path / "test_frame_mask", frames_path.parent / "test_frame_mask")
+    relative_symlink(testing_path / "test_pixel_mask", frames_path.parent / "test_pixel_mask")
 
 
 def _process_shang(data_root: Path, use_cuda: bool) -> None:
     _process_shang_train(data_root, use_cuda)
+    _process_shang_test(data_root, use_cuda)
 
 
 @tui.command()
@@ -241,4 +266,5 @@ def process_shanghai(data_root: Path, cuda: bool) -> None:
 
 if __name__ == "__main__":
     # tui()
-    _process_shang(Path("data"), False)
+    _process_ucsd(Path("data2"), False)
+    _process_shang(Path("data2"), False)
