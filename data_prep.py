@@ -12,6 +12,19 @@ import numpy.typing as npt
 U8_NDTYPE = npt.NDArray[np.uint8]
 
 
+def show_video(video: U8_NDTYPE, delay: int = 300) -> None:
+    cv2.namedWindow("Window", cv2.WINDOW_GUI_EXPANDED | cv2.WINDOW_AUTOSIZE)
+    # cv2.setWindowProperty("Window", cv2.WND_PROP_, cv2.WINDOW_FULLSCREEN)
+    for frame in video:
+        cv2.imshow("Window", frame)
+        k = cv2.waitKey(delay)
+        if k == ord("x"):
+            exit(0)
+        elif k == ord("q"):
+            return
+    cv2.destroyAllWindows()
+
+
 @click.group()
 def tui() -> None:
     pass
@@ -35,21 +48,29 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
 def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
     # noinspection PyUnresolvedReferences
     mog = cv2.bgsegm.createBackgroundSubtractorCNT()
-    for frame in video:
-        mog.apply(frame)
 
-    bg: U8_NDTYPE = mog.getBackgroundImage()
-    if video.ndim == bg.ndim:  # Video is grayscale and bg is not
-        bg = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
-    return bg
+    if len(video.shape) == 2:  # Grayscale
+        for frame in video:
+            mog.apply(frame)
+    else:  # BGR
+        frame = np.empty(video.shape[1:-1], dtype=np.uint8)
+        for bgr_frame in video:
+            cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY, dst=frame)
+            mog.apply(frame)
+
+    return mog.getBackgroundImage()
 
 
 def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float) -> U8_NDTYPE:
     cv2.blur(background, (3, 3), dst=background)
     no_bg_video = np.empty_like(video)
-    tmp_array = np.empty_like(video, shape=video.shape[1:])
+    tmp_shape = video.shape[1:] if len(video.shape) == 3 else video.shape[1:-1]
+    tmp_array = np.empty_like(video, shape=tmp_shape)
     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    for i, frame in enumerate(video):
+    for i, bgr_frame in enumerate(video):
+        frame = bgr_frame
+        if len(bgr_frame.shape) == 3:
+            frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
         cv2.absdiff(frame, background, dst=tmp_array)
         cv2.blur(tmp_array, (3, 3), dst=tmp_array)
         mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
@@ -57,7 +78,10 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
         cv2.medianBlur(mask, 5, dst=mask)
         mask = cv2.dilate(mask, dilate_kernel, iterations=5)
 
-        np.multiply(frame, mask, out=no_bg_video[i, :, :])
+        if len(bgr_frame.shape) == 3:
+            mask = np.stack((mask,) * 3, axis=-1)
+
+        np.multiply(bgr_frame, mask, out=no_bg_video[i, ...])
 
     return no_bg_video
 
@@ -116,7 +140,7 @@ def _process_ucsd_gt(data_root: Path) -> None:
             imgs: U8_NDTYPE = np.empty((n_subpaths(gt_path), 256, 512), dtype=np.uint8)
             for i, bmp_path in enumerate(sorted(p for p in gt_path.iterdir() if p.suffix == ".bmp")):
                 img = cv2.imread(str(bmp_path), cv2.IMREAD_UNCHANGED)
-                cv2.resize(img, (512, 256), dst=imgs[i, :, :], interpolation=cv2.INTER_NEAREST_EXACT)
+                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_NEAREST_EXACT)
 
             np.save(current_ped_pm_path / gt_path.name[:-3], imgs)
 
@@ -155,7 +179,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
             imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512), dtype=np.uint8)
             for i, img_path in enumerate(sorted(img_paths)):
                 img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
-                cv2.resize(img, (512, 256), dst=imgs[i, :, :], interpolation=cv2.INTER_CUBIC)
+                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
             wo_bg = remove_background(imgs, bg, 10)
@@ -166,8 +190,39 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
     _process_ucsd_gt(data_root)
 
 
+def read_video(video_path: Path) -> U8_NDTYPE:
+    cap = cv2.VideoCapture(str(video_path))
+    try:
+        h, w, n = (
+            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+        )
+        video: U8_NDTYPE = np.empty((n, 256, 512, 3), dtype=np.uint8)
+        frame: U8_NDTYPE = np.empty((h, w, 3), dtype=np.uint8)
+        i = 0
+        for i in range(len(video)):
+            ret, _ = cap.read(frame)
+            if not ret:
+                break
+            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
+        return video[:i]
+    finally:
+        cap.release()
+
+
+def _process_shang_train(data_root: Path, use_cuda: bool) -> None:
+    training_path = data_root / "pre" / "shanghaitech" / "training" / "videos"
+    for video_path in training_path.iterdir():
+        print(video_path)
+        imgs = read_video(video_path)
+        bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
+        wo_bg = remove_background(imgs, bg, 10)
+        show_video(wo_bg, delay=30)
+
+
 def _process_shang(data_root: Path, use_cuda: bool) -> None:
-    pass
+    _process_shang_train(data_root, use_cuda)
 
 
 @tui.command()
@@ -186,4 +241,4 @@ def process_shanghai(data_root: Path, cuda: bool) -> None:
 
 if __name__ == "__main__":
     # tui()
-    _process_ucsd(Path("data2"), False)
+    _process_shang(Path("data"), False)
