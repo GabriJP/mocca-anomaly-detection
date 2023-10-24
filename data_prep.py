@@ -25,11 +25,6 @@ def show_video(video: U8_NDTYPE, delay: int = 300) -> None:
     cv2.destroyAllWindows()
 
 
-@click.group()
-def tui() -> None:
-    pass
-
-
 def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     img_gpu = cv2.cuda_GpuMat(video.shape[1:], cv2.CV_8U)
 
@@ -254,6 +249,11 @@ def _process_shang(data_root: Path, use_cuda: bool) -> None:
     _process_shang_test(data_root, use_cuda)
 
 
+@click.group()
+def tui() -> None:
+    pass
+
+
 @tui.command()
 @click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
 @click.option("--cuda", is_flag=True)
@@ -268,7 +268,16 @@ def process_shanghai(data_root: Path, cuda: bool) -> None:
     _process_shang(data_root, cuda)
 
 
+@tui.command()
+@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+@click.option("--cuda", is_flag=True)
+@click.pass_context
+def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
+    ctx.invoke(process_ucsd, data_root=data_root, cuda=cuda)
+    ctx.invoke(process_shanghai, data_root=data_root, cuda=cuda)
+
+
 if __name__ == "__main__":
-    # tui()
-    _process_ucsd(Path("data2"), False)
-    _process_shang(Path("data2"), False)
+    tui()
+    # _process_ucsd(Path("data2"), False)
+    # _process_shang(Path("data2"), False)
