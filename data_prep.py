@@ -40,6 +40,27 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     return img_gpu.download()
 
 
+def load_video(video_path: Path) -> U8_NDTYPE:
+    cap = cv2.VideoCapture(str(video_path))
+    try:
+        h, w, n = (
+            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+        )
+        video: U8_NDTYPE = np.empty((n, 256, 512, 3), dtype=np.uint8)
+        frame: U8_NDTYPE = np.empty((h, w, 3), dtype=np.uint8)
+        i = 0
+        for i in range(len(video)):
+            ret, _ = cap.read(frame)
+            if not ret:
+                break
+            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
+        return video[:i]
+    finally:
+        cap.release()
+
+
 def save_video(video: U8_NDTYPE, save_path: Path) -> None:
     for i, frame in enumerate(video):
         cv2.imwrite(str(save_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
@@ -86,17 +107,16 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     return no_bg_video
 
 
-def n_subpaths(path: Path, count_filter: Optional[Callable[[Path], bool]] = None) -> int:
-    count_filter = count_filter or (lambda _: True)
+def n_subpaths(path: Path, count_filter: Optional[Callable[[Path], bool]] = (lambda _: True)) -> int:
     return sum(1 for _ in filter(count_filter, path.iterdir()))
-
-
-ucsd_names = ("UCSDped1", "UCSDped2")
 
 
 def relative_symlink(from_path: Path, to_path: Path) -> None:
     from_path.parent.mkdir(parents=True, exist_ok=True)
     from_path.symlink_to(Path("../" * (len(from_path.parents) - 1) / to_path))
+
+
+ucsd_names = ("UCSDped1", "UCSDped2")
 
 
 def _process_ucsd_gt(data_root: Path) -> None:
@@ -192,27 +212,6 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
     _process_ucsd_gt(data_root)
 
 
-def read_video(video_path: Path) -> U8_NDTYPE:
-    cap = cv2.VideoCapture(str(video_path))
-    try:
-        h, w, n = (
-            int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-            int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
-        )
-        video: U8_NDTYPE = np.empty((n, 256, 512, 3), dtype=np.uint8)
-        frame: U8_NDTYPE = np.empty((h, w, 3), dtype=np.uint8)
-        i = 0
-        for i in range(len(video)):
-            ret, _ = cap.read(frame)
-            if not ret:
-                break
-            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
-        return video[:i]
-    finally:
-        cap.release()
-
-
 def _process_shang_train(data_root: Path, use_cuda: bool) -> None:
     videos_path = data_root / "pre" / "shanghaitech" / "training" / "videos"
     training_path = data_root / "shanghaitech" / "complete" / "training"
@@ -220,8 +219,9 @@ def _process_shang_train(data_root: Path, use_cuda: bool) -> None:
     training_path.mkdir(parents=True)
     relative_symlink(training_path / "videos", videos_path)
     nobg_videos_path = training_path / "nobackground_frames_resized"
+    nobg_videos_path.mkdir(parents=True)
     for video_path in videos_path.iterdir():
-        imgs = read_video(video_path)
+        imgs = load_video(video_path)
         bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
         wo_bg = remove_background(imgs, bg, 10)
         save_video(wo_bg, nobg_videos_path / video_path.stem)
@@ -234,8 +234,9 @@ def _process_shang_test(data_root: Path, use_cuda: bool) -> None:
     testing_path.mkdir(parents=True)
     relative_symlink(testing_path / "videos", frames_path)
     nobg_videos_path = testing_path / "nobackground_frames_resized"
+    nobg_videos_path.mkdir(parents=True)
     for video_path in frames_path.iterdir():
-        imgs = read_video(video_path / "%03d.jpg")
+        imgs = load_video(video_path / "%03d.jpg")
         bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
         wo_bg = remove_background(imgs, bg, 10)
         save_video(wo_bg, nobg_videos_path / video_path.stem)
