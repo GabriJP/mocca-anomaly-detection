@@ -142,10 +142,10 @@ def _process_ucsd_gt(data_root: Path) -> None:
             if not gt_path.is_dir() or not gt_path.name.endswith("_gt"):
                 continue
 
-            video = read_video(gt_path / "%03d.bmp", is_grayscale=True)
-            imgs: U8_NDTYPE = np.empty((len(video), 256, 512), dtype=np.uint8)
-            for i, frame in enumerate(video):
-                cv2.resize(frame, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_NEAREST_EXACT)
+            imgs: U8_NDTYPE = np.empty((n_subpaths(gt_path), 256, 512), dtype=np.uint8)
+            for i, bmp_path in enumerate(sorted(p for p in gt_path.iterdir() if p.suffix == ".bmp")):
+                img = cv2.imread(str(bmp_path), cv2.IMREAD_UNCHANGED)
+                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_NEAREST_EXACT)
 
             np.save(current_ped_pm_path / gt_path.name[:-3], imgs)
             relative_symlink(
@@ -184,10 +184,11 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
                 Path("../" * (len(no_bg_clip_path.parents) - 1) / no_bg_clip_path)
             )
 
-            video = read_video(train_clip_path / "%03d.tif", is_grayscale=True)
-            imgs: U8_NDTYPE = np.empty((len(video), 256, 512), dtype=np.uint8)
-            for i, frame in enumerate(video):
-                cv2.resize(frame, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
+            img_paths = [p for p in train_clip_path.iterdir() if p.suffix == ".tif"]
+            imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512), dtype=np.uint8)
+            for i, img_path in enumerate(sorted(img_paths)):
+                img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
+                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
             wo_bg = remove_background(imgs, bg, 10)
@@ -196,28 +197,22 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
     _process_ucsd_gt(data_root)
 
 
-def read_video(video_path: Path, is_grayscale: bool = False) -> U8_NDTYPE:
-    cap = cv2.VideoCapture(str(video_path), cv2.CAP_IMAGES)
+def read_video(video_path: Path) -> U8_NDTYPE:
+    cap = cv2.VideoCapture(str(video_path))
     try:
         h, w, n = (
             int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
         )
-        video: U8_NDTYPE = np.empty((n, 256, 512, 1 if is_grayscale else 3), dtype=np.uint8)
+        video: U8_NDTYPE = np.empty((n, 256, 512, 3), dtype=np.uint8)
         frame: U8_NDTYPE = np.empty((h, w, 3), dtype=np.uint8)
         i = 0
         for i in range(len(video)):
             ret, _ = cap.read(frame)
             if not ret:
-                print(f"Error reading {video_path}")
                 break
-            cv2.resize(
-                frame[..., 0] if is_grayscale else frame,
-                (512, 256),
-                dst=video[i, ...],
-                interpolation=cv2.INTER_CUBIC,
-            )
+            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
         return video[:i]
     finally:
         cap.release()
