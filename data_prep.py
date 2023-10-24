@@ -62,6 +62,7 @@ def load_video(video_path: Path) -> U8_NDTYPE:
 
 
 def save_video(video: U8_NDTYPE, save_path: Path) -> None:
+    save_path.mkdir(parents=True, exist_ok=True)
     for i, frame in enumerate(video):
         cv2.imwrite(str(save_path / f"{i:03d}.jpg"), frame, (cv2.IMWRITE_JPEG_QUALITY, 100))
 
@@ -280,5 +281,3 @@ def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
 
 if __name__ == "__main__":
     tui()
-    # _process_ucsd(Path("data2"), False)
-    # _process_shang(Path("data2"), False)
