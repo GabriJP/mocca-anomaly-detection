@@ -71,14 +71,10 @@ def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
     # noinspection PyUnresolvedReferences
     mog = cv2.bgsegm.createBackgroundSubtractorCNT()
 
-    if len(video.shape) == 3:  # Grayscale
-        for frame in video:
-            mog.apply(frame)
-    else:  # BGR
-        frame = np.empty(video.shape[1:-1], dtype=np.uint8)
-        for bgr_frame in video:
-            cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY, dst=frame)
-            mog.apply(frame)
+    frame = np.empty(video.shape[1:-1], dtype=np.uint8)
+    for bgr_frame in video:
+        cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY, dst=frame)
+        mog.apply(frame)
 
     return mog.getBackgroundImage()
 
@@ -90,9 +86,7 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     tmp_array = np.empty_like(video, shape=tmp_shape)
     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     for i, bgr_frame in enumerate(video):
-        frame = bgr_frame
-        if len(bgr_frame.shape) == 3:
-            frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
         cv2.absdiff(frame, background, dst=tmp_array)
         cv2.blur(tmp_array, (3, 3), dst=tmp_array)
         mask: U8_NDTYPE = (tmp_array > threshold).astype(np.uint8)
@@ -203,7 +197,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
             img_paths = [p for p in train_clip_path.iterdir() if p.suffix == ".tif"]
             imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512), dtype=np.uint8)
             for i, img_path in enumerate(sorted(img_paths)):
-                img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
+                img = cv2.imread(str(img_path))
                 cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
 
             bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
