@@ -152,7 +152,10 @@ def _process_ucsd_gt(data_root: Path) -> None:
         for gt_path in dot_m_path.parent.iterdir():
             if not gt_path.is_dir() or not gt_path.name.endswith("_gt"):
                 continue
-            video = load_video(gt_path / "%03d.bmp", interpolation=cv2.INTER_NEAREST_EXACT)
+            video: U8_NDTYPE = np.empty((n_subpaths(gt_path, lambda p: p.suffix == ".bmp"), 256, 512), dtype=np.uint8)
+            for i, bmp_path in enumerate(sorted(p for p in gt_path.iterdir() if p.suffix == ".bmp")):
+                img = cv2.imread(str(bmp_path), cv2.IMREAD_UNCHANGED)
+                cv2.resize(img, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_NEAREST_EXACT)
 
             np.save(current_ped_pm_path / f"{gt_path.name[:-3]}.npy", video)
             relative_symlink(
