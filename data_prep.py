@@ -52,6 +52,7 @@ def load_video(video_path: Path, interpolation: int = cv2.INTER_CUBIC) -> U8_NDT
         frame: U8_NDTYPE = np.empty((h, w, 3), dtype=np.uint8)
         i = 0
         for i in range(len(video)):
+            print(cap.get(cv2.CAP_PROP_CONVERT_RGB), video_path, i)
             ret, _ = cap.read(frame)
             if not ret:
                 i -= 1
