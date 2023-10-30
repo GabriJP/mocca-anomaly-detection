@@ -562,7 +562,7 @@ def copy_path_exclude_prefix(source: Path, dst_path: Path, exclude_prefix: str) 
 def separated_shang(root_path: Path) -> None:
     separated_path = root_path / "separated"
     rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "training" / "nobackground_frames_resized"
+    nfs = root_path / "complete" / "training" / "nobackground_frames_resized"
     for path in nfs.iterdir():
         output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -571,7 +571,9 @@ def separated_shang(root_path: Path) -> None:
 
     for current_shang in range(1, 14):
         copy_path_include_prefix(
-            root_path / "testing", separated_path / f"shang{current_shang:02d}" / "testing", f"{current_shang:02d}_"
+            root_path / "complete" / "testing",
+            separated_path / f"shang{current_shang:02d}" / "testing",
+            f"{current_shang:02d}_",
         )
 
 
@@ -580,7 +582,7 @@ def one_out_shang(shang_path: Path) -> None:
     rmtree(one_out_path, ignore_errors=True)
 
     # Training
-    nfs = shang_path / "training" / "nobackground_frames_resized"
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
     all_shangs = {f"{i:02d}" for i in range(1, 14)}
     for path in nfs.iterdir():
         for current_shang in all_shangs - {path.name[:2]}:
@@ -594,14 +596,16 @@ def one_out_shang(shang_path: Path) -> None:
     # Testing
     for current_shang in all_shangs:
         copy_path_exclude_prefix(
-            shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", exclude_prefix=current_shang
+            shang_path / "complete" / "testing",
+            one_out_path / f"shang{current_shang}" / "testing",
+            exclude_prefix=current_shang,
         )
 
 
 def avo_shang(root_path: Path) -> None:
     separated_path = root_path / "avo"
     rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "training" / "nobackground_frames_resized"
+    nfs = root_path / "complete" / "training" / "nobackground_frames_resized"
     for current_shang in range(1, 14):
         output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -609,7 +613,9 @@ def avo_shang(root_path: Path) -> None:
         output_path.symlink_to(relative_path)
 
         copy_path_include_prefix(
-            root_path / "testing", separated_path / f"shang{current_shang:02d}" / "testing", f"{current_shang:02d}_"
+            root_path / "complete" / "testing",
+            separated_path / f"shang{current_shang:02d}" / "testing",
+            f"{current_shang:02d}_",
         )
 
 
@@ -626,7 +632,7 @@ def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
             current_contshang_path.mkdir(parents=True, exist_ok=True)
             relative_path = Path("../" * (len(current_contshang_path.parts)))
             (current_contshang_path / "training").symlink_to(relative_path / current_sepshang / "training")
-            (current_contshang_path / "testing").symlink_to(relative_path / root_path / "testing")
+            (current_contshang_path / "testing").symlink_to(relative_path / root_path / "complete" / "testing")
 
 
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
