@@ -267,5 +267,4 @@ def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
 
 
 if __name__ == "__main__":
-    # tui()
-    _process_shang_test(Path("data"), False)
+    tui()
