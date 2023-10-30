@@ -318,7 +318,11 @@ def get_evaluate_fn(
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
     data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=Path("data/shanghaitech/complete"), normal_class=-1, seed=-1, clip_length=16
+        dataset_name="ShanghaiTech",
+        data_path=Path("data/shanghaitech/complete"),
+        normal_class=-1,
+        seed=-1,
+        clip_length=16,
     ).get_data_holder()
     # torch.set_float32_matmul_precision("high")
     net = ShanghaiTech(

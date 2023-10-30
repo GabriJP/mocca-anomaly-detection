@@ -54,9 +54,10 @@ def load_video(video_path: Path) -> U8_NDTYPE:
         for i in range(len(video)):
             ret, _ = cap.read(frame)
             if not ret:
+                i -= 1
                 break
             cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
-        return video[:i]
+        return video[: i + 1]
     finally:
         cap.release()
 
