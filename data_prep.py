@@ -40,7 +40,7 @@ def _process_background_gpu(video: U8_NDTYPE) -> U8_NDTYPE:
     return img_gpu.download()
 
 
-def load_video(video_path: Path) -> U8_NDTYPE:
+def load_video(video_path: Path, interpolation: int = cv2.INTER_CUBIC) -> U8_NDTYPE:
     cap = cv2.VideoCapture(str(video_path))
     try:
         h, w, n = (
@@ -56,7 +56,7 @@ def load_video(video_path: Path) -> U8_NDTYPE:
             if not ret:
                 i -= 1
                 break
-            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=cv2.INTER_CUBIC)
+            cv2.resize(frame, (512, 256), dst=video[i, ...], interpolation=interpolation)
         return video[: i + 1]
     finally:
         cap.release()
@@ -152,13 +152,9 @@ def _process_ucsd_gt(data_root: Path) -> None:
         for gt_path in dot_m_path.parent.iterdir():
             if not gt_path.is_dir() or not gt_path.name.endswith("_gt"):
                 continue
+            video = load_video(gt_path / "%03d.bmp", interpolation=cv2.INTER_NEAREST_EXACT)
 
-            imgs: U8_NDTYPE = np.empty((n_subpaths(gt_path, lambda p: p.suffix == ".bmp"), 256, 512), dtype=np.uint8)
-            for i, bmp_path in enumerate(sorted(p for p in gt_path.iterdir() if p.suffix == ".bmp")):
-                img = cv2.imread(str(bmp_path), cv2.IMREAD_UNCHANGED)
-                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_NEAREST_EXACT)
-
-            np.save(current_ped_pm_path / f"{gt_path.name[:-3]}.npy", imgs)
+            np.save(current_ped_pm_path / f"{gt_path.name[:-3]}.npy", video)
             relative_symlink(
                 ped12_pm_path / f"P{current_ucsd_name[-1]}_{gt_path.name[:-3]}.npy",
                 current_ped_pm_path / f"{gt_path.name[:-3]}.npy",
@@ -195,14 +191,10 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
                 Path("../" * (len(no_bg_clip_path.parents) - 1) / no_bg_clip_path)
             )
 
-            img_paths = [p for p in train_clip_path.iterdir() if p.suffix == ".tif"]
-            imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512, 3), dtype=np.uint8)
-            for i, img_path in enumerate(sorted(img_paths)):
-                img = cv2.imread(str(img_path))
-                cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
+            video = load_video(train_clip_path / "%03d.tif")
 
-            bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-            wo_bg = remove_background(imgs, bg, 10)
+            bg = _process_background_gpu(video) if use_cuda else _process_background_cpu(video)
+            wo_bg = remove_background(video, bg, 10)
             save_video(wo_bg, no_bg_clip_path)
 
     _process_ucsd_gt(data_root)
@@ -217,9 +209,9 @@ def _process_shang_train(data_root: Path, use_cuda: bool) -> None:
     nobg_videos_path = training_path / "nobackground_frames_resized"
     nobg_videos_path.mkdir(parents=True)
     for video_path in videos_path.iterdir():
-        imgs = load_video(video_path)
-        bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-        wo_bg = remove_background(imgs, bg, 10)
+        video = load_video(video_path)
+        bg = _process_background_gpu(video) if use_cuda else _process_background_cpu(video)
+        wo_bg = remove_background(video, bg, 10)
         save_video(wo_bg, nobg_videos_path / video_path.stem)
 
 
@@ -232,9 +224,9 @@ def _process_shang_test(data_root: Path, use_cuda: bool) -> None:
     nobg_videos_path = testing_path / "nobackground_frames_resized"
     nobg_videos_path.mkdir(parents=True)
     for video_path in frames_path.iterdir():
-        imgs = load_video(video_path / "%03d.jpg")
-        bg = _process_background_gpu(imgs) if use_cuda else _process_background_cpu(imgs)
-        wo_bg = remove_background(imgs, bg, 10)
+        video = load_video(video_path / "%03d.jpg")
+        bg = _process_background_gpu(video) if use_cuda else _process_background_cpu(video)
+        wo_bg = remove_background(video, bg, 10)
         save_video(wo_bg, nobg_videos_path / video_path.stem)
 
     relative_symlink(testing_path / "test_frame_mask", frames_path.parent / "test_frame_mask")
@@ -275,4 +267,5 @@ def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
 
 
 if __name__ == "__main__":
-    tui()
+    # tui()
+    _process_shang_test(Path("data"), False)
