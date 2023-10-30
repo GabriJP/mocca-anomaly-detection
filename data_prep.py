@@ -195,7 +195,7 @@ def _process_ucsd(data_root: Path, use_cuda: bool) -> None:
             )
 
             img_paths = [p for p in train_clip_path.iterdir() if p.suffix == ".tif"]
-            imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512), dtype=np.uint8)
+            imgs: U8_NDTYPE = np.empty((len(img_paths), 256, 512, 3), dtype=np.uint8)
             for i, img_path in enumerate(sorted(img_paths)):
                 img = cv2.imread(str(img_path))
                 cv2.resize(img, (512, 256), dst=imgs[i, ...], interpolation=cv2.INTER_CUBIC)
