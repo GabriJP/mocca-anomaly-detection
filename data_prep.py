@@ -71,7 +71,7 @@ def _process_background_cpu(video: U8_NDTYPE) -> U8_NDTYPE:
     # noinspection PyUnresolvedReferences
     mog = cv2.bgsegm.createBackgroundSubtractorCNT()
 
-    frame = np.empty(video.shape[1:-1], dtype=np.uint8)
+    frame: U8_NDTYPE = np.empty(video.shape[1:-1], dtype=np.uint8)
     for bgr_frame in video:
         cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY, dst=frame)
         mog.apply(frame)

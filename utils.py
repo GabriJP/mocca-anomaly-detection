@@ -527,12 +527,16 @@ def init_center_c(
     return c
 
 
+def relative_symlink(from_path: Path, to_path: Path) -> None:
+    from_path.parent.mkdir(parents=True, exist_ok=True)
+    # dropwhile(lambda x: x[0] == x[1], zip(from_path.parts, to_path.parts))
+    from_path.symlink_to(Path("../" * (len(from_path.parents) - 1) / to_path))
+
+
 def copy_path_include_prefix(source: Path, dst_path: Path, include_prefix: str) -> None:
     for p in source.iterdir():
         if p.name.startswith(include_prefix):
-            dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.parts) + 1) / p)
-            (dst_path / p.name).symlink_to(relative_path)
+            relative_symlink(dst_path / p.name, p)
             continue
 
         if p.is_dir():
@@ -546,32 +550,26 @@ def copy_path_exclude_prefix(source: Path, dst_path: Path, exclude_prefix: str) 
 
         if p.is_dir():
             if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
-                dst_path.mkdir(parents=True, exist_ok=True)
-                relative_path = Path("../" * (len(p.parts) + 1) / p)
-                (dst_path / p.name).symlink_to(relative_path)
+                relative_symlink(dst_path / p.name, p)
             else:
                 copy_path_exclude_prefix(p, dst_path / p.name, exclude_prefix)
         elif p.is_file():
-            dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.parts) + 1) / p)
-            (dst_path / p.name).symlink_to(relative_path)
+            relative_symlink(dst_path / p.name, p)
         else:
             raise ValueError
 
 
-def separated_shang(root_path: Path) -> None:
-    separated_path = root_path / "separated"
+def separated_shang(shang_path: Path) -> None:
+    separated_path = shang_path / "separated"
     rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "complete" / "training" / "nobackground_frames_resized"
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
     for path in nfs.iterdir():
         output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(path.parts) + 1) / path)
-        output_path.symlink_to(relative_path)
+        relative_symlink(output_path, path)
 
     for current_shang in range(1, 14):
         copy_path_include_prefix(
-            root_path / "complete" / "testing",
+            shang_path / "complete" / "testing",
             separated_path / f"shang{current_shang:02d}" / "testing",
             f"{current_shang:02d}_",
         )
@@ -589,9 +587,7 @@ def one_out_shang(shang_path: Path) -> None:
             output_path = (
                 one_out_path / f"shang{current_shang}" / "training" / "nobackground_frames_resized" / path.name
             )
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(path.parts) + 1) / path)
-            output_path.symlink_to(relative_path)
+            relative_symlink(output_path, path)
 
     # Testing
     for current_shang in all_shangs:
@@ -602,37 +598,33 @@ def one_out_shang(shang_path: Path) -> None:
         )
 
 
-def avo_shang(root_path: Path) -> None:
-    separated_path = root_path / "avo"
+def avo_shang(shang_path: Path) -> None:
+    separated_path = shang_path / "avo"
     rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "complete" / "training" / "nobackground_frames_resized"
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
     for current_shang in range(1, 14):
         output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(nfs.parts) + 1) / nfs)
-        output_path.symlink_to(relative_path)
+        relative_symlink(output_path, nfs)
 
         copy_path_include_prefix(
-            root_path / "complete" / "testing",
+            shang_path / "complete" / "testing",
             separated_path / f"shang{current_shang:02d}" / "testing",
             f"{current_shang:02d}_",
         )
 
 
-def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
-    continuous_path = root_path / f"continuous_{partitions}"
+def continuous_shang(shang_path: Path, *, partitions: int = 2) -> None:
+    continuous_path = shang_path / f"continuous_{partitions}"
     rmtree(continuous_path, ignore_errors=True)
-    separated = root_path / "separated"
+    separated = shang_path / "separated"
 
     separated_shangs = sorted(p for p in separated.iterdir())
 
     for current_partition in range(partitions):
         for current_sepshang in separated_shangs[current_partition::partitions]:
             current_contshang_path = continuous_path / str(current_partition) / current_sepshang.name
-            current_contshang_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(current_contshang_path.parts)))
-            (current_contshang_path / "training").symlink_to(relative_path / current_sepshang / "training")
-            (current_contshang_path / "testing").symlink_to(relative_path / root_path / "complete" / "testing")
+            relative_symlink(current_contshang_path / "training", current_sepshang / "training")
+            relative_symlink(current_contshang_path / "testing", shang_path / "complete" / "testing")
 
 
 def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
