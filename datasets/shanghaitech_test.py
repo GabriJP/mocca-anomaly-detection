@@ -131,7 +131,7 @@ class ResultsAccumulator:
 
         # These buffers rotate.
         self.buffer: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts = np.zeros(shape=(nb_frames_per_clip,))
+        self.counts: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
 
     def push(self, score: float) -> None:
         """
@@ -152,7 +152,7 @@ class ResultsAccumulator:
         """
 
         # Return first in buffer
-        ret = self.buffer[0] / self.counts[0]
+        ret = float(self.buffer[0] / self.counts[0])
 
         # Roll time backwards
         self.buffer = np.roll(self.buffer, shift=-1)
@@ -170,6 +170,43 @@ class ResultsAccumulator:
         Returns the number of frames still in the buffer.
         """
         return int(np.sum(self.counts != 0))
+
+
+class Viewer:
+    def __init__(self, view: bool, view_root_path: Path) -> None:
+        super().__init__()
+        self.view = view
+        self.view_root_path = view_root_path
+        self.view_img: npt.NDArray[np.uint8] = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
+        self.i = 0
+        if view:
+            rmtree(view_root_path, ignore_errors=True)
+            view_root_path.mkdir(parents=True)
+
+    def put_x(self, x: torch.Tensor) -> None:
+        if not self.view:
+            return
+        self.view_img[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+            np.uint8, casting="unsafe"
+        )
+
+    def put_x_r(self, x_r: torch.Tensor) -> None:
+        if not self.view:
+            return
+        self.view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+            np.uint8, casting="unsafe"
+        )
+        cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
+        self.i += 1
+
+    def put_scores(self, sample_y, sample_oc, sample_rc, sample_as) -> None:
+        if not self.view:
+            return
+
+        np.save(str(self.view_root_path / "sample_oc"), sample_oc)
+        np.save(str(self.view_root_path / "sample_rc"), sample_rc)
+        np.save(str(self.view_root_path / "sample_as"), sample_as)
+        np.save(str(self.view_root_path / "sample_y"), sample_y)
 
 
 class VideoAnomalyDetectionResultHelper:
@@ -227,6 +264,7 @@ class VideoAnomalyDetectionResultHelper:
         Actually performs tests.
         """
         weights_name, dataset_name = view_data
+
         self.model.eval().to(self.device)
 
         c, t, h, w = self.dataset.raw_shape
@@ -255,9 +293,8 @@ class VideoAnomalyDetectionResultHelper:
         for cl_idx, video_id in tqdm(
             enumerate(self.dataset.test_videos, start=1), total=len(self.dataset.test_videos), desc="Test on Video"
         ):
-            view_root_path = Path.home() / "Escritorio" / "view" / weights_name / dataset_name / f"{cl_idx}"
-            rmtree(view_root_path, ignore_errors=True)
-            view_root_path.mkdir(parents=True)
+            viewer = Viewer(view, Path.home() / "Escritorio" / "view" / weights_name / dataset_name / f"{cl_idx}")
+
             # Run the test
             self.dataset.test(video_id)
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
@@ -268,25 +305,17 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
-            view_img: npt.NDArray[np.uint8] = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
             for i, x in tqdm(
                 enumerate(loader), total=len(loader), desc=f"Computing scores for {self.dataset}", leave=False
             ):
                 # x.shape = [1, 3, 16, 256, 512]
-                if view:
-                    view_img[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
-                        np.uint8, casting="unsafe"
-                    )
+                viewer.put_x(x)
                 x = x.to(self.device)
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
-                    if view:
-                        view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
-                            np.uint8, casting="unsafe"
-                        )
-                    cv2.imwrite(str(view_root_path / f"{i:03d}.png"), view_img)
                     recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
+                    viewer.put_x_r(x_r)
                 else:
                     _, d_lstm = self.model(x)
                     recon_loss = torch.tensor([0.0])
@@ -348,11 +377,7 @@ class VideoAnomalyDetectionResultHelper:
             sample_rc = (sample_rc - min_rc) / ptp_rc if ptp_rc > 0 else np.zeros_like(sample_rc)
             sample_as = sample_oc + sample_rc
 
-            if view:
-                np.save(str(view_root_path / "sample_oc"), sample_oc)
-                np.save(str(view_root_path / "sample_rc"), sample_rc)
-                np.save(str(view_root_path / "sample_as"), sample_as)
-                np.save(str(view_root_path / "sample_y"), sample_y)
+            viewer.put_scores(sample_y, sample_oc, sample_rc, sample_as)
 
             # Update global scores (used for global metrics)
             global_oc.append(sample_oc)
