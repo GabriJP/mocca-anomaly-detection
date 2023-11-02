@@ -8,12 +8,14 @@ from typing import Optional
 from typing import Tuple
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import RocCurveDisplay
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -21,6 +23,10 @@ from tqdm import tqdm
 
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
+
+U8_A = npt.NDArray[np.uint8]
+F32_A = npt.NDArray[np.float32]
+F64_A = npt.NDArray[np.float64]
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
@@ -38,8 +44,8 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # Other utilities
         self.cur_len = 0
         self.cur_video_id: str
-        self.cur_video_frames: npt.NDArray[np.uint8]
-        self.cur_video_gt: npt.NDArray[np.uint8]
+        self.cur_video_frames: U8_A
+        self.cur_video_gt: U8_A
 
     @cached_property
     def test_ids(self) -> List[str]:
@@ -49,7 +55,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    def load_test_sequence_frames(self, video_id: str) -> npt.NDArray[np.uint8]:
+    def load_test_sequence_frames(self, video_id: str) -> U8_A:
         """
         Loads a test video in memory.
         :param video_id: the id of the test video to be loaded
@@ -60,7 +66,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
+    def load_test_sequence_gt(self, video_id: str) -> U8_A:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -130,8 +136,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts: npt.NDArray[np.float32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.counts: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
 
     def push(self, score: float) -> None:
         """
@@ -177,7 +183,7 @@ class Viewer:
         super().__init__()
         self.view = view
         self.view_root_path = view_root_path
-        self.view_img: npt.NDArray[np.uint8] = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
+        self.view_img: U8_A = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
         self.i = 0
         if view:
             rmtree(view_root_path, ignore_errors=True)
@@ -199,7 +205,7 @@ class Viewer:
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
         self.i += 1
 
-    def put_scores(self, sample_y, sample_oc, sample_rc, sample_as) -> None:
+    def put_scores(self, sample_y: U8_A, sample_oc: F64_A, sample_rc: F64_A, sample_as: F64_A) -> None:
         if not self.view:
             return
 
@@ -259,7 +265,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[npt.NDArray[np.float64], List[float]]:
+    ) -> Tuple[F64_A, List[float]]:
         """
         Actually performs tests.
         """
@@ -279,9 +285,9 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[npt.NDArray[np.float64]]] = {k: list() for k in self.keys}
+        global_as_by_layer: Dict[str, List[F64_A]] = {k: list() for k in self.keys}
         global_y = list()
-        global_y_by_layer: Dict[str, List[npt.NDArray[np.uint8]]] = {k: list() for k in self.keys}
+        global_y_by_layer: Dict[str, List[U8_A]] = {k: list() for k in self.keys}
 
         # Get accumulators
         ra_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -427,6 +433,20 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_rc)),  # reconstruction metric
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
+
+        if view:
+            for y_, color, name in zip(
+                [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
+                ["aqua", "darkorange", "cornflowerblue"],
+                ["OC", "RC", "AS"],
+            ):
+                RocCurveDisplay.from_predictions(global_y_conc, y_, name=name, color=color, plot_chance_level=True)
+                plt.axis("square")
+                plt.xlabel("False Positive Rate")
+                plt.ylabel("True Positive Rate")
+                plt.title(name)
+                plt.legend()
+                plt.show()
 
         vad_table.add_row(["Overall", "avg", *global_metrics])
         print(vad_table)
