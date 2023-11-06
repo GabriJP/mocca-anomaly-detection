@@ -162,7 +162,7 @@ class EarlyStoppingDM:
         self.losses.append(new_loss)
 
         losses: npt.NDArray[np.float64] = np.array(self.losses, dtype=np.float64)
-        current_mean = float(np.mean(np.sort(losses)[2:-2]))
+        current_mean = float(np.mean(np.sort(losses)))
         current_std = float(np.std(losses, ddof=1))
         current_pend = self.prev_mean - current_mean
 
