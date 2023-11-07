@@ -1,7 +1,9 @@
+from collections import Counter
 from itertools import product
 from pathlib import Path
 from shutil import rmtree
 from typing import Callable
+from typing import Counter as tCounter
 from typing import Optional
 
 import click
@@ -248,21 +250,33 @@ def tui() -> None:
 
 
 @tui.command()
-@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+@click.argument("data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
 @click.option("--cuda", is_flag=True)
 def process_ucsd(data_root: Path, cuda: bool) -> None:
     _process_ucsd(data_root, cuda)
 
 
 @tui.command()
-@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+@click.argument("data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
 @click.option("--cuda", is_flag=True)
 def process_shanghai(data_root: Path, cuda: bool) -> None:
     _process_shang(data_root, cuda)
 
 
 @tui.command()
-@click.option("--data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+@click.argument("data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+def count_classes(data_root: Path) -> None:
+    c: tCounter[int] = Counter()
+    for p in data_root.glob("**/*.npy"):
+        a: npt.NDArray[np.uint8] = np.load(p)
+        if a.ndim > 1:
+            continue
+        c.update(a.tolist())
+    print(c)
+
+
+@tui.command()
+@click.argument("data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
 @click.option("--cuda", is_flag=True)
 @click.pass_context
 def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
