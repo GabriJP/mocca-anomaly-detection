@@ -1,7 +1,9 @@
 from collections import Counter
 from pathlib import Path
 from typing import Counter as tCounter
+from typing import List
 
+import matplotlib.pyplot as plt
 import click
 import numpy as np
 import numpy.typing as npt
@@ -39,13 +41,18 @@ def count_classes(data_root: Path) -> None:
     table.field_names = ["Path", "Normal count", "Anomaly count", "Unbalance pct"]
     table.sortby = "Unbalance pct"
     table.float_format = "0.2"
+    pcts: List[float] = list()
     for p in data_root.glob("**/*.npy"):
-        a: npt.NDArray[np.uint8] = np.load(p)
+        a: npt.NDArray[np.uint8] = np.load(p, mmap_mode="r")
         if a.ndim > 1:
             continue
         c: tCounter[int] = Counter(a.tolist())
-        table.add_row([p, c[0], c[1], (c[1] - c[0]) / (c[1] + c[0])])
+        pct = (c[1] - c[0]) / (c[1] + c[0])
+        table.add_row([p, c[0], c[1], pct])
+        pcts.append(pct)
     print(table)
+    hist = plt.hist(pcts, range=(-1.0, 1.0))
+    plt.show()
 
 
 @tui.command()
