@@ -11,6 +11,7 @@ from prettytable import PrettyTable
 
 from data_prep_src import process_shang
 from data_prep_src import process_ucsd as src_process_ucsd
+from data_prep_src.shang import generate_all_subsets
 
 U8_NDTYPE = npt.NDArray[np.uint8]
 
@@ -32,6 +33,12 @@ def process_ucsd(data_root: Path, cuda: bool) -> None:
 @click.option("--cuda", is_flag=True)
 def process_shanghai(data_root: Path, cuda: bool) -> None:
     process_shang(data_root, cuda)
+
+
+@tui.command()
+@click.argument("data_root", type=click.Path(file_okay=False, path_type=Path), default=Path("./data"))
+def process_shanghai_subsets(data_root: Path) -> None:
+    generate_all_subsets(data_root)
 
 
 @tui.command()
@@ -62,6 +69,7 @@ def count_classes(data_root: Path) -> None:
 def process_all(ctx: click.Context, data_root: Path, cuda: bool) -> None:
     ctx.invoke(process_ucsd, data_root=data_root, cuda=cuda)
     ctx.invoke(process_shanghai, data_root=data_root, cuda=cuda)
+    ctx.invoke(process_shanghai_subsets, data_root=data_root)
 
 
 if __name__ == "__main__":
