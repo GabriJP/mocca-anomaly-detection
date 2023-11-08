@@ -1,9 +1,8 @@
 from pathlib import Path
 from shutil import rmtree
 
-import numpy as np
-import numpy.typing as npt
-
+from .utils import copy_path_exclude_prefix
+from .utils import copy_path_include_prefix
 from .utils import load_video
 from .utils import process_background_cpu
 from .utils import process_background_gpu
@@ -11,7 +10,83 @@ from .utils import relative_symlink
 from .utils import remove_background
 from .utils import save_video
 
-U8_NDTYPE = npt.NDArray[np.uint8]
+
+def separated_shang(shang_path: Path) -> None:
+    separated_path = shang_path / "separated"
+    rmtree(separated_path, ignore_errors=True)
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
+    for path in nfs.iterdir():
+        output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
+        relative_symlink(output_path, path)
+
+    for current_shang in range(1, 14):
+        copy_path_include_prefix(
+            shang_path / "complete" / "testing",
+            separated_path / f"shang{current_shang:02d}" / "testing",
+            f"{current_shang:02d}_",
+        )
+
+
+def one_out_shang(shang_path: Path) -> None:
+    one_out_path = shang_path / "one_out"
+    rmtree(one_out_path, ignore_errors=True)
+
+    # Training
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
+    all_shangs = {f"{i:02d}" for i in range(1, 14)}
+    for path in nfs.iterdir():
+        for current_shang in all_shangs - {path.name[:2]}:
+            output_path = (
+                one_out_path / f"shang{current_shang}" / "training" / "nobackground_frames_resized" / path.name
+            )
+            relative_symlink(output_path, path)
+
+    # Testing
+    for current_shang in all_shangs:
+        copy_path_exclude_prefix(
+            shang_path / "complete" / "testing",
+            one_out_path / f"shang{current_shang}" / "testing",
+            exclude_prefix=current_shang,
+        )
+
+
+def avo_shang(shang_path: Path) -> None:
+    separated_path = shang_path / "avo"
+    rmtree(separated_path, ignore_errors=True)
+    nfs = shang_path / "complete" / "training" / "nobackground_frames_resized"
+    for current_shang in range(1, 14):
+        output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
+        relative_symlink(output_path, nfs)
+
+        copy_path_include_prefix(
+            shang_path / "complete" / "testing",
+            separated_path / f"shang{current_shang:02d}" / "testing",
+            f"{current_shang:02d}_",
+        )
+
+
+def continuous_shang(shang_path: Path, *, partitions: int = 2) -> None:
+    continuous_path = shang_path / f"continuous_{partitions}"
+    rmtree(continuous_path, ignore_errors=True)
+    separated = shang_path / "separated"
+
+    separated_shangs = sorted(p for p in separated.iterdir())
+
+    for current_partition in range(partitions):
+        for current_sepshang in separated_shangs[current_partition::partitions]:
+            current_contshang_path = continuous_path / str(current_partition) / current_sepshang.name
+            relative_symlink(current_contshang_path / "training", current_sepshang / "training")
+            relative_symlink(current_contshang_path / "testing", shang_path / "complete" / "testing")
+
+
+def generate_all_subsets(shang_path: Path) -> None:
+    separated_shang(shang_path)
+    one_out_shang(shang_path)
+    avo_shang(shang_path)
+    continuous_shang(shang_path)
+    continuous_shang(shang_path, partitions=2)
+    continuous_shang(shang_path, partitions=3)
+    continuous_shang(shang_path, partitions=4)
 
 
 def process_shang_train(data_root: Path, use_cuda: bool) -> None:
@@ -50,3 +125,4 @@ def process_shang_test(data_root: Path, use_cuda: bool) -> None:
 def process_shang(data_root: Path, use_cuda: bool) -> None:
     process_shang_train(data_root, use_cuda)
     process_shang_test(data_root, use_cuda)
+    generate_all_subsets(data_root)

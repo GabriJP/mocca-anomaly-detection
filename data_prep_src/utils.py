@@ -108,3 +108,29 @@ def n_subpaths(path: Path, count_filter: Optional[Callable[[Path], bool]] = (lam
 def relative_symlink(from_path: Path, to_path: Path) -> None:
     from_path.parent.mkdir(parents=True, exist_ok=True)
     from_path.symlink_to(Path("../" * (len(from_path.parents) - 1) / to_path))
+
+
+def copy_path_include_prefix(source: Path, dst_path: Path, include_prefix: str) -> None:
+    for p in source.iterdir():
+        if p.name.startswith(include_prefix):
+            relative_symlink(dst_path / p.name, p)
+            continue
+
+        if p.is_dir():
+            copy_path_include_prefix(p, dst_path / p.name, include_prefix)
+
+
+def copy_path_exclude_prefix(source: Path, dst_path: Path, exclude_prefix: str) -> None:
+    for p in source.iterdir():
+        if p.name.startswith(exclude_prefix):
+            continue
+
+        if p.is_dir():
+            if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
+                relative_symlink(dst_path / p.name, p)
+            else:
+                copy_path_exclude_prefix(p, dst_path / p.name, exclude_prefix)
+        elif p.is_file():
+            relative_symlink(dst_path / p.name, p)
+        else:
+            raise ValueError

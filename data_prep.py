@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Counter as tCounter
 from typing import List
 
-import matplotlib.pyplot as plt
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from prettytable import PrettyTable
@@ -51,7 +51,7 @@ def count_classes(data_root: Path) -> None:
         table.add_row([p, c[0], c[1], pct])
         pcts.append(pct)
     print(table)
-    hist = plt.hist(pcts, range=(-1.0, 1.0))
+    plt.hist(pcts, range=(-1.0, 1.0))
     plt.show()
 
 
