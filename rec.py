@@ -68,7 +68,6 @@ def test_network(
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(message)s",
-        handlers=[logging.FileHandler("./training.log"), logging.StreamHandler()],
     )
 
     device = "cuda" if not disable_cuda and torch.cuda.is_available() else "cpu"
@@ -93,14 +92,10 @@ def test_network(
         train_type,
     ) = extract_arguments_from_checkpoint(model_ckp)
 
-    # Print data infos
-    logging.info("Dataset info:")
-    logging.info(f"\n\n\t\t\t\tBatch size    : {batch_size}")
-
     # Init dataset
     dataset = data_holder.get_test_data()
     model_cls = ShanghaiTech if train_type == "train_end_to_end" else ShanghaiTechEncoder
-    net = model_cls(
+    net: torch.nn.Module = model_cls(
         data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
     )
     if disable_cuda:
@@ -108,23 +103,12 @@ def test_network(
     else:
         st_dict = torch.load(model_ckp)
 
-    net.load_state_dict(st_dict["net_state_dict"], strict=False)
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False)  # type: ignore
+    load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=False)
+    logging.warning(f"Missing keys when loading state_dict: {load_state_dict_warn.missing_keys}")
+    logging.warning(f"Unexpected keys when loading state_dict: {load_state_dict_warn.unexpected_keys}")
     logging.info(f"Loaded model from: {model_ckp}")
-    logging.info(
-        f"Start test with params:"
-        f"\n\t\t\t\tDataset        : {dataset_name}"
-        f"\n\t\t\t\tCode length    : {code_length}"
-        f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
-        f"\n\t\t\t\tBoundary       : {boundary}"
-        f"\n\t\t\t\tUse Selectors  : {use_selectors}"
-        f"\n\t\t\t\tBatch size     : {batch_size}"
-        f"\n\t\t\t\tN workers      : {n_workers}"
-        f"\n\t\t\t\tLoad LSTMs     : {load_lstm}"
-        f"\n\t\t\t\tHidden size    : {hidden_size}"
-        f"\n\t\t\t\tNum layers     : {num_layers}"
-        f"\n\t\t\t\tBidirectional  : {bidirectional}"
-        f"\n\t\t\t\tDropout prob   : {dropout}"
-    )
 
     # Initialize test helper for processing each video seperately
     # It prints the result to the loaded checkpoint directory
@@ -139,7 +123,7 @@ def test_network(
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
     )
     # TEST
-    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))
+    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, dataset_name))
     logging.info("Test finished")
 
 

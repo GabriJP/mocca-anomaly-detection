@@ -183,7 +183,7 @@ class Viewer:
         super().__init__()
         self.view = view
         self.view_root_path = view_root_path
-        self.view_img: U8_A = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
+        self.view_img: U8_A = np.zeros((256, 512 * 2 + 5, 3), dtype=np.uint8)
         self.i = 0
         if view:
             rmtree(view_root_path, ignore_errors=True)
@@ -192,14 +192,14 @@ class Viewer:
     def put_x(self, x: torch.Tensor) -> None:
         if not self.view:
             return
-        self.view_img[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+        self.view_img[:, :512, :] = (np.transpose(x.numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
             np.uint8, casting="unsafe"
         )
 
     def put_x_r(self, x_r: torch.Tensor) -> None:
         if not self.view:
             return
-        self.view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[-2] * 255).astype(
+        self.view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
             np.uint8, casting="unsafe"
         )
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
