@@ -183,7 +183,7 @@ class Viewer:
         super().__init__()
         self.view = view
         self.view_root_path = view_root_path
-        self.view_img: U8_A = np.zeros((256, 512 * 2 + 5, 3), dtype=np.uint8)
+        self.view_img: U8_A = np.full((256, 512 * 2 + 5, 3), fill_value=255, dtype=np.uint8)
         self.i = 0
         if view:
             rmtree(view_root_path, ignore_errors=True)
