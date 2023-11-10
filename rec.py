@@ -21,7 +21,7 @@ def cli() -> None:
     pass
 
 
-@cli.command("test_network", context_settings=dict(show_default=True))
+@cli.command(context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
     "--n_workers",
@@ -140,16 +140,15 @@ def _label_path(data_path: Path) -> None:
         cv2.imwrite(str(file), img)
 
 
-@cli.command("label_path")
+@cli.command()
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def label_path(data_path: Path) -> None:
     _label_path(data_path)
 
 
-@cli.command("label_paths")
+@cli.command()
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.pass_context
-def label_paths(ctx: click.Context, data_path: Path) -> None:
+def label_paths(data_path: Path) -> None:
     with Pool() as pool:
         pool.map_async(_label_path, data_path.iterdir())
         pool.close()
