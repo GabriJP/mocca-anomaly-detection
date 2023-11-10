@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import cv2
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from datasets.data_manager import DataManager
@@ -21,7 +22,7 @@ def cli() -> None:
     pass
 
 
-@cli.command(context_settings=dict(show_default=True))
+@cli.command("test_network", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
     "--n_workers",
@@ -140,17 +141,75 @@ def _label_path(data_path: Path) -> None:
         cv2.imwrite(str(file), img)
 
 
-@cli.command()
+@cli.command("label_path")
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def label_path(data_path: Path) -> None:
     _label_path(data_path)
 
 
-@cli.command()
+@cli.command("label_paths")
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def label_paths(data_path: Path) -> None:
     with Pool() as pool:
         pool.map_async(_label_path, data_path.iterdir())
+        pool.close()
+        pool.join()
+
+
+def _plot_labels(data_path: Path) -> None:
+    colors = (0, 0, 255), (0, 255, 0)
+    _label_path(data_path)
+    y_trues = np.load(str(data_path / "sample_y.npy"))
+    y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
+    y_tp = y_preds * y_trues
+    y_fp = y_preds * (1 - y_trues)
+
+    col_len, col_sep = 10, 5
+    row_len, row_sep = 10, 50
+
+    height, width = 4 * (row_len + row_sep) - row_sep, len(y_trues) * (col_len + col_sep) - col_sep
+    img: npt.NDArray[np.uint8] = np.zeros((height, width, 3), dtype=np.uint8)
+
+    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_tp, y_fp)):
+        x1 = i * (col_len + col_sep)
+        x2 = x1 + col_len
+        y1 = row_len + row_sep
+        cv2.rectangle(
+            img,
+            (x1, 0),
+            (x2, row_len),
+            color=colors[i1],
+            thickness=cv2.FILLED,
+        )
+        cv2.rectangle(
+            img,
+            (x1, y1),
+            (x2, y1 + row_len),
+            color=colors[i2],
+            thickness=cv2.FILLED,
+        )
+        cv2.rectangle(
+            img,
+            (x1, y1 * 2),
+            (x2, y1 * 2 + row_len),
+            color=colors[i3],
+            thickness=cv2.FILLED,
+        )
+        cv2.rectangle(
+            img,
+            (x1, y1 * 3),
+            (x2, y1 * 3 + row_len),
+            color=colors[i4],
+            thickness=cv2.FILLED,
+        )
+    cv2.imwrite(str(data_path / "labels.png"), img)
+
+
+@cli.command("plot_labels")
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def plot_labels(data_path: Path) -> None:
+    with Pool() as pool:
+        pool.map_async(_plot_labels, data_path.iterdir())
         pool.close()
         pool.join()
 
