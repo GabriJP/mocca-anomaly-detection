@@ -14,6 +14,7 @@ import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
+from scipy.ndimage import gaussian_filter
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import RocCurveDisplay
 from torch import nn
@@ -381,6 +382,12 @@ class VideoAnomalyDetectionResultHelper:
             # and normalization coefficients (Eq. 9-10).
             sample_oc = (sample_oc - min_oc) / ptp_oc
             sample_rc = (sample_rc - min_rc) / ptp_rc if ptp_rc > 0 else np.zeros_like(sample_rc)
+
+            kernel = np.ones_like(sample_oc, shape=(5,))
+            np.divide(kernel, len(kernel), out=kernel)
+            sample_oc: F64_A = np.convolve(sample_oc, kernel, mode="same")
+            sample_rc: F64_A = np.convolve(sample_rc, kernel, mode="same")
+
             sample_as = sample_oc + sample_rc
 
             viewer.put_scores(sample_y, sample_oc, sample_rc, sample_as)
