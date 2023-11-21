@@ -44,8 +44,8 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # Other utilities
         self.cur_len = 0
         self.cur_video_id: str
-        self.cur_video_frames: np.ndarray
-        self.cur_video_gt: np.ndarray
+        self.cur_video_frames: U8_A
+        self.cur_video_gt: U8_A
 
     @cached_property
     def test_ids(self) -> List[str]:
@@ -55,7 +55,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         """
         return sorted(p.stem for p in (Path(self.test_dir) / "test_frame_mask").iterdir() if p.suffix == ".npy")
 
-    def load_test_sequence_frames(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_frames(self, video_id: str) -> U8_A:
         """
         Loads a test video in memory.
         :param video_id: the id of the test video to be loaded
@@ -66,7 +66,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         # print(f"Creating clips for {sequence_dir} dataset with length {t}...")
         return np.stack([np.uint8(io.imread(img_path)) for img_path in img_list])
 
-    def load_test_sequence_gt(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_gt(self, video_id: str) -> U8_A:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -136,8 +136,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: np.ndarray = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts = np.zeros(shape=(nb_frames_per_clip,))
+        self.buffer: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.counts: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
 
     def push(self, score: float) -> None:
         """
@@ -205,7 +205,7 @@ class Viewer:
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
         self.i += 1
 
-    def put_scores(self, sample_y: U8_A, sample_oc: F64_A, sample_rc: F64_A, sample_as: F64_A) -> None:
+    def put_scores(self, sample_y: U8_A, sample_oc: F32_A, sample_rc: F32_A, sample_as: F32_A) -> None:
         if not self.view:
             return
 
@@ -265,7 +265,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[np.ndarray, List[float]]:
+    ) -> Tuple[F32_A, List[float]]:
         """
         Actually performs tests.
         """
@@ -285,9 +285,9 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[np.ndarray]] = {k: list() for k in self.keys}
+        global_as_by_layer: Dict[str, List[F64_A]] = {k: list() for k in self.keys}
         global_y = list()
-        global_y_by_layer: Dict[str, List[np.ndarray]] = {k: list() for k in self.keys}
+        global_y_by_layer: Dict[str, List[U8_A]] = {k: list() for k in self.keys}
 
         # Get accumulators
         ra_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -306,9 +306,11 @@ class VideoAnomalyDetectionResultHelper:
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
-            sample_rc = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
-            sample_oc = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
-            sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32) for k in self.keys}
+            sample_rc: F32_A = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
+            sample_oc: F32_A = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
+            sample_oc_by_layer: Dict[str, F32_A] = {
+                k: np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32) for k in self.keys
+            }
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
             for i, x in tqdm(

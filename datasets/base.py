@@ -8,6 +8,7 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import default_collate
@@ -87,7 +88,7 @@ class VideoAnomalyDetectionDataset(DatasetBase, ABC):
         pass
 
     @abstractmethod
-    def load_test_sequence_gt(self, video_id: str) -> np.ndarray:
+    def load_test_sequence_gt(self, video_id: str) -> npt.NDArray[np.uint8]:
         """
         Loads the groundtruth of a test video in memory.
         :param video_id: the id of the test video for which the groundtruth has to be loaded.
@@ -102,7 +103,7 @@ class ToFloatTensor3D:
     def __init__(self, normalize: bool = True) -> None:
         self._normalize = normalize
 
-    def __call__(self, sample: Union[Sequence[np.ndarray], np.ndarray]) -> torch.Tensor:
+    def __call__(self, sample: Union[Sequence[npt.NDArray[np.uint8]], npt.NDArray[np.uint8]]) -> torch.Tensor:
         if len(sample) == 3:
             x, _, _ = sample
         else:
