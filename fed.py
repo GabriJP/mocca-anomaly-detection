@@ -23,6 +23,7 @@ import torch
 import wandb
 from flwr.common import Config
 from flwr.common import NDArrays
+from flwr.common import Scalar
 from flwr.server import SimpleClientManager
 from flwr.server.strategy import FedProx
 
@@ -311,8 +312,72 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
     return inner
 
 
+def get_evaluate_fn(
+    wandb_group: str, test_checkpoint: int
+) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
+    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
+    idx_list_enc = (3, 4, 5, 6)
+    data_holder = DataManager(
+        dataset_name="ShanghaiTech",
+        data_path=Path("data/shanghaitech/complete"),
+        normal_class=-1,
+        seed=-1,
+        clip_length=16,
+    ).get_data_holder()
+    # torch.set_float32_matmul_precision("high")
+    net = ShanghaiTech(
+        data_holder.shape,
+        code_length=512,
+        load_lstm=True,
+        hidden_size=100,
+        num_layers=1,
+        dropout=0.3,
+        bidirectional=True,
+    )
+    # net = torch.compile(net)  # type: ignore
+    R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
+
+    def centralized_evaluation(
+        server_round: int, parameters: NDArrays, _: Dict[str, Scalar]
+    ) -> Tuple[float, Dict[str, Scalar]]:
+        if server_round % test_checkpoint != 0:
+            wandb_logger.manual_step()
+            return 0.0, dict()
+        params_dict = zip(net.state_dict().keys(), parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        net.load_state_dict(state_dict, strict=True)
+
+        rs_list = parameters[len(state_dict) :]
+
+        keys = list(R.keys()) if len(R) else get_keys(idx_list_enc)
+
+        if len(keys) != len(rs_list):
+            raise ValueError("Keys, cs and rs differ in quantity")
+
+        for k, rv in zip(keys, rs_list):
+            R[k] = torch.tensor(rv, device=wanted_device)
+
+        dataset = data_holder.get_test_data()
+        helper = VideoAnomalyDetectionResultHelper(
+            dataset=dataset,
+            model=net,
+            R=R,
+            boundary="soft",
+            device=wanted_device,
+            end_to_end_training=True,
+            debug=False,
+            output_file=None,
+        )
+        global_oc, global_metrics = helper.test_video_anomaly_detection()
+        global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        wandb_logger.log_test(global_metrics_dict)
+        return float(global_oc.mean()), global_metrics_dict
+
+    return centralized_evaluation
+
+
 @cli.command(context_settings=dict(show_default=True))
-@click.option("--port", type=click.IntRange(0, 10_000), default=8080)
+@click.option("--port", type=click.IntRange(0, 65_535), default=8080)
 @click.option("--num_rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
 @click.option("--warm_up_n_epochs", type=click.IntRange(0), default=0)
@@ -320,8 +385,10 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 @click.option("--patience", type=click.IntRange(0), default=None)
 @click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=None)
 @click.option("--min_fit_clients", type=click.IntRange(2), default=2)
-@click.option("--min_evaluate_clients", type=click.IntRange(1), default=2)
+@click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
+@click.option("--wandb_group", type=str, default=None)
+@click.option("--test_checkpoint", type=click.IntRange(1), default=1)
 def server(
     port: int,
     num_rounds: int,
@@ -333,13 +400,16 @@ def server(
     min_fit_clients: int,
     min_evaluate_clients: int,
     min_available_clients: int,
+    wandb_group: Optional[str],
+    test_checkpoint: int,
 ) -> None:
     strategy = FedProx(
         fraction_fit=0.0,
-        fraction_evaluate=0.0,
+        fraction_evaluate=0.0 if min_evaluate_clients == 0 else 1e-5,
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
+        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint) if wandb_group is not None else None,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
     )

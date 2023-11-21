@@ -5,7 +5,6 @@ from collections import deque
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
-from shutil import rmtree
 from typing import Any
 from typing import Deque
 from typing import Dict
@@ -30,6 +29,12 @@ class WandbLogger:
         self.data: Dict[str, WANDB_DATA] = dict()
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
+
+    def manual_step(self) -> None:
+        if len(self.data):
+            self._log()
+        else:
+            self.step += 1
 
     def _log(self) -> None:
         wandb.log(self.data, step=self.step, commit=True)
@@ -155,15 +160,7 @@ class EarlyStoppingDM:
         self.losses.append(new_loss)
 
         losses: np.ndarray = np.sort(np.array(self.losses, dtype=np.float64))
-
-        if len(losses) <= 5:
-            clipped_losses = losses
-        elif len(losses) <= 10:
-            clipped_losses = losses[1:-1]
-        else:
-            clipped_losses = losses[2:-2]
-
-        current_mean = float(np.mean(clipped_losses))
+        current_mean = float(np.mean(np.sort(losses)))
         current_std = float(np.std(losses, ddof=1))
         current_pend = self.prev_mean - current_mean
 
@@ -527,117 +524,3 @@ def init_center_c(
         c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps
 
     return c
-
-
-def copy_path_include_prefix(source: Path, dst_path: Path, include_prefix: str) -> None:
-    for p in source.iterdir():
-        if p.name.startswith(include_prefix):
-            dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.parts) + 1) / p)
-            (dst_path / p.name).symlink_to(relative_path)
-            continue
-
-        if p.is_dir():
-            copy_path_include_prefix(p, dst_path / p.name, include_prefix)
-
-
-def copy_path_exclude_prefix(source: Path, dst_path: Path, exclude_prefix: str) -> None:
-    for p in source.iterdir():
-        if p.name.startswith(exclude_prefix):
-            continue
-
-        if p.is_dir():
-            if all(f.is_file() and "_" not in f.name for f in p.iterdir()):
-                dst_path.mkdir(parents=True, exist_ok=True)
-                relative_path = Path("../" * (len(p.parts) + 1) / p)
-                (dst_path / p.name).symlink_to(relative_path)
-            else:
-                copy_path_exclude_prefix(p, dst_path / p.name, exclude_prefix)
-        elif p.is_file():
-            dst_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(p.parts) + 1) / p)
-            (dst_path / p.name).symlink_to(relative_path)
-        else:
-            raise ValueError
-
-
-def separated_shang(root_path: Path) -> None:
-    separated_path = root_path / "separated"
-    rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "training" / "nobackground_frames_resized"
-    for path in nfs.iterdir():
-        output_path = separated_path / f"shang{path.name[:2]}" / "training" / "nobackground_frames_resized" / path.name
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(path.parts) + 1) / path)
-        output_path.symlink_to(relative_path)
-
-    for current_shang in range(1, 14):
-        copy_path_include_prefix(
-            root_path / "testing", separated_path / f"shang{current_shang:02d}" / "testing", f"{current_shang:02d}_"
-        )
-
-
-def one_out_shang(shang_path: Path) -> None:
-    one_out_path = shang_path / "one_out"
-    rmtree(one_out_path, ignore_errors=True)
-
-    # Training
-    nfs = shang_path / "training" / "nobackground_frames_resized"
-    all_shangs = {f"{i:02d}" for i in range(1, 14)}
-    for path in nfs.iterdir():
-        for current_shang in all_shangs - {path.name[:2]}:
-            output_path = (
-                one_out_path / f"shang{current_shang}" / "training" / "nobackground_frames_resized" / path.name
-            )
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(path.parts) + 1) / path)
-            output_path.symlink_to(relative_path)
-
-    # Testing
-    for current_shang in all_shangs:
-        copy_path_exclude_prefix(
-            shang_path / "testing", one_out_path / f"shang{current_shang}" / "testing", exclude_prefix=current_shang
-        )
-
-
-def avo_shang(root_path: Path) -> None:
-    separated_path = root_path / "avo"
-    rmtree(separated_path, ignore_errors=True)
-    nfs = root_path / "training" / "nobackground_frames_resized"
-    for current_shang in range(1, 14):
-        output_path = separated_path / f"shang{current_shang:02d}" / "training" / "nobackground_frames_resized"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        relative_path = Path("../" * (len(nfs.parts) + 1) / nfs)
-        output_path.symlink_to(relative_path)
-
-        copy_path_include_prefix(
-            root_path / "testing", separated_path / f"shang{current_shang:02d}" / "testing", f"{current_shang:02d}_"
-        )
-
-
-def continuous_shang(root_path: Path, *, partitions: int = 2) -> None:
-    continuous_path = root_path / f"continuous_{partitions}"
-    rmtree(continuous_path, ignore_errors=True)
-    separated = root_path / "separated"
-
-    separated_shangs = sorted(p for p in separated.iterdir())
-
-    for current_partition in range(partitions):
-        for current_sepshang in separated_shangs[current_partition::partitions]:
-            current_contshang_path = continuous_path / str(current_partition) / current_sepshang.name
-            current_contshang_path.mkdir(parents=True, exist_ok=True)
-            relative_path = Path("../" * (len(current_contshang_path.parts)))
-            (current_contshang_path / "training").symlink_to(relative_path / current_sepshang / "training")
-            (current_contshang_path / "testing").symlink_to(relative_path / root_path / "testing")
-
-
-def generate_all_subsets(shang_path: Optional[Path] = None) -> None:
-    if shang_path is None:
-        shang_path = Path("data/shanghaitech")
-
-    separated_shang(shang_path)
-    one_out_shang(shang_path)
-    avo_shang(shang_path)
-    continuous_shang(shang_path)
-    continuous_shang(shang_path, partitions=2)
-    continuous_shang(shang_path, partitions=3)
