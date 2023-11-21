@@ -10,6 +10,7 @@ from typing import Tuple
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
@@ -310,7 +311,6 @@ class VideoAnomalyDetectionResultHelper:
             sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32) for k in self.keys}
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
-            view_img: np.ndarray = np.full((256, 512 * 2 + 5, 3), 255, dtype=np.uint8)
             for i, x in tqdm(
                 enumerate(loader), total=len(loader), desc=f"Computing scores for {self.dataset}", leave=False
             ):
