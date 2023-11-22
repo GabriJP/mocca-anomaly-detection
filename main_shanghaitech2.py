@@ -171,6 +171,7 @@ def main(
         boundary,
         idx_list_enc_ilist,
         nu,
+        optimizer="sgd",
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
@@ -183,8 +184,6 @@ def main(
     torch.set_default_tensor_type(torch.HalfTensor)
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
-    if compile_net:
-        net = torch.compile(net)  # type: ignore
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
@@ -205,9 +204,11 @@ def main(
     i = 0
     for i in range(epochs):
         mc.fit()
-        mc.evaluate()
         if es.early_stop:
+            mc.evaluate()
             break
+        if not (i % 5):
+            mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
     wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))

@@ -46,7 +46,7 @@ def train(
 
     # Set optimizer
     optimizer = (
-        Adam(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay)
+        Adam(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, eps=1e-4)
         if rc.optimizer == "adam"
         else SGD(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, momentum=0.9)
     )
@@ -128,7 +128,7 @@ def train(
                 d_from_c[k] += torch.mean(dist[k]).item()
 
             objective_loss_.backward()
-            if (idx + 1) % 2 == 0 or (idx + 1 == len(train_loader)):
+            if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
                 torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
                 optimizer.step()
                 # Zero the network parameter gradients

@@ -20,13 +20,18 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
+from typing_extensions import TypeAlias
 
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 
-U8_A = npt.NDArray[np.uint8]
-F32_A = npt.NDArray[np.float32]
-F64_A = npt.NDArray[np.float64]
+T_NET_DTYPE: TypeAlias = torch.float16
+NP_NET_DTYPE: TypeAlias = np.float16
+OP_DTYPE: TypeAlias = np.float32
+
+U8_A: TypeAlias = npt.NDArray[np.uint8]
+NET_A: TypeAlias = npt.NDArray[NP_NET_DTYPE]
+OP_A: TypeAlias = npt.NDArray[OP_DTYPE]
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
@@ -136,8 +141,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: NET_A = np.zeros(shape=(nb_frames_per_clip,), dtype=NP_NET_DTYPE)
+        self.counts: NET_A = np.zeros(shape=(nb_frames_per_clip,), dtype=NP_NET_DTYPE)
 
     def push(self, score: float) -> None:
         """
@@ -205,7 +210,7 @@ class Viewer:
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
         self.i += 1
 
-    def put_scores(self, sample_y: U8_A, sample_oc: F32_A, sample_rc: F32_A, sample_as: F32_A) -> None:
+    def put_scores(self, sample_y: U8_A, sample_oc: NET_A, sample_rc: NET_A, sample_as: NET_A) -> None:
         if not self.view:
             return
 
@@ -265,7 +270,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[F32_A, List[float]]:
+    ) -> Tuple[NET_A, List[float]]:
         """
         Actually performs tests.
         """
@@ -285,7 +290,7 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[F64_A]] = {k: list() for k in self.keys}
+        global_as_by_layer: Dict[str, List[OP_A]] = {k: list() for k in self.keys}
         global_y = list()
         global_y_by_layer: Dict[str, List[U8_A]] = {k: list() for k in self.keys}
 
@@ -306,10 +311,10 @@ class VideoAnomalyDetectionResultHelper:
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
-            sample_rc: F32_A = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
-            sample_oc: F32_A = np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32)
-            sample_oc_by_layer: Dict[str, F32_A] = {
-                k: np.zeros(shape=(len(loader) + t - 1,), dtype=np.float32) for k in self.keys
+            sample_rc: NET_A = np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE)
+            sample_oc: NET_A = np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE)
+            sample_oc_by_layer: Dict[str, NET_A] = {
+                k: np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE) for k in self.keys
             }
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
@@ -330,6 +335,9 @@ class VideoAnomalyDetectionResultHelper:
 
                 # Eval one class score for current clip
                 oc_loss_by_layer, oc_overall_loss = self._get_scores(d_lstm)
+
+                if torch.isinf(recon_loss):
+                    recon_loss.fill_(torch.finfo(T_NET_DTYPE).max)
 
                 # Feed results accumulators
                 ra_rc.push(recon_loss.item())
@@ -356,7 +364,10 @@ class VideoAnomalyDetectionResultHelper:
 
                 # Computes the normalized novelty score given likelihood scores, reconstruction scores
                 # and normalization coefficients (Eq. 9-10).
-                sample_ns = (sample_oc_by_layer[k] - min_) / ptp
+                if np.isclose(ptp, 0.0):
+                    sample_ns: OP_A = np.full_like(sample_oc_by_layer[k], np.finfo(OP_DTYPE).max)
+                else:
+                    sample_ns = (sample_oc_by_layer[k] - min_) / ptp
 
                 # Update global scores (used for global metrics)
                 global_as_by_layer[k].append(sample_ns)
