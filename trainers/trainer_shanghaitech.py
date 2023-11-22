@@ -107,9 +107,6 @@ def train(
             if torch.isinf(recon_loss_):
                 recon_loss_.fill_(torch.finfo(torch.float16).max)
 
-            one_class_loss_ /= 2
-            recon_loss_ /= 2
-
             objective_loss_ = one_class_loss_ + recon_loss_
             if torch.isinf(objective_loss_):
                 objective_loss_.fill_(torch.finfo(torch.float16).max)
@@ -139,26 +136,23 @@ def train(
             objective_loss += objective_loss_.item()
 
             # if idx % (len(train_loader) // rc.log_frequency) == 0:
-            if True:
-                logger.debug(
-                    f"TRAIN at epoch: {epoch} [{idx}]/[{len(train_loader)}] ==> "
-                    f"\n\t\t\t\tReconstr Loss : {recon_loss / n_batches:.4f}"
-                    f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
-                    f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
-                )
-                log_data = dict(
-                    recon_loss=recon_loss / n_batches,
-                    one_class_loss=one_class_loss / n_batches,
-                    objective_loss=objective_loss / n_batches,
-                )
-                for k in keys:
-                    logger.info(
-                        f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
-                    )
-                    log_data[f"radius_{k}"] = float(r[k].data.cpu().numpy())
-                    log_data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb_logger.log_train(log_data)
-                wandb_logger.log_train(es_data, key="es")
+            logger.debug(
+                f"TRAIN at epoch: {epoch} [{idx}]/[{len(train_loader)}] ==> "
+                f"\n\t\t\t\tReconstr Loss : {recon_loss / n_batches:.4f}"
+                f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
+                f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
+            )
+            log_data = dict(
+                recon_loss=recon_loss / n_batches,
+                one_class_loss=one_class_loss / n_batches,
+                objective_loss=objective_loss / n_batches,
+            )
+            for k in keys:
+                logger.info(f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}")
+                log_data[f"radius_{k}"] = float(r[k].data.cpu().numpy())
+                log_data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
+            wandb_logger.log_train(log_data)
+            wandb_logger.log_train(es_data, key="es")
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:
@@ -167,8 +161,6 @@ def train(
                 r[k].data = torch.tensor(
                     np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - rc.nu), device=device
                 )
-            if idx == 2:
-                break
 
         if epoch in rc.lr_milestones:
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
@@ -183,8 +175,6 @@ def train(
         if es is not None and es.early_stop:
             logger.info("Early stopping")
             break
-
-        break
 
     logger.info("Finished training.")
 

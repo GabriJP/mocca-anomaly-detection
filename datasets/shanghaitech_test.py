@@ -209,7 +209,7 @@ class Viewer:
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
         self.i += 1
 
-    def put_scores(self, sample_y: U8_A, sample_oc: NET_A, sample_rc: NET_A, sample_as: NET_A) -> None:
+    def put_scores(self, sample_y: U8_A, sample_oc: OP_A, sample_rc: OP_A, sample_as: OP_A) -> None:
         if not self.view:
             return
 
@@ -269,7 +269,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[NET_A, List[float]]:
+    ) -> Tuple[OP_A, List[float]]:
         """
         Actually performs tests.
         """
@@ -310,10 +310,10 @@ class VideoAnomalyDetectionResultHelper:
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
-            sample_rc: NET_A = np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE)
-            sample_oc: NET_A = np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE)
-            sample_oc_by_layer: Dict[str, NET_A] = {
-                k: np.zeros(shape=(len(loader) + t - 1,), dtype=NP_NET_DTYPE) for k in self.keys
+            sample_rc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
+            sample_oc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
+            sample_oc_by_layer: Dict[str, OP_A] = {
+                k: np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE) for k in self.keys
             }
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
@@ -392,7 +392,7 @@ class VideoAnomalyDetectionResultHelper:
             # Computes the normalized novelty score given likelihood scores, reconstruction scores
             # and normalization coefficients (Eq. 9-10).
             if np.isclose(ptp_oc, 0.0):
-                sample_oc: OP_A = np.full_like(sample_oc, np.finfo(OP_DTYPE).max, dtype=OP_DTYPE)
+                sample_oc = np.full_like(sample_oc, np.finfo(OP_DTYPE).max, dtype=OP_DTYPE)
             else:
                 sample_oc = (sample_oc - min_oc) / ptp_oc
 

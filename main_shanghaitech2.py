@@ -32,12 +32,16 @@ class MoccaClient:
         data_holder: ShanghaiTechDataHolder,
         rc: RunConfig,
         es: Optional[EarlyStoppingDM] = None,
+        view: bool = False,
+        view_data: Tuple[str, str] = ("weights_name", "dataset_name"),
     ) -> None:
         super().__init__()
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
         self.es = es
+        self.view = view
+        self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
 
     def fit(self) -> None:
@@ -61,7 +65,7 @@ class MoccaClient:
             debug=False,
             output_file=None,
         )
-        _, global_metrics = helper.test_video_anomaly_detection()
+        _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
         wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
 
 
@@ -108,6 +112,7 @@ class MoccaClient:
 @click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
 @click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
 @click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
+@click.option("--view", is_flag=True)
 def main(
     seed: int,
     n_workers: int,
@@ -140,6 +145,7 @@ def main(
     es_initial_patience_epochs: int,
     rolling_factor: int,
     es_patience: int,
+    view: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
@@ -197,7 +203,7 @@ def main(
         es_patience=es_patience,
     )
 
-    mc = MoccaClient(net, data_holder, rc, es)
+    mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
 
     initial_time = time.perf_counter()
 
