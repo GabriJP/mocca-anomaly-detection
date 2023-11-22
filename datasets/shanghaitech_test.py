@@ -364,7 +364,7 @@ class VideoAnomalyDetectionResultHelper:
                 # Computes the normalized novelty score given likelihood scores, reconstruction scores
                 # and normalization coefficients (Eq. 9-10).
                 if np.isclose(ptp, 0.0):
-                    sample_ns: OP_A = np.full_like(sample_oc_by_layer[k], np.finfo(OP_DTYPE).max)
+                    sample_ns: OP_A = np.full_like(sample_oc_by_layer[k], np.finfo(OP_DTYPE).max, dtype=OP_DTYPE)
                 else:
                     sample_ns = np.subtract(sample_oc_by_layer[k], min_, dtype=OP_DTYPE) / ptp
 
