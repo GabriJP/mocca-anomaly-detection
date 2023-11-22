@@ -141,8 +141,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: NET_A = np.zeros(shape=(nb_frames_per_clip,), dtype=NP_NET_DTYPE)
-        self.counts: NET_A = np.zeros(shape=(nb_frames_per_clip,), dtype=NP_NET_DTYPE)
+        self.buffer: OP_A = np.zeros(shape=(nb_frames_per_clip,), dtype=OP_DTYPE)
+        self.counts: npt.NDArray[np.uint32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.uint32)
 
     def push(self, score: float) -> None:
         """
