@@ -20,18 +20,17 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
-from typing_extensions import TypeAlias
 
 from .base import ToFloatTensor3D
 from .base import VideoAnomalyDetectionDataset
 
-T_NET_DTYPE: TypeAlias = torch.float16
-NP_NET_DTYPE: TypeAlias = np.float16
-OP_DTYPE: TypeAlias = np.float32
+T_NET_DTYPE = torch.float16
+NP_NET_DTYPE = np.float16
+OP_DTYPE = np.float32
 
-U8_A: TypeAlias = npt.NDArray[np.uint8]
-NET_A: TypeAlias = npt.NDArray[NP_NET_DTYPE]
-OP_A: TypeAlias = npt.NDArray[OP_DTYPE]
+U8_A = npt.NDArray[np.uint8]
+NET_A = npt.NDArray[NP_NET_DTYPE]
+OP_A = npt.NDArray[OP_DTYPE]
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
@@ -367,7 +366,7 @@ class VideoAnomalyDetectionResultHelper:
                 if np.isclose(ptp, 0.0):
                     sample_ns: OP_A = np.full_like(sample_oc_by_layer[k], np.finfo(OP_DTYPE).max)
                 else:
-                    sample_ns = (sample_oc_by_layer[k] - min_) / ptp
+                    sample_ns = np.subtract(sample_oc_by_layer[k], min_, dtype=OP_DTYPE) / ptp
 
                 # Update global scores (used for global metrics)
                 global_as_by_layer[k].append(sample_ns)
