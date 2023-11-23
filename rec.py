@@ -161,8 +161,8 @@ def _plot_labels(data_path: Path) -> None:
     _label_path(data_path)
     y_trues = np.load(str(data_path / "sample_y.npy"))
     y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
-    y_rc = (np.load(str(data_path / "sample_rc.npy")) > 1).astype(np.uint8)
-    y_oc = (np.load(str(data_path / "sample_oc.npy")) > 1).astype(np.uint8)
+    y_rc = (np.load(str(data_path / "sample_rc.npy")) > 0.5).astype(np.uint8)
+    y_oc = (np.load(str(data_path / "sample_oc.npy")) > 0.5).astype(np.uint8)
 
     col_len, col_sep = 10, 5
     row_len, row_sep = 10, 50
