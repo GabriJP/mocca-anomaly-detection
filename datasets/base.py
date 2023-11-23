@@ -13,6 +13,14 @@ import torch
 from torch.utils.data import Dataset
 from torch.utils.data import default_collate
 
+T_NET_DTYPE = torch.float32
+NP_NET_DTYPE = np.float32
+OP_DTYPE = np.float32
+
+U8_A = npt.NDArray[np.uint8]
+NET_A = npt.NDArray[NP_NET_DTYPE]
+OP_A = npt.NDArray[OP_DTYPE]
+
 
 class DatasetBase(Dataset[torch.Tensor], ABC):
     """
@@ -117,4 +125,4 @@ class ToFloatTensor3D:
         if self._normalize:
             x = x / 255.0
 
-        return torch.from_numpy(x.astype(np.float16))
+        return torch.from_numpy(x.astype(NP_NET_DTYPE))

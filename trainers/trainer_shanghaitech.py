@@ -84,8 +84,8 @@ def train(
         # Zero the network parameter gradients
         optimizer.zero_grad()
 
-        for idx, (data, _) in enumerate(
-            tqdm(train_loader, total=len(train_loader), desc=f"Training epoch: {epoch + 1}"), 1
+        for idx, (data, _) in tqdm(
+            enumerate(train_loader, 1), desc=f"Training epoch: {epoch + 1}", total=len(train_loader)
         ):
             if rc.debug and idx == 2:
                 break
@@ -94,16 +94,10 @@ def train(
             data = data.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            with torch.autocast(device_type=device, dtype=torch.float16, enabled=False):
+            with torch.autocast(device_type=device, enabled=False):
                 x_r, _, d_lstms = net(data)
                 recon_loss_ = torch.mean(torch.sum(torch.abs(x_r - data), dim=tuple(range(1, x_r.dim()))))
                 dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
-
-                if torch.isinf(one_class_loss_):
-                    one_class_loss_.fill_(torch.finfo(torch.float16).max)
-                if torch.isinf(recon_loss_):
-                    recon_loss_.fill_(torch.finfo(torch.float16).max)
-
                 objective_loss_ = one_class_loss_ + recon_loss_
                 if torch.isinf(objective_loss_):
                     objective_loss_.fill_(torch.finfo(torch.float16).max)

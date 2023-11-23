@@ -14,23 +14,19 @@ import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
-from sklearn.metrics import roc_auc_score
 from sklearn.metrics import RocCurveDisplay
+from sklearn.metrics import roc_auc_score
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
+from .base import OP_A
+from .base import OP_DTYPE
+from .base import T_NET_DTYPE
 from .base import ToFloatTensor3D
+from .base import U8_A
 from .base import VideoAnomalyDetectionDataset
-
-T_NET_DTYPE = torch.float16
-NP_NET_DTYPE = np.float16
-OP_DTYPE = np.float32
-
-U8_A = npt.NDArray[np.uint8]
-NET_A = npt.NDArray[NP_NET_DTYPE]
-OP_A = npt.NDArray[OP_DTYPE]
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
