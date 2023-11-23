@@ -161,8 +161,8 @@ def _plot_labels(data_path: Path) -> None:
     _label_path(data_path)
     y_trues = np.load(str(data_path / "sample_y.npy"))
     y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
-    y_tp = y_preds * y_trues
-    y_fp = y_preds * (1 - y_trues)
+    y_rc = (np.load(str(data_path / "sample_rc.npy")) > 1).astype(np.uint8)
+    y_oc = (np.load(str(data_path / "sample_oc.npy")) > 1).astype(np.uint8)
 
     col_len, col_sep = 10, 5
     row_len, row_sep = 10, 50
@@ -170,7 +170,7 @@ def _plot_labels(data_path: Path) -> None:
     height, width = 4 * (row_len + row_sep) - row_sep, len(y_trues) * (col_len + col_sep) - col_sep
     img: npt.NDArray[np.uint8] = np.zeros((height, width, 3), dtype=np.uint8)
 
-    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_tp, y_fp)):
+    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_rc, y_oc)):
         x1 = i * (col_len + col_sep)
         x2 = x1 + col_len
         y1 = row_len + row_sep
