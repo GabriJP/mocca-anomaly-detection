@@ -24,6 +24,12 @@ from utils import RunConfig
 from utils import wandb_logger
 
 
+def clamp_inf(t: torch.Tensor) -> None:
+    if not torch.isinf(t):
+        return
+    t.fill_(torch.finfo(t.dtype).max)
+
+
 def train(
     net: nn.Module,
     train_loader: DataLoader[Tuple[torch.Tensor, int]],
@@ -99,8 +105,10 @@ def train(
                 recon_loss_ = torch.mean(torch.sum(torch.abs(x_r - data), dim=tuple(range(1, x_r.dim()))))
                 dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
                 objective_loss_ = one_class_loss_ + recon_loss_
-                if torch.isinf(objective_loss_):
-                    objective_loss_.fill_(torch.finfo(torch.float16).max)
+
+                clamp_inf(one_class_loss_)
+                clamp_inf(recon_loss_)
+                clamp_inf(objective_loss_)
 
                 if es is not None:
                     es_data = es.log_loss(objective_loss_.item())
@@ -111,6 +119,7 @@ def train(
                         for local_weights, global_weights in zip(net.parameters(), global_params)
                     )
                     objective_loss_ += mu / 2 * proximal_term
+                    clamp_inf(objective_loss_)
 
                 for k in keys:
                     d_from_c[k] += torch.mean(dist[k]).item()
@@ -118,7 +127,7 @@ def train(
             scaler.scale(objective_loss_).backward()
             # if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
             if True:
-                # torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
                 # Zero the network parameter gradients

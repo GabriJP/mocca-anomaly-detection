@@ -14,8 +14,8 @@ import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
-from sklearn.metrics import RocCurveDisplay
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import RocCurveDisplay
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
