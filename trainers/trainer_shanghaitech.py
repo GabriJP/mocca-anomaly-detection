@@ -100,7 +100,7 @@ def train(
             data = data.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            with torch.autocast(device_type=device, enabled=False):
+            with torch.autocast(device_type=device, enabled=True):
                 x_r, _, d_lstms = net(data)
                 recon_loss_ = torch.mean(torch.sum(torch.abs(x_r - data), dim=tuple(range(1, x_r.dim()))))
                 dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
