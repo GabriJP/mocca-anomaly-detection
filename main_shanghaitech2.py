@@ -170,6 +170,7 @@ def main(
         data_path,
         clip_length,
         load_lstm,
+        bidirectional,
         hidden_size,
         num_layers,
         dropout,

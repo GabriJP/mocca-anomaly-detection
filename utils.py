@@ -237,6 +237,7 @@ class RunConfig:
     data_path: Path
     clip_length: int
     load_lstm: bool
+    bidirectional: bool
     hidden_size: int
     num_layers: int
     dropout: float
@@ -316,8 +317,8 @@ def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str =
 def get_out_dir2(rc: RunConfig) -> Tuple[Path, str]:
     tmp_name = (
         f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
-        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
-        f"hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
+        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-"
+        f"bidir_{rc.bidirectional}-hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
     )
     out_dir = (rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name).resolve()
 
