@@ -110,9 +110,6 @@ def train(
                 clamp_inf(recon_loss_)
                 clamp_inf(objective_loss_)
 
-                if n_batches >= 100:
-                    exit(0)
-
                 if es is not None:
                     es_data = es.log_loss(objective_loss_.item())
 
