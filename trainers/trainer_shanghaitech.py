@@ -9,6 +9,7 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import plotly.graph_objects as go
 import torch
 from torch import nn
 from torch.optim import Adam
@@ -76,6 +77,10 @@ def train(
     warm_up_n_epochs = rc.warm_up_n_epochs
     net.train()
     scaler = torch.cuda.amp.GradScaler()
+    fig = go.FigureWidget()
+    fig.add_scatter(name="rc_loss", y=[])
+    fig.add_scatter(name="oc_loss", y=[])
+    fig.add_scatter(name="as_loss", y=[])
 
     best_loss = 1e12
     net_checkpoint = Path()
@@ -109,6 +114,13 @@ def train(
                 clamp_inf(one_class_loss_)
                 clamp_inf(recon_loss_)
                 clamp_inf(objective_loss_)
+
+                fig.data[0].y = fig.data[0].y + (recon_loss_.item(),)
+                fig.data[1].y = fig.data[1].y + (one_class_loss_.item(),)
+                fig.data[2].y = fig.data[2].y + (objective_loss_.item(),)
+                fig.write_html("fig_cast_clip1.html")
+                if n_batches >= 100:
+                    exit(0)
 
                 if es is not None:
                     es_data = es.log_loss(objective_loss_.item())
