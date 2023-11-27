@@ -199,7 +199,7 @@ class Viewer:
     def put_x_r(self, x_r: torch.Tensor) -> None:
         if not self.view:
             return
-        self.view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
+        self.view_img[:, -512:, :] = (np.transpose(x_r.float().cpu().numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
             np.uint8, casting="unsafe"
         )
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
