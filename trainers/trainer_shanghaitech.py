@@ -130,6 +130,7 @@ def train(
             scaler.scale(objective_loss_).backward()
             # if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
             if True:
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(net.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
