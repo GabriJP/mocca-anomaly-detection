@@ -50,6 +50,7 @@ def cli() -> None:
     help="Dataset main path",
 )
 @click.option("--view", is_flag=True, help="Save output to desktop")
+@click.option("--compile_net", is_flag=True)
 def test_network(
     seed: int,
     n_workers: int,
@@ -59,6 +60,7 @@ def test_network(
     model_ckp: Path,
     data_path: Path,
     view: bool,
+    compile_net: bool,
 ) -> None:
     # Set seed
     set_seeds(seed)
@@ -105,8 +107,9 @@ def test_network(
     else:
         st_dict = torch.load(model_ckp)
 
-    torch.set_float32_matmul_precision("high")
-    net = torch.compile(net, dynamic=False)  # type: ignore
+    if compile_net:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net, dynamic=False)  # type: ignore
     load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=False)
     logging.warning(f"Missing keys when loading state_dict: {load_state_dict_warn.missing_keys}")
     logging.warning(f"Unexpected keys when loading state_dict: {load_state_dict_warn.unexpected_keys}")
