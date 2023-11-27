@@ -446,7 +446,7 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
-        if view:
+        if view and False:
             for y_, color, name in zip(
                 [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
                 ["aqua", "darkorange", "cornflowerblue"],
