@@ -2,6 +2,7 @@ import logging
 from multiprocessing.pool import Pool
 from os import cpu_count
 from pathlib import Path
+from typing import Tuple
 
 import click
 import cv2
@@ -159,13 +160,18 @@ def label_paths(data_path: Path) -> None:
         pool.join()
 
 
+def _color_for(value: float) -> Tuple[int, int, int]:
+    color: npt.NDArray[np.uint8] = np.array((0.0, value * 255, (1 - value) * 255)).astype(np.uint8)
+    return int(color[0]), int(color[1]), int(color[2])
+
+
 def _plot_labels(data_path: Path) -> None:
     colors = (0, 0, 255), (0, 255, 0)
     _label_path(data_path)
     y_trues = np.load(str(data_path / "sample_y.npy"))
     y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
-    y_tp = y_preds * y_trues
-    y_fp = y_preds * (1 - y_trues)
+    y_rc = (np.load(str(data_path / "sample_rc.npy")))
+    y_oc = (np.load(str(data_path / "sample_oc.npy")))
 
     col_len, col_sep = 10, 5
     row_len, row_sep = 10, 50
@@ -173,7 +179,7 @@ def _plot_labels(data_path: Path) -> None:
     height, width = 4 * (row_len + row_sep) - row_sep, len(y_trues) * (col_len + col_sep) - col_sep
     img: npt.NDArray[np.uint8] = np.zeros((height, width, 3), dtype=np.uint8)
 
-    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_tp, y_fp)):
+    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_rc, y_oc)):
         x1 = i * (col_len + col_sep)
         x2 = x1 + col_len
         y1 = row_len + row_sep
@@ -195,14 +201,14 @@ def _plot_labels(data_path: Path) -> None:
             img,
             (x1, y1 * 2),
             (x2, y1 * 2 + row_len),
-            color=colors[i3],
+            color=_color_for(i3),
             thickness=cv2.FILLED,
         )
         cv2.rectangle(
             img,
             (x1, y1 * 3),
             (x2, y1 * 3 + row_len),
-            color=colors[i4],
+            color=_color_for(i4),
             thickness=cv2.FILLED,
         )
     cv2.imwrite(str(data_path / "labels.png"), img)
