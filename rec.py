@@ -1,4 +1,5 @@
 import logging
+import sys
 from multiprocessing.pool import Pool
 from os import cpu_count
 from pathlib import Path
@@ -211,7 +212,7 @@ def _plot_labels(data_path: Path) -> None:
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def plot_labels(data_path: Path) -> None:
     with Pool() as pool:
-        pool.map_async(_plot_labels, data_path.iterdir())
+        pool.map_async(_plot_labels, data_path.iterdir(), error_callback=lambda x: print(x, file=sys.stderr))
         pool.close()
         pool.join()
 
