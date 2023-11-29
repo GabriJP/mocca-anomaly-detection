@@ -19,7 +19,9 @@ from tqdm import tqdm
 
 from models.shanghaitech_model import ShanghaiTechEncoder
 from utils import EarlyStoppingDM
+from utils import fp16_recon_loss
 from utils import FullRunConfig
+from utils import mocca_recon_loss
 from utils import RunConfig
 from utils import wandb_logger
 
@@ -90,19 +92,20 @@ def train(
         # Zero the network parameter gradients
         optimizer.zero_grad()
 
-        for idx, (data, _) in tqdm(
+        for idx, (x, _) in tqdm(
             enumerate(train_loader, 1), desc=f"Training epoch: {epoch + 1}", total=len(train_loader)
         ):
             if rc.debug and idx == 2:
                 break
 
             n_batches += 1
-            data = data.to(device)
+            x = x.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            with torch.autocast(device_type=device, enabled=True):
-                x_r, _, d_lstms = net(data)
-                recon_loss_ = torch.mean(torch.sum(torch.abs(x_r - data), dim=tuple(range(1, x_r.dim()))))
+            with torch.autocast(device_type=device, enabled=rc.fp16):
+                x_r, _, d_lstms = net(x)
+                recon_loss_fun = fp16_recon_loss if x_r.dtype == torch.float16 else mocca_recon_loss
+                recon_loss_ = recon_loss_fun(x_r, x, test=False)
                 dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
                 objective_loss_ = one_class_loss_ + recon_loss_
 

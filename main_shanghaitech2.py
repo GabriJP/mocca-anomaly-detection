@@ -106,6 +106,7 @@ class MoccaClient:
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--fp16", is_flag=True)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
@@ -139,6 +140,7 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
+    fp16: bool,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     compile_net: bool,
@@ -178,6 +180,7 @@ def main(
         boundary,
         idx_list_enc_ilist,
         nu,
+        fp16,
         optimizer="sgd",
     )
 

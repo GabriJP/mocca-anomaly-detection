@@ -25,12 +25,6 @@ def cli() -> None:
 
 @cli.command("test_network", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
-@click.option(
-    "--n_workers",
-    type=click.IntRange(0),
-    default=cpu_count(),
-    help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
-)
 @click.option("--disable_cuda", is_flag=True, help="Do not use cuda even if available")
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 @click.option("-db", "--debug", is_flag=True, help="Debug mode")
@@ -54,7 +48,6 @@ def cli() -> None:
 @click.option("--compile_net", is_flag=True)
 def test_network(
     seed: int,
-    n_workers: int,
     disable_cuda: bool,
     disable_logging: bool,
     debug: bool,
@@ -170,8 +163,8 @@ def _plot_labels(data_path: Path) -> None:
     _label_path(data_path)
     y_trues = np.load(str(data_path / "sample_y.npy"))
     y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
-    y_rc = (np.load(str(data_path / "sample_rc.npy")))
-    y_oc = (np.load(str(data_path / "sample_oc.npy")))
+    y_rc = np.load(str(data_path / "sample_rc.npy"))
+    y_oc = np.load(str(data_path / "sample_oc.npy"))
 
     col_len, col_sep = 10, 5
     row_len, row_sep = 10, 50

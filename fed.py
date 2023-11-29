@@ -226,6 +226,7 @@ def cli() -> None:
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
+@click.option("--fp16", is_flag=True)
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
@@ -250,6 +251,7 @@ def client(
     wandb_name: Optional[str],
     seed: int,
     compile_net: bool,
+    fp16: bool,
     parallel: bool,
     continuous: bool,
 ) -> None:
@@ -271,6 +273,7 @@ def client(
         boundary,
         idx_list_enc_ilist,
         nu,
+        fp16,
     )
     set_seeds(seed)
     # Init logger & print training/warm-up summary

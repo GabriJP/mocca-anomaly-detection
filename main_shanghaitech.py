@@ -84,6 +84,7 @@ from utils import set_seeds
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--fp16", is_flag=True)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 def main(
@@ -128,6 +129,7 @@ def main(
     epochs: int,
     ae_epochs: int,
     nu: float,
+    fp16: bool,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
 ) -> None:
@@ -168,6 +170,7 @@ def main(
         epochs,
         ae_epochs,
         nu,
+        fp16,
     )
     # Set seed
     set_seeds(seed)
