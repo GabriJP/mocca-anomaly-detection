@@ -280,7 +280,7 @@ def main(
         # Overwrite values in the existing state_dict
         net_dict.update(st_dict)
         # Load the new state_dict
-        net.load_state_dict(net_dict)
+        net.load_state_dict(net_dict, strict=True)
 
         # TRAIN
         net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc, dict())
@@ -356,7 +356,7 @@ def main(
         )
         st_dict = torch.load(net_checkpoint)
 
-        net.load_state_dict(st_dict["net_state_dict"], strict=False)
+        net.load_state_dict(st_dict["net_state_dict"], strict=True)
         wandb.watch(net)
         logging.info(f"Loaded model from: {net_checkpoint}")
         logging.info(

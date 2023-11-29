@@ -389,7 +389,7 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
     net_dict.update(st_dict)
 
     # Load the new state_dict
-    encoder_net.load_state_dict(net_dict)
+    encoder_net.load_state_dict(net_dict, strict=True)
 
 
 def extract_arguments_from_checkpoint(

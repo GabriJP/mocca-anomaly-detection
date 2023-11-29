@@ -1,7 +1,6 @@
 import logging
 import sys
 from multiprocessing.pool import Pool
-from os import cpu_count
 from pathlib import Path
 from typing import Tuple
 
@@ -41,7 +40,7 @@ def cli() -> None:
 @click.option(
     "-dp",
     "--data-path",
-    type=click.Path(file_okay=False, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
     default="./ShanghaiTech",
     help="Dataset main path",
 )
@@ -105,7 +104,7 @@ def test_network(
     if compile_net:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net, dynamic=False)  # type: ignore
-    load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=False)
+    load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=True, assign=True)
     logging.warning(f"Missing keys when loading state_dict: {load_state_dict_warn.missing_keys}")
     logging.warning(f"Unexpected keys when loading state_dict: {load_state_dict_warn.unexpected_keys}")
     logging.info(f"Loaded model from: {model_ckp}")
