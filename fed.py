@@ -37,6 +37,7 @@ from trainers import get_keys
 from trainers import train
 from utils import EarlyStopServer
 from utils import get_out_dir2 as get_out_dir
+from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
@@ -94,7 +95,7 @@ class MoccaClient(fl.client.NumPyClient):
             float(config.get("proximal_mu", 0.0)),
         )
 
-        torch_dict = torch.load(net_checkpoint)
+        torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 

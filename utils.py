@@ -11,6 +11,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import TypedDict
 from typing import Union
 
 import flwr
@@ -392,60 +393,23 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
     encoder_net.load_state_dict(net_dict, strict=True)
 
 
-def extract_arguments_from_checkpoint(
-    net_checkpoint: Path,
-) -> Tuple[int, int, str, bool, List[int], bool, int, int, float, bool, str, str]:
-    """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
-    architectural specifications of the model.
+class TorchDict(TypedDict):
+    net_state_dict: Dict[str, Any]
+    R: Dict[str, torch.Tensor]
+    config: Union[FullRunConfig, RunConfig]
 
-    Parameters
-    ----------
-    net_checkpoint : file path of the checkpoint (Path)
 
-    Returns
-    -------
-    code_length = latent code size (int)
-    batch_size = batch_size (int)
-    boundary = soft or hard boundary (str)
-    use_selectors = if selectors used it is true, otherwise false (bool)
-    idx_list_enc = indexes of the exploited layers (list of integers)
-    load_lstm = boolean to show whether lstm used (bool)
-    hidden_size = hidden size of the lstm (int)
-    num_layers = number of layers of the lstm (int)
-    dropout = dropout probability (float)
-    bidirectional = is lstm bi-directional or not (bool)
-    dataset_name = name of the dataset (str)
-    train_type = is it end-to-end, train, or pretrain (str)
-    """
+def save_model(
+    path: Path,
+    net: torch.nn.Module,
+    r: Dict[str, torch.Tensor],
+    config: Union[FullRunConfig, RunConfig],
+) -> None:
+    torch.save(dict(net_state_dict=net.state_dict(), R=r, config=config), path)
 
-    definition = net_checkpoint.parent.name.split("-")
 
-    code_length = int(definition[2].split("_")[-1])
-    batch_size = int(definition[3].split("_")[-1])
-    boundary = definition[6].split("_")[-1]
-    use_selectors = definition[7].split("_")[-1] == "True"
-    idx_list_enc = [int(i) for i in definition[8].split("_")[-1].split(".")]
-    load_lstm = definition[9].split("_")[-1] == "True"
-    hidden_size = int(definition[11].split("_")[-1])
-    num_layers = int(definition[12].split("_")[-1])
-    dropout = float(definition[13].split("_")[-1])
-    bidirectional = definition[10].split("_")[-1] == "True"
-    dataset_name = net_checkpoint.parent.parent.parent.name
-    train_type = net_checkpoint.parent.parent.name
-    return (
-        code_length,
-        batch_size,
-        boundary,
-        use_selectors,
-        idx_list_enc,
-        load_lstm,
-        hidden_size,
-        num_layers,
-        dropout,
-        bidirectional,
-        dataset_name,
-        train_type,
-    )
+def load_model(path: Path, **load_kwargs: Any) -> TorchDict:
+    return torch.load(path, **load_kwargs)
 
 
 def eval_spheres_centers(

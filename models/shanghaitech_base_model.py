@@ -10,6 +10,8 @@ from typing import Union
 import torch
 import torch.nn as nn
 
+from utils import load_model
+
 
 class BaseModule(nn.Module):
     """
@@ -22,7 +24,7 @@ class BaseModule(nn.Module):
         Loads a checkpoint into the state_dict.
         :param checkpoint_path: the checkpoint file to be loaded.
         """
-        self.load_state_dict(torch.load(checkpoint_path)["net_state_dict"], strict=True)
+        self.load_state_dict(load_model(checkpoint_path)["net_state_dict"], strict=True)
 
     def __repr__(self) -> str:
         """

@@ -14,7 +14,8 @@ from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from models.shanghaitech_model import ShanghaiTechEncoder
-from utils import extract_arguments_from_checkpoint
+from utils import FullRunConfig
+from utils import load_model
 from utils import set_seeds
 
 
@@ -75,31 +76,24 @@ def test_network(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=True
     ).get_data_holder()
 
-    (
-        code_length,
-        batch_size,
-        boundary,
-        use_selectors,
-        idx_list_enc_ilist,
-        load_lstm,
-        hidden_size,
-        num_layers,
-        dropout,
-        bidirectional,
-        dataset_name,
-        train_type,
-    ) = extract_arguments_from_checkpoint(model_ckp)
+    st_dict = load_model(model_ckp, disable_cuda=disable_cuda)
+    if not isinstance(st_dict["config"], FullRunConfig):
+        raise ValueError
+    rc = st_dict["config"]
 
     # Init dataset
     dataset = data_holder.get_test_data()
-    model_cls = ShanghaiTech if train_type == "train_end_to_end" else ShanghaiTechEncoder
+    model_cls = ShanghaiTech if rc.end_to_end_training else ShanghaiTechEncoder
     net: torch.nn.Module = model_cls(
-        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
+        data_holder.shape,
+        rc.code_length,
+        rc.load_lstm,
+        rc.hidden_size,
+        rc.num_layers,
+        rc.dropout,
+        rc.bidirectional,
+        rc.use_selectors,
     )
-    if disable_cuda:
-        st_dict = torch.load(model_ckp, map_location="cpu")
-    else:
-        st_dict = torch.load(model_ckp)
 
     if compile_net:
         torch.set_float32_matmul_precision("high")
@@ -115,14 +109,14 @@ def test_network(
         dataset=dataset,
         model=net,
         R=st_dict["R"],
-        boundary=boundary,
+        boundary=rc.boundary,
         device=device,
-        end_to_end_training=train_type == "train_end_to_end",
+        end_to_end_training=rc.end_to_end_training,
         debug=debug,
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
     )
     # TEST
-    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, dataset_name))
+    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))
     logging.info("Test finished")
 
 

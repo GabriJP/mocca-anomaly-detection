@@ -14,9 +14,9 @@ from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from models.shanghaitech_model import ShanghaiTechEncoder
 from trainers.trainer_shanghaitech import train as sh_train
-from utils import extract_arguments_from_checkpoint
 from utils import FullRunConfig
 from utils import get_out_dir
+from utils import load_model
 from utils import set_seeds
 
 
@@ -273,12 +273,11 @@ def main(
         # Load encoder weight from autoencoder
         net_dict = net.state_dict()
         logging.info(f"Loading encoder from: {net_checkpoint}")
-        ae_net_dict = torch.load(net_checkpoint, map_location=lambda storage, loc: storage)["ae_state_dict"]
+        ae_net_dict = load_model(net_checkpoint, map_location=lambda storage, loc: storage)["net_state_dict"]
 
         # Filter out decoder network keys
-        st_dict = {k: v for k, v in ae_net_dict.items() if k in net_dict}
         # Overwrite values in the existing state_dict
-        net_dict.update(st_dict)
+        net_dict.update({k: v for k, v in ae_net_dict.items() if k in net_dict})
         # Load the new state_dict
         net.load_state_dict(net_dict, strict=True)
 
@@ -321,20 +320,11 @@ def main(
 
         if net_checkpoint is None:
             raise ValueError
-        (
-            code_length,
-            batch_size,
-            boundary,
-            use_selectors,
-            idx_list_enc_ilist,
-            load_lstm,
-            hidden_size,
-            num_layers,
-            dropout,
-            bidirectional,
-            dataset_name,
-            train_type,
-        ) = extract_arguments_from_checkpoint(net_checkpoint)
+
+        st_dict = load_model(net_checkpoint)
+        if not isinstance(st_dict["config"], FullRunConfig):
+            raise ValueError
+        rc = st_dict["config"]
 
         # Init dataset
         dataset = data_holder.get_test_data()
@@ -349,19 +339,18 @@ def main(
                 bidirectional,
                 use_selectors,
             )
-            if train_type == "train_end_to_end"
+            if rc.end_to_end_training
             else ShanghaiTechEncoder(
                 dataset.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
             )
         )
-        st_dict = torch.load(net_checkpoint)
 
         net.load_state_dict(st_dict["net_state_dict"], strict=True)
         wandb.watch(net)
         logging.info(f"Loaded model from: {net_checkpoint}")
         logging.info(
             f"Start test with params:"
-            f"\n\t\t\t\tDataset        : {dataset_name}"
+            f"\n\t\t\t\tDataset        : {data_path.name}"
             f"\n\t\t\t\tCode length    : {code_length}"
             f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
             f"\n\t\t\t\tBoundary       : {boundary}"
@@ -383,7 +372,7 @@ def main(
             R=st_dict["R"],
             boundary=boundary,
             device=device,
-            end_to_end_training=train_type == "train_end_to_end",
+            end_to_end_training=rc.end_to_end_training,
             debug=debug,
             output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
         )

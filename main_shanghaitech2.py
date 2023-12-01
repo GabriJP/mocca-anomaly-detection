@@ -18,6 +18,7 @@ from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
 from utils import get_out_dir2 as get_out_dir
+from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
@@ -51,7 +52,7 @@ class MoccaClient:
         out_dir, tmp = get_out_dir(self.rc)
         net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0, self.es)
 
-        torch_dict = torch.load(net_checkpoint)
+        torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
 
     def evaluate(self) -> None:

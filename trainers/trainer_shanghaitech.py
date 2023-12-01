@@ -23,6 +23,7 @@ from utils import fp16_recon_loss
 from utils import FullRunConfig
 from utils import mocca_recon_loss
 from utils import RunConfig
+from utils import save_model
 from utils import wandb_logger
 
 
@@ -173,7 +174,7 @@ def train(
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.name.split("_")[-1].split(".p")[0]
         net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"
-        torch.save(dict(net_state_dict=net.state_dict(), R=r), net_checkpoint)
+        save_model(net_checkpoint, net, r, rc)
         logger.info(f"Saved model at: {net_checkpoint}")
         if objective_loss < best_loss or epoch == 0:
             best_loss = objective_loss
