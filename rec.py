@@ -114,6 +114,7 @@ def test_network(
         end_to_end_training=rc.end_to_end_training,
         debug=debug,
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
+        dist=rc.dist,
     )
     # TEST
     helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))

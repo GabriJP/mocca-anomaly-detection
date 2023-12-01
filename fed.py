@@ -113,6 +113,7 @@ class MoccaClient(fl.client.NumPyClient):
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=self.rc.dist,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
@@ -228,6 +229,7 @@ def cli() -> None:
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
 @click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Option(["l1", "l2"]), default="l2")
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
@@ -253,6 +255,7 @@ def client(
     seed: int,
     compile_net: bool,
     fp16: bool,
+    dist: str,
     parallel: bool,
     continuous: bool,
 ) -> None:
@@ -275,6 +278,7 @@ def client(
         idx_list_enc_ilist,
         nu,
         fp16,
+        dist,
     )
     set_seeds(seed)
     # Init logger & print training/warm-up summary
@@ -318,7 +322,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 
 
 def get_evaluate_fn(
-    wandb_group: str, test_checkpoint: int
+    wandb_group: str, test_checkpoint: int, dist: str
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
@@ -372,6 +376,7 @@ def get_evaluate_fn(
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=dist,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
@@ -392,6 +397,7 @@ def get_evaluate_fn(
 @click.option("--min_fit_clients", type=click.IntRange(2), default=2)
 @click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
 def server(
@@ -405,6 +411,7 @@ def server(
     min_fit_clients: int,
     min_evaluate_clients: int,
     min_available_clients: int,
+    dist: str,
     wandb_group: Optional[str],
     test_checkpoint: int,
 ) -> None:
@@ -414,7 +421,7 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint) if wandb_group is not None else None,
+        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist) if wandb_group is not None else None,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
     )

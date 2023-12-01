@@ -26,18 +26,24 @@ from tqdm import tqdm
 WANDB_DATA = Dict[str, Union[float, int, bool]]
 
 
-def fp16_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
+def _fp16_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
     recon_loss = torch.sum(torch.abs(x_r - x), dim=tuple(range(1, x_r.dim())))
     if test:
         return recon_loss
     return torch.mean(recon_loss)
 
 
-def mocca_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
+def _mocca_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
     recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
     if test:
         return recon_loss
     return torch.mean(recon_loss)
+
+
+DISTS = dict(
+    l1=_fp16_recon_loss,
+    l2=_mocca_recon_loss,
+)
 
 
 class WandbLogger:
@@ -240,6 +246,7 @@ class FullRunConfig:
     ae_epochs: int
     nu: float
     fp16: bool
+    dist: str
     normal_class: int = -1
 
 
@@ -262,6 +269,7 @@ class RunConfig:
     idx_list_enc: Tuple[int, ...]
     nu: float
     fp16: bool
+    dist: str
     optimizer: str = "adam"
     lr_milestones: Tuple[int, ...] = tuple()
     end_to_end_training: bool = True

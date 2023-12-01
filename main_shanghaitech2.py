@@ -65,6 +65,7 @@ class MoccaClient:
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=self.rc.dist,
         )
         _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
         wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
@@ -108,6 +109,7 @@ class MoccaClient:
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
@@ -142,6 +144,7 @@ def main(
     epochs: int,
     nu: float,
     fp16: bool,
+    dist: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     compile_net: bool,
@@ -182,6 +185,7 @@ def main(
         idx_list_enc_ilist,
         nu,
         fp16,
+        dist,
         optimizer="sgd",
     )
 

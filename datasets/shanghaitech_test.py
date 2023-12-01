@@ -27,8 +27,7 @@ from .base import T_NET_DTYPE
 from .base import ToFloatTensor3D
 from .base import U8_A
 from .base import VideoAnomalyDetectionDataset
-from utils import fp16_recon_loss
-from utils import mocca_recon_loss
+from utils import DISTS
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
@@ -232,6 +231,7 @@ class VideoAnomalyDetectionResultHelper:
         end_to_end_training: bool,
         debug: bool,
         output_file: Optional[Path],
+        dist: str,
     ) -> None:
         """
         Class constructor.
@@ -248,6 +248,7 @@ class VideoAnomalyDetectionResultHelper:
         self.end_to_end_training = end_to_end_training
         self.debug = debug
         self.output_file = output_file
+        self.dist = dist
 
     def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
@@ -297,6 +298,8 @@ class VideoAnomalyDetectionResultHelper:
         ra_oc_by_layer = {k: ResultsAccumulator(nb_frames_per_clip=t) for k in self.keys}
         print(self.dataset.test_videos)
 
+        recon_loss_fun = DISTS[self.dist]
+
         # Start iteration over test videos
         for cl_idx, video_id in tqdm(
             enumerate(self.dataset.test_videos, start=1), total=len(self.dataset.test_videos), desc="Test on Video"
@@ -324,7 +327,6 @@ class VideoAnomalyDetectionResultHelper:
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
-                    recon_loss_fun = fp16_recon_loss if x_r.dtype == torch.float16 else mocca_recon_loss
                     recon_loss = recon_loss_fun(x_r, x, test=True)
                     viewer.put_x_r(x_r)
                 else:

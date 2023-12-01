@@ -85,6 +85,7 @@ from utils import set_seeds
 @click.option("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 def main(
@@ -130,6 +131,7 @@ def main(
     ae_epochs: int,
     nu: float,
     fp16: bool,
+    dist: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
 ) -> None:
@@ -171,6 +173,7 @@ def main(
         ae_epochs,
         nu,
         fp16,
+        dist,
     )
     # Set seed
     set_seeds(seed)
@@ -375,6 +378,7 @@ def main(
             end_to_end_training=rc.end_to_end_training,
             debug=debug,
             output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
+            dist=rc.dist,
         )
         # TEST
         global_oc, global_metrics = helper.test_video_anomaly_detection()
