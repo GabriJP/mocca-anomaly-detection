@@ -185,6 +185,7 @@ def main(
         idx_list_enc_ilist,
         nu,
         fp16,
+        compile_net,
         dist,
         optimizer="sgd",
     )

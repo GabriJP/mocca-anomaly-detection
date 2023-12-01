@@ -246,6 +246,7 @@ class FullRunConfig:
     ae_epochs: int
     nu: float
     fp16: bool
+    compile: bool
     dist: str
     normal_class: int = -1
 
@@ -269,6 +270,7 @@ class RunConfig:
     idx_list_enc: Tuple[int, ...]
     nu: float
     fp16: bool
+    compile: bool
     dist: str
     optimizer: str = "adam"
     lr_milestones: Tuple[int, ...] = tuple()
