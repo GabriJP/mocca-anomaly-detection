@@ -182,6 +182,8 @@ def train(
             logger.info("Early stopping")
             break
 
+        scheduler.step()
+
     logger.info("Finished training.")
 
     return net_checkpoint
