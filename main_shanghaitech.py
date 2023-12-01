@@ -88,6 +88,7 @@ from utils import set_seeds
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
+@click.option("--compile_net", is_flag=True)
 def main(
     seed: int,
     n_workers: int,
@@ -134,6 +135,7 @@ def main(
     dist: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
+    compile_net: bool,
 ) -> None:
     idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = FullRunConfig(
@@ -173,6 +175,7 @@ def main(
         ae_epochs,
         nu,
         fp16,
+        compile_net,
         dist,
     )
     # Set seed
@@ -259,7 +262,7 @@ def main(
 
         aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
 
-        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name="ShanghaiTech")
+        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name=data_path.name)
 
         # Init Encoder
         net: torch.nn.Module = ShanghaiTechEncoder(

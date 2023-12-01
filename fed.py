@@ -278,6 +278,7 @@ def client(
         idx_list_enc_ilist,
         nu,
         fp16,
+        compile_net,
         dist,
     )
     set_seeds(seed)
@@ -322,7 +323,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 
 
 def get_evaluate_fn(
-    wandb_group: str, test_checkpoint: int, dist: str
+    wandb_group: str, test_checkpoint: int, dist: str, compile: bool
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
@@ -333,7 +334,6 @@ def get_evaluate_fn(
         seed=-1,
         clip_length=16,
     ).get_data_holder()
-    # torch.set_float32_matmul_precision("high")
     net = ShanghaiTech(
         data_holder.shape,
         code_length=512,
@@ -343,7 +343,9 @@ def get_evaluate_fn(
         dropout=0.3,
         bidirectional=True,
     )
-    # net = torch.compile(net)  # type: ignore
+    if compile:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net)  # type: ignore
     R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
 
     def centralized_evaluation(
@@ -400,6 +402,7 @@ def get_evaluate_fn(
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
+@click.option("--compile_net", is_flag=True)
 def server(
     port: int,
     num_rounds: int,
@@ -414,6 +417,7 @@ def server(
     dist: str,
     wandb_group: Optional[str],
     test_checkpoint: int,
+    compile_net: bool,
 ) -> None:
     strategy = FedProx(
         fraction_fit=0.0,
@@ -421,7 +425,9 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist) if wandb_group is not None else None,
+        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net)
+        if wandb_group is not None
+        else None,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
     )

@@ -46,7 +46,6 @@ def cli() -> None:
     help="Dataset main path",
 )
 @click.option("--view", is_flag=True, help="Save output to desktop")
-@click.option("--compile_net", is_flag=True)
 def test_network(
     seed: int,
     disable_cuda: bool,
@@ -55,7 +54,6 @@ def test_network(
     model_ckp: Path,
     data_path: Path,
     view: bool,
-    compile_net: bool,
 ) -> None:
     # Set seed
     set_seeds(seed)
@@ -95,7 +93,7 @@ def test_network(
         rc.use_selectors,
     )
 
-    if compile_net:
+    if rc.compile:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net, dynamic=False)  # type: ignore
     load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=True, assign=True)
