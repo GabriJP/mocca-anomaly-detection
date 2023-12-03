@@ -74,7 +74,7 @@ def test_network(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=True
     ).get_data_holder()
 
-    st_dict = load_model(model_ckp, disable_cuda=disable_cuda)
+    st_dict = load_model(model_ckp, map_location=device)
     if not isinstance(st_dict["config"], FullRunConfig):
         raise ValueError
     rc = st_dict["config"]
