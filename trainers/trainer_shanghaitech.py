@@ -77,7 +77,7 @@ def train(
     logger.info("Starting training...")
     warm_up_n_epochs = rc.warm_up_n_epochs
     net.train()
-    # scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.GradScaler()
 
     best_loss = 1e12
     net_checkpoint = Path()
@@ -127,15 +127,13 @@ def train(
                 for k in keys:
                     d_from_c[k] += torch.mean(dist[k]).item()
 
-            # scaler.scale(objective_loss_).backward()
-            objective_loss_.backward()
+            scaler.scale(objective_loss_).backward()
             # if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
             if True:
-                # scaler.unscale_(optimizer)
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm(net.parameters(), max_norm=1)
-                optimizer.step()
-                # scaler.step(optimizer)
-                # scaler.update()
+                scaler.step(optimizer)
+                scaler.update()
                 # Zero the network parameter gradients
                 optimizer.zero_grad()
 
