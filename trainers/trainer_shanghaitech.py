@@ -131,7 +131,7 @@ def train(
             # if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
             if True:
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm(net.parameters(), max_norm=1)
+                # torch.nn.utils.clip_grad_norm(net.parameters(), max_norm=1)
                 scaler.step(optimizer)
                 scaler.update()
                 # Zero the network parameter gradients
