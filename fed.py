@@ -37,6 +37,7 @@ from trainers import get_keys
 from trainers import train
 from utils import EarlyStopServer
 from utils import get_out_dir2 as get_out_dir
+from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
@@ -94,7 +95,7 @@ class MoccaClient(fl.client.NumPyClient):
             float(config.get("proximal_mu", 0.0)),
         )
 
-        torch_dict = torch.load(net_checkpoint)
+        torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
@@ -112,6 +113,7 @@ class MoccaClient(fl.client.NumPyClient):
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=self.rc.dist,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
@@ -226,6 +228,8 @@ def cli() -> None:
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
+@click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Option(["l1", "l2"]), default="l2")
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
@@ -250,6 +254,8 @@ def client(
     wandb_name: Optional[str],
     seed: int,
     compile_net: bool,
+    fp16: bool,
+    dist: str,
     parallel: bool,
     continuous: bool,
 ) -> None:
@@ -263,6 +269,7 @@ def client(
         data_path,
         clip_length,
         load_lstm,
+        bidirectional,
         hidden_size,
         num_layers,
         dropout,
@@ -270,6 +277,9 @@ def client(
         boundary,
         idx_list_enc_ilist,
         nu,
+        fp16,
+        compile_net,
+        dist,
     )
     set_seeds(seed)
     # Init logger & print training/warm-up summary
@@ -313,7 +323,7 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 
 
 def get_evaluate_fn(
-    wandb_group: str, test_checkpoint: int
+    wandb_group: str, test_checkpoint: int, dist: str, compile: bool
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
@@ -324,7 +334,6 @@ def get_evaluate_fn(
         seed=-1,
         clip_length=16,
     ).get_data_holder()
-    # torch.set_float32_matmul_precision("high")
     net = ShanghaiTech(
         data_holder.shape,
         code_length=512,
@@ -334,7 +343,9 @@ def get_evaluate_fn(
         dropout=0.3,
         bidirectional=True,
     )
-    # net = torch.compile(net)  # type: ignore
+    if compile:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net)  # type: ignore
     R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
 
     def centralized_evaluation(
@@ -367,6 +378,7 @@ def get_evaluate_fn(
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=dist,
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
@@ -387,8 +399,10 @@ def get_evaluate_fn(
 @click.option("--min_fit_clients", type=click.IntRange(2), default=2)
 @click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
+@click.option("--compile_net", is_flag=True)
 def server(
     port: int,
     num_rounds: int,
@@ -400,8 +414,10 @@ def server(
     min_fit_clients: int,
     min_evaluate_clients: int,
     min_available_clients: int,
+    dist: str,
     wandb_group: Optional[str],
     test_checkpoint: int,
+    compile_net: bool,
 ) -> None:
     strategy = FedProx(
         fraction_fit=0.0,
@@ -409,7 +425,9 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint) if wandb_group is not None else None,
+        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net)
+        if wandb_group is not None
+        else None,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
     )

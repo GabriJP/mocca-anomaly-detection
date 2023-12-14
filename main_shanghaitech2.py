@@ -18,6 +18,7 @@ from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
 from utils import get_out_dir2 as get_out_dir
+from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
@@ -32,12 +33,16 @@ class MoccaClient:
         data_holder: ShanghaiTechDataHolder,
         rc: RunConfig,
         es: Optional[EarlyStoppingDM] = None,
+        view: bool = False,
+        view_data: Tuple[str, str] = ("weights_name", "dataset_name"),
     ) -> None:
         super().__init__()
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
         self.es = es
+        self.view = view
+        self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
 
     def fit(self) -> None:
@@ -47,7 +52,7 @@ class MoccaClient:
         out_dir, tmp = get_out_dir(self.rc)
         net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0, self.es)
 
-        torch_dict = torch.load(net_checkpoint)
+        torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
 
     def evaluate(self) -> None:
@@ -60,8 +65,9 @@ class MoccaClient:
             end_to_end_training=True,
             debug=False,
             output_file=None,
+            dist=self.rc.dist,
         )
-        _, global_metrics = helper.test_video_anomaly_detection()
+        _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
         wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
 
 
@@ -102,12 +108,15 @@ class MoccaClient:
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
 @click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
 @click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
 @click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
+@click.option("--view", is_flag=True)
 def main(
     seed: int,
     n_workers: int,
@@ -134,12 +143,15 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
+    fp16: bool,
+    dist: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     compile_net: bool,
     es_initial_patience_epochs: int,
     rolling_factor: int,
     es_patience: int,
+    view: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
@@ -164,6 +176,7 @@ def main(
         data_path,
         clip_length,
         load_lstm,
+        bidirectional,
         hidden_size,
         num_layers,
         dropout,
@@ -171,6 +184,10 @@ def main(
         boundary,
         idx_list_enc_ilist,
         nu,
+        fp16,
+        compile_net,
+        dist,
+        optimizer="sgd",
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
@@ -178,11 +195,11 @@ def main(
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
+    # torch.set_float32_matmul_precision("medium")
+    # torch.set_default_dtype(torch.float16)
+    # torch.set_default_tensor_type(torch.HalfTensor)
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     wandb.watch(net)
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net, dynamic=False)  # type: ignore
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
@@ -196,16 +213,18 @@ def main(
         es_patience=es_patience,
     )
 
-    mc = MoccaClient(net, data_holder, rc, es)
+    mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
 
     initial_time = time.perf_counter()
 
     i = 0
     for i in range(epochs):
         mc.fit()
-        mc.evaluate()
         if es.early_stop:
+            mc.evaluate()
             break
+        if not (i % 5):
+            mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
     wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))

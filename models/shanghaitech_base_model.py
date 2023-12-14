@@ -1,5 +1,6 @@
 from functools import reduce
 from operator import mul
+from pathlib import Path
 from typing import Any
 from typing import List
 from typing import Optional
@@ -9,6 +10,8 @@ from typing import Union
 import torch
 import torch.nn as nn
 
+from utils import load_model
+
 
 class BaseModule(nn.Module):
     """
@@ -16,12 +19,12 @@ class BaseModule(nn.Module):
     All other modules inherit from this one
     """
 
-    def load_w(self, checkpoint_path: str) -> None:
+    def load_w(self, checkpoint_path: Path) -> None:
         """
         Loads a checkpoint into the state_dict.
         :param checkpoint_path: the checkpoint file to be loaded.
         """
-        self.load_state_dict(torch.load(checkpoint_path))
+        self.load_state_dict(load_model(checkpoint_path)["net_state_dict"], strict=True)
 
     def __repr__(self) -> str:
         """

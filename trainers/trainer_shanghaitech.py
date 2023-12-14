@@ -18,10 +18,18 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from models.shanghaitech_model import ShanghaiTechEncoder
+from utils import DISTS
 from utils import EarlyStoppingDM
 from utils import FullRunConfig
 from utils import RunConfig
+from utils import save_model
 from utils import wandb_logger
+
+
+def clamp_inf(t: torch.Tensor) -> None:
+    if not torch.isinf(t):
+        return
+    t.fill_(torch.finfo(t.dtype).max)
 
 
 def train(
@@ -46,7 +54,7 @@ def train(
 
     # Set optimizer
     optimizer = (
-        Adam(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay)
+        Adam(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, eps=1e-4)
         if rc.optimizer == "adam"
         else SGD(net.parameters(), lr=rc.learning_rate, weight_decay=rc.weight_decay, momentum=0.9)
     )
@@ -69,10 +77,12 @@ def train(
     logger.info("Starting training...")
     warm_up_n_epochs = rc.warm_up_n_epochs
     net.train()
+    scaler = torch.cuda.amp.GradScaler()
 
     best_loss = 1e12
     net_checkpoint = Path()
     es_data = dict()
+    recon_loss_fun = DISTS[rc.dist]
     for epoch in range(1 if rc.debug else rc.epochs):
         one_class_loss = 0.0
         recon_loss = 0.0
@@ -80,70 +90,75 @@ def train(
         n_batches = 0
         d_from_c = {k: 0.0 for k in keys}
 
-        for idx, (data, _) in enumerate(
-            tqdm(train_loader, total=len(train_loader), desc=f"Training epoch: {epoch + 1}"), 1
+        # Zero the network parameter gradients
+        optimizer.zero_grad()
+
+        for idx, (x, _) in tqdm(
+            enumerate(train_loader, 1), desc=f"Training epoch: {epoch + 1}", total=len(train_loader)
         ):
             if rc.debug and idx == 2:
                 break
 
             n_batches += 1
-            data = data.to(device)
-
-            # Zero the network parameter gradients
-            optimizer.zero_grad()
+            x = x.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            if rc.end_to_end_training:
-                x_r, _, d_lstms = net(data)
-                recon_loss_ = torch.mean(torch.sum((x_r - data) ** 2, dim=tuple(range(1, x_r.dim()))))
-            else:
-                _, d_lstms = net(data)
-                recon_loss_ = torch.tensor([0.0], device=device)
+            with torch.autocast(device_type=device, enabled=rc.fp16):
+                x_r, _, d_lstms = net(x)
+                recon_loss_ = recon_loss_fun(x_r, x, test=False)
+                dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
+                objective_loss_ = one_class_loss_ + recon_loss_
 
-            dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
-            objective_loss_ = one_class_loss_ + recon_loss_
+                clamp_inf(one_class_loss_)
+                clamp_inf(recon_loss_)
+                clamp_inf(objective_loss_)
 
-            if es is not None:
-                es_data = es.log_loss(objective_loss_.item())
+                if es is not None:
+                    es_data = es.log_loss(objective_loss_.item())
 
-            if mu > 0:
-                proximal_term = sum(
-                    (local_weights - global_weights).norm(2)
-                    for local_weights, global_weights in zip(net.parameters(), global_params)
-                )
-                objective_loss_ += mu / 2 * proximal_term
+                if mu > 0:
+                    proximal_term = sum(
+                        (local_weights - global_weights).norm(2)
+                        for local_weights, global_weights in zip(net.parameters(), global_params)
+                    )
+                    objective_loss_ += mu / 2 * proximal_term
+                    clamp_inf(objective_loss_)
 
-            for k in keys:
-                d_from_c[k] += torch.mean(dist[k]).item()
+                for k in keys:
+                    d_from_c[k] += torch.mean(dist[k]).item()
 
-            objective_loss_.backward()
-            optimizer.step()
+            scaler.scale(objective_loss_).backward()
+            # if (idx + 1) % 5 == 0 or (idx + 1 == len(train_loader)):
+            if True:
+                scaler.unscale_(optimizer)
+                # torch.nn.utils.clip_grad_norm(net.parameters(), max_norm=1)
+                scaler.step(optimizer)
+                scaler.update()
+                # Zero the network parameter gradients
+                optimizer.zero_grad()
 
             one_class_loss += one_class_loss_.item()
             recon_loss += recon_loss_.item()
             objective_loss += objective_loss_.item()
 
             # if idx % (len(train_loader) // rc.log_frequency) == 0:
-            if True:
-                logger.debug(
-                    f"TRAIN at epoch: {epoch} [{idx}]/[{len(train_loader)}] ==> "
-                    f"\n\t\t\t\tReconstr Loss : {recon_loss / n_batches:.4f}"
-                    f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
-                    f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
-                )
-                data = dict(
-                    recon_loss=recon_loss / n_batches,
-                    one_class_loss=one_class_loss / n_batches,
-                    objective_loss=objective_loss / n_batches,
-                )
-                for k in keys:
-                    logger.info(
-                        f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}"
-                    )
-                    data[f"radius_{k}"] = r[k]
-                    data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
-                wandb_logger.log_train(data)
-                wandb_logger.log_train(es_data, key="es")
+            logger.debug(
+                f"TRAIN at epoch: {epoch} [{idx}]/[{len(train_loader)}] ==> "
+                f"\n\t\t\t\tReconstr Loss : {recon_loss / n_batches:.4f}"
+                f"\n\t\t\t\tOne class Loss: {one_class_loss / n_batches:.4f}"
+                f"\n\t\t\t\tObjective Loss: {objective_loss / n_batches:.4f}"
+            )
+            log_data = dict(
+                recon_loss=recon_loss / n_batches,
+                one_class_loss=one_class_loss / n_batches,
+                objective_loss=objective_loss / n_batches,
+            )
+            for k in keys:
+                logger.info(f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}")
+                log_data[f"radius_{k}"] = float(r[k].data.cpu().numpy())
+                log_data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
+            wandb_logger.log_train(log_data)
+            wandb_logger.log_train(es_data, key="es")
 
             # Update hypersphere radius R on mini-batch distances
             if rc.boundary != "soft" or epoch < warm_up_n_epochs:
@@ -153,13 +168,12 @@ def train(
                     np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - rc.nu), device=device
                 )
 
-        scheduler.step()
         if epoch in rc.lr_milestones:
             logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.name.split("_")[-1].split(".p")[0]
         net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"
-        torch.save(dict(net_state_dict=net.state_dict(), R=r), net_checkpoint)
+        save_model(net_checkpoint, net, r, rc)
         logger.info(f"Saved model at: {net_checkpoint}")
         if objective_loss < best_loss or epoch == 0:
             best_loss = objective_loss
@@ -167,6 +181,8 @@ def train(
         if es is not None and es.early_stop:
             logger.info("Early stopping")
             break
+
+        scheduler.step()
 
     logger.info("Finished training.")
 

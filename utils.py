@@ -11,6 +11,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import TypedDict
 from typing import Union
 
 import flwr
@@ -23,6 +24,26 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 WANDB_DATA = Dict[str, Union[float, int, bool]]
+
+
+def _fp16_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
+    recon_loss = torch.sum(torch.abs(x_r - x), dim=tuple(range(1, x_r.dim())))
+    if test:
+        return recon_loss
+    return torch.mean(recon_loss)
+
+
+def _mocca_recon_loss(x_r: torch.Tensor, x: torch.Tensor, *, test: bool) -> torch.Tensor:
+    recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
+    if test:
+        return recon_loss
+    return torch.mean(recon_loss)
+
+
+DISTS = dict(
+    l1=_fp16_recon_loss,
+    l2=_mocca_recon_loss,
+)
 
 
 class WandbLogger:
@@ -65,7 +86,7 @@ class EarlyStopServer(flwr.server.Server):
     def __init__(
         self,
         *,
-        client_manager: flwr.server.ClientManager,
+        client_manager: Any,
         strategy: Optional[flwr.server.strategy.Strategy] = None,
         patience: int = 0,
         min_delta_pct: float = 0.0,
@@ -160,7 +181,7 @@ class EarlyStoppingDM:
         self.step += 1
         self.losses.append(new_loss)
 
-        losses: npt.NDArray[np.float64] = np.array(self.losses, dtype=np.float64)
+        losses: npt.NDArray[np.float64] = np.sort(np.array(self.losses, dtype=np.float64))
         current_mean = float(np.mean(np.sort(losses)))
         current_std = float(np.std(losses, ddof=1))
         current_pend = self.prev_mean - current_mean
@@ -224,6 +245,9 @@ class FullRunConfig:
     epochs: int
     ae_epochs: int
     nu: float
+    fp16: bool
+    compile: bool
+    dist: str
     normal_class: int = -1
 
 
@@ -237,6 +261,7 @@ class RunConfig:
     data_path: Path
     clip_length: int
     load_lstm: bool
+    bidirectional: bool
     hidden_size: int
     num_layers: int
     dropout: float
@@ -244,6 +269,9 @@ class RunConfig:
     boundary: str
     idx_list_enc: Tuple[int, ...]
     nu: float
+    fp16: bool
+    compile: bool
+    dist: str
     optimizer: str = "adam"
     lr_milestones: Tuple[int, ...] = tuple()
     end_to_end_training: bool = True
@@ -316,8 +344,8 @@ def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str =
 def get_out_dir2(rc: RunConfig) -> Tuple[Path, str]:
     tmp_name = (
         f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
-        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-bidir_False-"
-        f"hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
+        f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-"
+        f"bidir_{rc.bidirectional}-hs_{rc.hidden_size}-nl_{rc.num_layers}-dp_{rc.dropout}"
     )
     out_dir = (rc.output_path / "ShanghaiTech" / "train_end_to_end" / tmp_name).resolve()
 
@@ -336,6 +364,7 @@ def set_seeds(seed: int) -> None:
 
     """
     # Set the seed only if the user specified it
+    np.seterr(all="raise")
     if seed == -1:
         return
 
@@ -371,63 +400,26 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
     net_dict.update(st_dict)
 
     # Load the new state_dict
-    encoder_net.load_state_dict(net_dict)
+    encoder_net.load_state_dict(net_dict, strict=True)
 
 
-def extract_arguments_from_checkpoint(
-    net_checkpoint: Path,
-) -> Tuple[int, int, str, bool, List[int], bool, int, int, float, bool, str, str]:
-    """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
-    architectural specifications of the model.
+class TorchDict(TypedDict):
+    net_state_dict: Dict[str, Any]
+    R: Dict[str, torch.Tensor]
+    config: Union[FullRunConfig, RunConfig]
 
-    Parameters
-    ----------
-    net_checkpoint : file path of the checkpoint (Path)
 
-    Returns
-    -------
-    code_length = latent code size (int)
-    batch_size = batch_size (int)
-    boundary = soft or hard boundary (str)
-    use_selectors = if selectors used it is true, otherwise false (bool)
-    idx_list_enc = indexes of the exploited layers (list of integers)
-    load_lstm = boolean to show whether lstm used (bool)
-    hidden_size = hidden size of the lstm (int)
-    num_layers = number of layers of the lstm (int)
-    dropout = dropout probability (float)
-    bidirectional = is lstm bi-directional or not (bool)
-    dataset_name = name of the dataset (str)
-    train_type = is it end-to-end, train, or pretrain (str)
-    """
+def save_model(
+    path: Path,
+    net: torch.nn.Module,
+    r: Dict[str, torch.Tensor],
+    config: Union[FullRunConfig, RunConfig],
+) -> None:
+    torch.save(dict(net_state_dict=net.state_dict(), R=r, config=config), path)
 
-    definition = net_checkpoint.parent.name.split("-")
 
-    code_length = int(definition[2].split("_")[-1])
-    batch_size = int(definition[3].split("_")[-1])
-    boundary = definition[6].split("_")[-1]
-    use_selectors = definition[7].split("_")[-1] == "True"
-    idx_list_enc = [int(i) for i in definition[8].split("_")[-1].split(".")]
-    load_lstm = definition[9].split("_")[-1] == "True"
-    hidden_size = int(definition[11].split("_")[-1])
-    num_layers = int(definition[12].split("_")[-1])
-    dropout = float(definition[13].split("_")[-1])
-    bidirectional = definition[10].split("_")[-1] == "True"
-    dataset_name = net_checkpoint.parent.parent.parent.name
-    train_type = net_checkpoint.parent.parent.name
-    return (
-        code_length,
-        batch_size,
-        boundary,
-        use_selectors,
-        idx_list_enc,
-        load_lstm,
-        hidden_size,
-        num_layers,
-        dropout,
-        bidirectional,
-        dataset_name,
-        train_type,
-    )
+def load_model(path: Path, **load_kwargs: Any) -> TorchDict:
+    return torch.load(path, **load_kwargs)
 
 
 def eval_spheres_centers(

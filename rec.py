@@ -1,7 +1,8 @@
 import logging
+import sys
 from multiprocessing.pool import Pool
-from os import cpu_count
 from pathlib import Path
+from typing import Tuple
 
 import click
 import cv2
@@ -13,7 +14,8 @@ from datasets.data_manager import DataManager
 from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from models.shanghaitech_model import ShanghaiTechEncoder
-from utils import extract_arguments_from_checkpoint
+from utils import FullRunConfig
+from utils import load_model
 from utils import set_seeds
 
 
@@ -24,12 +26,6 @@ def cli() -> None:
 
 @cli.command("test_network", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
-@click.option(
-    "--n_workers",
-    type=click.IntRange(0),
-    default=cpu_count(),
-    help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
-)
 @click.option("--disable_cuda", is_flag=True, help="Do not use cuda even if available")
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 @click.option("-db", "--debug", is_flag=True, help="Debug mode")
@@ -45,14 +41,13 @@ def cli() -> None:
 @click.option(
     "-dp",
     "--data-path",
-    type=click.Path(file_okay=False, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
     default="./ShanghaiTech",
     help="Dataset main path",
 )
 @click.option("--view", is_flag=True, help="Save output to desktop")
 def test_network(
     seed: int,
-    n_workers: int,
     disable_cuda: bool,
     disable_logging: bool,
     debug: bool,
@@ -79,35 +74,29 @@ def test_network(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=True
     ).get_data_holder()
 
-    (
-        code_length,
-        batch_size,
-        boundary,
-        use_selectors,
-        idx_list_enc_ilist,
-        load_lstm,
-        hidden_size,
-        num_layers,
-        dropout,
-        bidirectional,
-        dataset_name,
-        train_type,
-    ) = extract_arguments_from_checkpoint(model_ckp)
+    st_dict = load_model(model_ckp, map_location=device)
+    if not isinstance(st_dict["config"], FullRunConfig):
+        raise ValueError
+    rc = st_dict["config"]
 
     # Init dataset
     dataset = data_holder.get_test_data()
-    model_cls = ShanghaiTech if train_type == "train_end_to_end" else ShanghaiTechEncoder
+    model_cls = ShanghaiTech if rc.end_to_end_training else ShanghaiTechEncoder
     net: torch.nn.Module = model_cls(
-        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
+        data_holder.shape,
+        rc.code_length,
+        rc.load_lstm,
+        rc.hidden_size,
+        rc.num_layers,
+        rc.dropout,
+        rc.bidirectional,
+        rc.use_selectors,
     )
-    if disable_cuda:
-        st_dict = torch.load(model_ckp, map_location="cpu")
-    else:
-        st_dict = torch.load(model_ckp)
 
-    torch.set_float32_matmul_precision("high")
-    net = torch.compile(net, dynamic=False)  # type: ignore
-    load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=False)
+    if rc.compile:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net, dynamic=False)  # type: ignore
+    load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=True, assign=True)
     logging.warning(f"Missing keys when loading state_dict: {load_state_dict_warn.missing_keys}")
     logging.warning(f"Unexpected keys when loading state_dict: {load_state_dict_warn.unexpected_keys}")
     logging.info(f"Loaded model from: {model_ckp}")
@@ -118,14 +107,15 @@ def test_network(
         dataset=dataset,
         model=net,
         R=st_dict["R"],
-        boundary=boundary,
+        boundary=rc.boundary,
         device=device,
-        end_to_end_training=train_type == "train_end_to_end",
+        end_to_end_training=rc.end_to_end_training,
         debug=debug,
         output_file=model_ckp.parent / "shanghaitech_test_results.txt",
+        dist=rc.dist,
     )
     # TEST
-    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, dataset_name))
+    helper.test_video_anomaly_detection(view=view, view_data=(model_ckp.stem, data_path.name))
     logging.info("Test finished")
 
 
@@ -156,13 +146,18 @@ def label_paths(data_path: Path) -> None:
         pool.join()
 
 
+def _color_for(value: float) -> Tuple[int, int, int]:
+    color: npt.NDArray[np.uint8] = np.array((0.0, value * 255, (1 - value) * 255)).astype(np.uint8)
+    return int(color[0]), int(color[1]), int(color[2])
+
+
 def _plot_labels(data_path: Path) -> None:
     colors = (0, 0, 255), (0, 255, 0)
     _label_path(data_path)
     y_trues = np.load(str(data_path / "sample_y.npy"))
     y_preds = (np.load(str(data_path / "sample_as.npy")) > 1).astype(np.uint8)
-    y_tp = y_preds * y_trues
-    y_fp = y_preds * (1 - y_trues)
+    y_rc = np.load(str(data_path / "sample_rc.npy"))
+    y_oc = np.load(str(data_path / "sample_oc.npy"))
 
     col_len, col_sep = 10, 5
     row_len, row_sep = 10, 50
@@ -170,7 +165,7 @@ def _plot_labels(data_path: Path) -> None:
     height, width = 4 * (row_len + row_sep) - row_sep, len(y_trues) * (col_len + col_sep) - col_sep
     img: npt.NDArray[np.uint8] = np.zeros((height, width, 3), dtype=np.uint8)
 
-    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_tp, y_fp)):
+    for i, (i1, i2, i3, i4) in enumerate(zip(y_trues, y_preds, y_rc, y_oc)):
         x1 = i * (col_len + col_sep)
         x2 = x1 + col_len
         y1 = row_len + row_sep
@@ -192,14 +187,14 @@ def _plot_labels(data_path: Path) -> None:
             img,
             (x1, y1 * 2),
             (x2, y1 * 2 + row_len),
-            color=colors[i3],
+            color=_color_for(i3),
             thickness=cv2.FILLED,
         )
         cv2.rectangle(
             img,
             (x1, y1 * 3),
             (x2, y1 * 3 + row_len),
-            color=colors[i4],
+            color=_color_for(i4),
             thickness=cv2.FILLED,
         )
     cv2.imwrite(str(data_path / "labels.png"), img)
@@ -209,7 +204,7 @@ def _plot_labels(data_path: Path) -> None:
 @click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 def plot_labels(data_path: Path) -> None:
     with Pool() as pool:
-        pool.map_async(_plot_labels, data_path.iterdir())
+        pool.map_async(_plot_labels, data_path.iterdir(), error_callback=lambda x: print(x, file=sys.stderr))
         pool.close()
         pool.join()
 

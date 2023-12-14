@@ -5,7 +5,6 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-import numpy
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
@@ -23,7 +22,7 @@ from .shanghaitech_test import ShanghaiTechTestHandler
 
 def seed_worker(_: int) -> None:
     worker_seed = torch.initial_seed() % 2**32
-    numpy.random.seed(worker_seed)
+    np.random.seed(worker_seed)
     random.seed(worker_seed)
 
 

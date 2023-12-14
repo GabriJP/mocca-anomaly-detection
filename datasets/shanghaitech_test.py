@@ -21,12 +21,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
 
+from .base import OP_A
+from .base import OP_DTYPE
+from .base import T_NET_DTYPE
 from .base import ToFloatTensor3D
+from .base import U8_A
 from .base import VideoAnomalyDetectionDataset
-
-U8_A = npt.NDArray[np.uint8]
-F32_A = npt.NDArray[np.float32]
-F64_A = npt.NDArray[np.float64]
+from utils import DISTS
 
 
 class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
@@ -136,8 +137,8 @@ class ResultsAccumulator:
         """
 
         # These buffers rotate.
-        self.buffer: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
-        self.counts: F32_A = np.zeros(shape=(nb_frames_per_clip,), dtype=np.float32)
+        self.buffer: OP_A = np.zeros(shape=(nb_frames_per_clip,), dtype=OP_DTYPE)
+        self.counts: npt.NDArray[np.uint32] = np.zeros(shape=(nb_frames_per_clip,), dtype=np.uint32)
 
     def push(self, score: float) -> None:
         """
@@ -199,13 +200,13 @@ class Viewer:
     def put_x_r(self, x_r: torch.Tensor) -> None:
         if not self.view:
             return
-        self.view_img[:, -512:, :] = (np.transpose(x_r.cpu().numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
+        self.view_img[:, -512:, :] = (np.transpose(x_r.float().cpu().numpy()[0], (1, 2, 3, 0))[2] * 255).astype(
             np.uint8, casting="unsafe"
         )
         cv2.imwrite(str(self.view_root_path / f"{self.i:03d}.png"), self.view_img)
         self.i += 1
 
-    def put_scores(self, sample_y: U8_A, sample_oc: F64_A, sample_rc: F64_A, sample_as: F64_A) -> None:
+    def put_scores(self, sample_y: U8_A, sample_oc: OP_A, sample_rc: OP_A, sample_as: OP_A) -> None:
         if not self.view:
             return
 
@@ -230,6 +231,7 @@ class VideoAnomalyDetectionResultHelper:
         end_to_end_training: bool,
         debug: bool,
         output_file: Optional[Path],
+        dist: str,
     ) -> None:
         """
         Class constructor.
@@ -246,6 +248,7 @@ class VideoAnomalyDetectionResultHelper:
         self.end_to_end_training = end_to_end_training
         self.debug = debug
         self.output_file = output_file
+        self.dist = dist
 
     def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
@@ -265,7 +268,7 @@ class VideoAnomalyDetectionResultHelper:
     @torch.no_grad()
     def test_video_anomaly_detection(
         self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[F64_A, List[float]]:
+    ) -> Tuple[OP_A, List[float]]:
         """
         Actually performs tests.
         """
@@ -285,7 +288,7 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[F64_A]] = {k: list() for k in self.keys}
+        global_as_by_layer: Dict[str, List[OP_A]] = {k: list() for k in self.keys}
         global_y = list()
         global_y_by_layer: Dict[str, List[U8_A]] = {k: list() for k in self.keys}
 
@@ -294,6 +297,8 @@ class VideoAnomalyDetectionResultHelper:
         ra_oc = ResultsAccumulator(nb_frames_per_clip=t)
         ra_oc_by_layer = {k: ResultsAccumulator(nb_frames_per_clip=t) for k in self.keys}
         print(self.dataset.test_videos)
+
+        recon_loss_fun = DISTS[self.dist]
 
         # Start iteration over test videos
         for cl_idx, video_id in tqdm(
@@ -306,9 +311,11 @@ class VideoAnomalyDetectionResultHelper:
             loader = DataLoader(self.dataset, collate_fn=self.dataset.collate_fn)
 
             # Build score containers
-            sample_rc: F64_A = np.zeros(shape=(len(loader) + t - 1,))
-            sample_oc: F64_A = np.zeros(shape=(len(loader) + t - 1,))
-            sample_oc_by_layer = {k: np.zeros(shape=(len(loader) + t - 1,)) for k in self.keys}
+            sample_rc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
+            sample_oc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
+            sample_oc_by_layer: Dict[str, OP_A] = {
+                k: np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE) for k in self.keys
+            }
             sample_y = self.dataset.load_test_sequence_gt(video_id)
 
             for i, x in tqdm(
@@ -320,7 +327,7 @@ class VideoAnomalyDetectionResultHelper:
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
-                    recon_loss = torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim())))
+                    recon_loss = recon_loss_fun(x_r, x, test=True)
                     viewer.put_x_r(x_r)
                 else:
                     _, d_lstm = self.model(x)
@@ -328,6 +335,9 @@ class VideoAnomalyDetectionResultHelper:
 
                 # Eval one class score for current clip
                 oc_loss_by_layer, oc_overall_loss = self._get_scores(d_lstm)
+
+                if torch.isinf(recon_loss):
+                    recon_loss.fill_(torch.finfo(T_NET_DTYPE).max)
 
                 # Feed results accumulators
                 ra_rc.push(recon_loss.item())
@@ -354,7 +364,10 @@ class VideoAnomalyDetectionResultHelper:
 
                 # Computes the normalized novelty score given likelihood scores, reconstruction scores
                 # and normalization coefficients (Eq. 9-10).
-                sample_ns = (sample_oc_by_layer[k] - min_) / ptp
+                if np.isclose(ptp, 0.0):
+                    sample_ns: OP_A = np.full_like(sample_oc_by_layer[k], np.finfo(OP_DTYPE).max, dtype=OP_DTYPE)
+                else:
+                    sample_ns = np.subtract(sample_oc_by_layer[k], min_, dtype=OP_DTYPE) / ptp
 
                 # Update global scores (used for global metrics)
                 global_as_by_layer[k].append(sample_ns)
@@ -379,7 +392,11 @@ class VideoAnomalyDetectionResultHelper:
 
             # Computes the normalized novelty score given likelihood scores, reconstruction scores
             # and normalization coefficients (Eq. 9-10).
-            sample_oc = (sample_oc - min_oc) / ptp_oc
+            if np.isclose(ptp_oc, 0.0):
+                sample_oc = np.full_like(sample_oc, np.finfo(OP_DTYPE).max, dtype=OP_DTYPE)
+            else:
+                sample_oc = (sample_oc - min_oc) / ptp_oc
+
             sample_rc = (sample_rc - min_rc) / ptp_rc if ptp_rc > 0 else np.zeros_like(sample_rc)
             sample_as = sample_oc + sample_rc
 
@@ -434,7 +451,7 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
-        if view:
+        if view and False:
             for y_, color, name in zip(
                 [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
                 ["aqua", "darkorange", "cornflowerblue"],

@@ -14,9 +14,9 @@ from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 from models.shanghaitech_model import ShanghaiTech
 from models.shanghaitech_model import ShanghaiTechEncoder
 from trainers.trainer_shanghaitech import train as sh_train
-from utils import extract_arguments_from_checkpoint
 from utils import FullRunConfig
 from utils import get_out_dir
+from utils import load_model
 from utils import set_seeds
 
 
@@ -84,8 +84,11 @@ from utils import set_seeds
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-ae", "--ae-epochs", type=int, default=1, help="Warmp up epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--fp16", is_flag=True)
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
+@click.option("--compile_net", is_flag=True)
 def main(
     seed: int,
     n_workers: int,
@@ -128,8 +131,11 @@ def main(
     epochs: int,
     ae_epochs: int,
     nu: float,
+    fp16: bool,
+    dist: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
+    compile_net: bool,
 ) -> None:
     idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = FullRunConfig(
@@ -168,6 +174,9 @@ def main(
         epochs,
         ae_epochs,
         nu,
+        fp16,
+        compile_net,
+        dist,
     )
     # Set seed
     set_seeds(seed)
@@ -253,7 +262,7 @@ def main(
 
         aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
 
-        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name="ShanghaiTech")
+        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name=data_path.name)
 
         # Init Encoder
         net: torch.nn.Module = ShanghaiTechEncoder(
@@ -270,14 +279,13 @@ def main(
         # Load encoder weight from autoencoder
         net_dict = net.state_dict()
         logging.info(f"Loading encoder from: {net_checkpoint}")
-        ae_net_dict = torch.load(net_checkpoint, map_location=lambda storage, loc: storage)["ae_state_dict"]
+        ae_net_dict = load_model(net_checkpoint, map_location=lambda storage, loc: storage)["net_state_dict"]
 
         # Filter out decoder network keys
-        st_dict = {k: v for k, v in ae_net_dict.items() if k in net_dict}
         # Overwrite values in the existing state_dict
-        net_dict.update(st_dict)
+        net_dict.update({k: v for k, v in ae_net_dict.items() if k in net_dict})
         # Load the new state_dict
-        net.load_state_dict(net_dict)
+        net.load_state_dict(net_dict, strict=True)
 
         # TRAIN
         net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc, dict())
@@ -318,20 +326,11 @@ def main(
 
         if net_checkpoint is None:
             raise ValueError
-        (
-            code_length,
-            batch_size,
-            boundary,
-            use_selectors,
-            idx_list_enc_ilist,
-            load_lstm,
-            hidden_size,
-            num_layers,
-            dropout,
-            bidirectional,
-            dataset_name,
-            train_type,
-        ) = extract_arguments_from_checkpoint(net_checkpoint)
+
+        st_dict = load_model(net_checkpoint)
+        if not isinstance(st_dict["config"], FullRunConfig):
+            raise ValueError
+        rc = st_dict["config"]
 
         # Init dataset
         dataset = data_holder.get_test_data()
@@ -346,19 +345,18 @@ def main(
                 bidirectional,
                 use_selectors,
             )
-            if train_type == "train_end_to_end"
+            if rc.end_to_end_training
             else ShanghaiTechEncoder(
                 dataset.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors
             )
         )
-        st_dict = torch.load(net_checkpoint)
 
-        net.load_state_dict(st_dict["net_state_dict"], strict=False)
+        net.load_state_dict(st_dict["net_state_dict"], strict=True)
         wandb.watch(net)
         logging.info(f"Loaded model from: {net_checkpoint}")
         logging.info(
             f"Start test with params:"
-            f"\n\t\t\t\tDataset        : {dataset_name}"
+            f"\n\t\t\t\tDataset        : {data_path.name}"
             f"\n\t\t\t\tCode length    : {code_length}"
             f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
             f"\n\t\t\t\tBoundary       : {boundary}"
@@ -380,9 +378,10 @@ def main(
             R=st_dict["R"],
             boundary=boundary,
             device=device,
-            end_to_end_training=train_type == "train_end_to_end",
+            end_to_end_training=rc.end_to_end_training,
             debug=debug,
             output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
+            dist=rc.dist,
         )
         # TEST
         global_oc, global_metrics = helper.test_video_anomaly_detection()
