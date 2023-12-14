@@ -93,7 +93,7 @@ def test_network(
         rc.use_selectors,
     )
 
-    if rc.compile:
+    if rc.compile and False:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net, dynamic=False)  # type: ignore
     load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=True, assign=True)
