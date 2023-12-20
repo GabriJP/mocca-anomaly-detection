@@ -154,7 +154,7 @@ def train(
                 objective_loss=objective_loss / n_batches,
             )
             for k in keys:
-                logger.info(f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}")
+                logger.debug(f"[{k}] -- Radius: {r[k]:.4f} - " f"Dist from sphere centr: {d_from_c[k] / n_batches:.4f}")
                 log_data[f"radius_{k}"] = float(r[k].data.cpu().numpy())
                 log_data[f"distance_c_sphere_{k}"] = d_from_c[k] / n_batches
             wandb_logger.log_train(log_data)
