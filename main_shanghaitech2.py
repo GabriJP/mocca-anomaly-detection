@@ -119,6 +119,7 @@ class MoccaClient:
 @click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
 @click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
 @click.option("--view", is_flag=True)
+@click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
 def main(
     seed: int,
     n_workers: int,
