@@ -5,5 +5,5 @@ client_command="python main_shanghaitech2.py --load-lstm --bidirectional --clip-
 for subset in data/shanghaitech/avo/*
 do
   [ -e "$subset" ] || continue
-  ${client_command} -dp "$subset" --wandb_name "$subset" --batch-size 16 >"${subset}.out" 2>&1 </dev/null
+  ${client_command} -dp "$subset" --wandb_name "$subset" --batch-size 16 >"avo_${subset##*/}.out" 2>&1 </dev/null
 done
