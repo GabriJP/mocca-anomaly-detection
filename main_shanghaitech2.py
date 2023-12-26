@@ -204,7 +204,7 @@ def main(
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
     if compile_net:
         torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)
+        net = torch.compile(net)  # type: ignore
     wandb.watch(net)
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
