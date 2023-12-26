@@ -4,7 +4,9 @@ from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
 from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Set
 from typing import Tuple
 
 import click
@@ -152,8 +154,12 @@ def main(
     rolling_factor: int,
     es_patience: int,
     view: bool,
+    test_chk: str,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
+    test_chk_split = test_chk.split(",")
+    test_chk_set: Set[int] = {int(a) for a in test_chk_split if not a.startswith("%")}
+    test_chk_remainder: List[int] = list(int(a[1:]) for a in test_chk_split if a.startswith("%"))
     # Set seed
     set_seeds(seed)
 
@@ -217,13 +223,15 @@ def main(
 
     initial_time = time.perf_counter()
 
+    if len(test_chk_remainder):
+        test_chk_set.union(set(range(1, epochs, test_chk_remainder[0])))
     i = 0
     for i in range(epochs):
         mc.fit()
         if es.early_stop:
             mc.evaluate()
             break
-        if not (i % 5):
+        if i in test_chk_set:
             mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
