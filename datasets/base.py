@@ -15,7 +15,7 @@ from torch.utils.data import default_collate
 
 T_NET_DTYPE = torch.float32
 NP_NET_DTYPE = np.float32
-OP_DTYPE = np.float32
+OP_DTYPE = np.float64
 
 U8_A = npt.NDArray[np.uint8]
 NET_A = npt.NDArray[NP_NET_DTYPE]
