@@ -194,7 +194,6 @@ def main(
         fp16,
         compile_net,
         dist,
-        optimizer="sgd",
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
