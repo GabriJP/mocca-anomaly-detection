@@ -27,13 +27,13 @@ echo "Delay"
 sleep 5
 
 DATA_PATH="data/UCSDped1"
-WANDB_NAME="almogrote"
-CLIENT_NAME="almogrote"
-BATCH_SIZE=16
-exec_client
-
-DATA_PATH="data/UCSDped2"
 WANDB_NAME="platano"
 CLIENT_NAME="platano"
 BATCH_SIZE=8
+exec_client
+
+DATA_PATH="data/UCSDped2"
+WANDB_NAME="citic"
+CLIENT_NAME="citic"
+BATCH_SIZE=4
 exec_client
