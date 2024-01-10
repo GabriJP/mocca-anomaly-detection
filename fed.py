@@ -229,7 +229,7 @@ def cli() -> None:
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
 @click.option("--fp16", is_flag=True)
-@click.option("--dist", type=click.Option(["l1", "l2"]), default="l2")
+@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
