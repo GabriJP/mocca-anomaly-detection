@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import ExitStack
 from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
@@ -19,8 +20,6 @@ from utils import EarlyStoppingDM
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
-
-device = "cuda"
 
 
 @click.command("cli", context_settings=dict(show_default=True))
@@ -147,66 +146,75 @@ def main(
     )
 
     data_holders = {
-        i: DataManager(
+        path.name[5:]: DataManager(
             dataset_name="ShanghaiTech", data_path=path, normal_class=-1, seed=seed, clip_length=clip_length
         ).get_data_holder()
-        for i, path in enumerate(sorted(data_path.iterdir()))
+        for path in data_path.iterdir()
     }
-    runs = {
-        i: wandb.init(
-            project="mocca", entity="gabijp", group=wandb_group, name=f"{wandb_prefix}_{i}", config=asdict(rc)
+    with ExitStack() as stack:
+        runs = {
+            i: wandb.init(
+                project="mocca", entity="gabijp", group=wandb_group, name=f"{wandb_prefix}_{i}", config=asdict(rc)
+            )
+            for i in data_holders
+        }
+        for run in runs.values():
+            if not isinstance(run, wandb.sdk.wandb_run.Run):
+                raise ValueError
+            stack.push(run)  # type: ignore
+
+        one_data_holder = next(iter(data_holders.values()))
+
+        net = ShanghaiTech(
+            one_data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
         )
-        for i in data_holders
-    }
 
-    one_data_holder = next(iter(data_holders.values()))
+        if compile_net:
+            torch.set_float32_matmul_precision("high")
+            net = torch.compile(net)  # type: ignore
+        wandb.watch(net)
+        rc.epochs = 1
+        rc.warm_up_n_epochs = 0
 
-    net = ShanghaiTech(one_data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
+        train_loader, _ = one_data_holder.get_loaders(
+            batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
+        )
 
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
-    wandb.watch(net)
-    rc.epochs = 1
-    rc.warm_up_n_epochs = 0
+        es = EarlyStoppingDM(
+            initial_patience=len(train_loader) * es_initial_patience_epochs,
+            rolling_factor=rolling_factor,
+            es_patience=es_patience,
+        )
 
-    train_loader, _ = one_data_holder.get_loaders(
-        batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
-    )
+        mc = MoccaClient(net, one_data_holder, rc, es, view=view, view_data=("noname", data_path.name))
 
-    es = EarlyStoppingDM(
-        initial_patience=len(train_loader) * es_initial_patience_epochs,
-        rolling_factor=rolling_factor,
-        es_patience=es_patience,
-    )
+        initial_time = time.perf_counter()
 
-    mc = MoccaClient(net, one_data_holder, rc, es, view=view, view_data=("noname", data_path.name))
+        if len(test_chk_remainder):
+            test_chk_set.union(set(range(1, epochs, test_chk_remainder[0])))
+        i = 0
+        for i in range(epochs):
+            mc.fit()
+            for j, run in runs.items():
+                if isinstance(run, wandb.sdk.wandb_run.Run):
+                    wandb.run = run
+                mc.data_holder = data_holders[j]
+                if es.early_stop:
+                    mc.evaluate()
+                    break
+                if i in test_chk_set:
+                    mc.evaluate()
 
-    initial_time = time.perf_counter()
-
-    if len(test_chk_remainder):
-        test_chk_set.union(set(range(1, epochs, test_chk_remainder[0])))
-    i = 0
-    for i in range(epochs):
-        mc.fit()
         for j, run in runs.items():
             if isinstance(run, wandb.sdk.wandb_run.Run):
                 wandb.run = run
             mc.data_holder = data_holders[j]
-            if es.early_stop:
-                mc.evaluate()
-                break
-            if i in test_chk_set:
-                mc.evaluate()
+            mc.evaluate()
 
-    for j, run in runs.items():
-        if isinstance(run, wandb.sdk.wandb_run.Run):
-            wandb.run = run
-        mc.data_holder = data_holders[j]
-        mc.evaluate()
-
-    logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
-    wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
+        logging.getLogger().info(
+            f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds"
+        )
+        wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
 
 
 if __name__ == "__main__":
