@@ -149,7 +149,7 @@ def main(
         path.name[5:]: DataManager(
             dataset_name="ShanghaiTech", data_path=path, normal_class=-1, seed=seed, clip_length=clip_length
         ).get_data_holder()
-        for path in data_path.iterdir()
+        for path in sorted(data_path.iterdir())
     }
     with ExitStack() as stack:
         runs = {
