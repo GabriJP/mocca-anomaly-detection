@@ -93,6 +93,7 @@ def train(
         # Zero the network parameter gradients
         optimizer.zero_grad()
 
+        x: torch.Tensor
         for idx, (x, _) in tqdm(
             enumerate(train_loader, 1), desc=f"Training epoch: {epoch + 1}", total=len(train_loader)
         ):
