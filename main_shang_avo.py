@@ -194,6 +194,7 @@ def main(
             test_chk_set.union(set(range(1, epochs, test_chk_remainder[0])))
         i = 0
         for i in range(epochs):
+            mc.data_holder = one_data_holder
             mc.fit()
             for j, run in runs.items():
                 if isinstance(run, wandb.sdk.wandb_run.Run):
