@@ -22,7 +22,7 @@ EOC
 }
 
 echo "Starting server"
-nohup python fed.py server --num_rounds 50 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server --wandb_group "${GID}" --num_rounds 50 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
