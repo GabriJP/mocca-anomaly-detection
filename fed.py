@@ -228,8 +228,6 @@ def cli() -> None:
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
 @click.option("--compile_net", is_flag=True)
-@click.option("--fp16", is_flag=True)
-@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
@@ -254,8 +252,6 @@ def client(
     wandb_name: Optional[str],
     seed: int,
     compile_net: bool,
-    fp16: bool,
-    dist: str,
     parallel: bool,
     continuous: bool,
 ) -> None:
@@ -277,9 +273,9 @@ def client(
         boundary,
         idx_list_enc_ilist,
         nu,
-        fp16,
-        compile_net,
-        dist,
+        fp16=False,
+        compile=compile_net,
+        dist="l2",
     )
     set_seeds(seed)
     # Init logger & print training/warm-up summary
@@ -323,13 +319,13 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
 
 
 def get_evaluate_fn(
-    wandb_group: str, test_checkpoint: int, dist: str, compile: bool
+    wandb_group: str, test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
     data_holder = DataManager(
         dataset_name="ShanghaiTech",
-        data_path=Path("data/shanghaitech/complete"),
+        data_path=data_path,
         normal_class=-1,
         seed=-1,
         clip_length=16,
@@ -343,7 +339,7 @@ def get_evaluate_fn(
         dropout=0.3,
         bidirectional=True,
     )
-    if compile:
+    if compile_net:
         torch.set_float32_matmul_precision("high")
         net = torch.compile(net)  # type: ignore
     R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
@@ -389,6 +385,7 @@ def get_evaluate_fn(
 
 
 @cli.command(context_settings=dict(show_default=True))
+@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option("--port", type=click.IntRange(0, 65_535), default=8080)
 @click.option("--num_rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
@@ -404,6 +401,7 @@ def get_evaluate_fn(
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
 @click.option("--compile_net", is_flag=True)
 def server(
+    data_path: Path,
     port: int,
     num_rounds: int,
     epochs: int,
@@ -425,7 +423,7 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net)
+        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net, data_path)
         if wandb_group is not None
         else None,
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
