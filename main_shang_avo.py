@@ -16,7 +16,6 @@ import wandb
 from datasets.data_manager import DataManager
 from main_shanghaitech2 import MoccaClient
 from models.shanghaitech_model import ShanghaiTech
-from utils import EarlyStoppingDM
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
@@ -59,15 +58,9 @@ from utils import wandb_logger
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
-@click.option("--fp16", is_flag=True)
-@click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_prefix", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
-@click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
-@click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
-@click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
-@click.option("--view", is_flag=True)
 @click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
 def main(
     seed: int,
@@ -95,15 +88,9 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
-    fp16: bool,
-    dist: str,
     wandb_group: Optional[str],
     wandb_prefix: Optional[str],
     compile_net: bool,
-    es_initial_patience_epochs: int,
-    rolling_factor: int,
-    es_patience: int,
-    view: bool,
     test_chk: str,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
@@ -140,9 +127,9 @@ def main(
         boundary,
         idx_list_enc_ilist,
         nu,
-        fp16,
-        compile_net,
-        dist,
+        fp16=False,
+        compile=compile_net,
+        dist="l2",
     )
 
     data_holders = {
@@ -152,15 +139,18 @@ def main(
         for path in sorted(data_path.iterdir())
     }
     with ExitStack() as stack:
-        runs = {
+        pre_runs = {
             i: wandb.init(
                 project="mocca", entity="gabijp", group=wandb_group, name=f"{wandb_prefix}_{i}", config=asdict(rc)
             )
             for i in data_holders
         }
+        runs = {k: v for k, v in pre_runs.items() if isinstance(v, wandb.sdk.wandb_run.Run)}
+
+        if len(pre_runs) != len(runs):
+            raise ValueError(f"Some runs are not correctly initialized: {len(pre_runs)} vs. {len(runs)}")
+
         for run in runs.values():
-            if not isinstance(run, wandb.sdk.wandb_run.Run):
-                raise ValueError
             stack.push(run)  # type: ignore
 
         one_data_holder = next(iter(data_holders.values()))
@@ -180,13 +170,7 @@ def main(
             batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
         )
 
-        es = EarlyStoppingDM(
-            initial_patience=len(train_loader) * es_initial_patience_epochs,
-            rolling_factor=rolling_factor,
-            es_patience=es_patience,
-        )
-
-        mc = MoccaClient(net, one_data_holder, rc, es, view=view, view_data=("noname", data_path.name))
+        mc = MoccaClient(net, one_data_holder, rc)
 
         initial_time = time.perf_counter()
 
@@ -196,19 +180,15 @@ def main(
         for i in range(epochs):
             mc.data_holder = one_data_holder
             mc.fit()
+            if i not in test_chk_set:
+                continue
             for j, run in runs.items():
-                if isinstance(run, wandb.sdk.wandb_run.Run):
-                    wandb.run = run
+                wandb.run = run
                 mc.data_holder = data_holders[j]
-                if es.early_stop:
-                    mc.evaluate()
-                    break
-                if i in test_chk_set:
-                    mc.evaluate()
+                mc.evaluate()
 
         for j, run in runs.items():
-            if isinstance(run, wandb.sdk.wandb_run.Run):
-                wandb.run = run
+            wandb.run = run
             mc.data_holder = data_holders[j]
             mc.evaluate()
 
