@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_exp_noname"}
-COMMON_OPTS="--load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --wandb_group ${GID}"
+COMMON_OPTS="citic:8080 --load-lstm --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -27,13 +27,13 @@ echo "Delay"
 sleep 5
 
 DATA_PATH="data/UCSDped1"
-WANDB_NAME="platano"
-CLIENT_NAME="platano"
+WANDB_NAME="gofio"
+CLIENT_NAME="gofio"
 BATCH_SIZE=8
 exec_client
 
 DATA_PATH="data/UCSDped2"
-WANDB_NAME="citic"
-CLIENT_NAME="citic"
-BATCH_SIZE=4
+WANDB_NAME="platano"
+CLIENT_NAME="platano"
+BATCH_SIZE=8
 exec_client
