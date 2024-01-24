@@ -61,7 +61,6 @@ from utils import wandb_logger
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--wandb_group", type=str, default=None)
-@click.option("--wandb_prefix", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
 @click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
 def main(
@@ -91,7 +90,6 @@ def main(
     epochs: int,
     nu: float,
     wandb_group: Optional[str],
-    wandb_prefix: Optional[str],
     compile_net: bool,
     test_chk: str,
 ) -> None:
