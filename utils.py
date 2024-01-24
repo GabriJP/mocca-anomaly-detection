@@ -2,12 +2,14 @@ import logging
 import random
 import timeit
 from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
 from typing import Any
 from typing import Deque
 from typing import Dict
+from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -77,6 +79,15 @@ class WandbLogger:
         if wandb.run is None:
             raise ValueError
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
+
+    @contextmanager
+    def custom_step(self, step_n: int) -> Iterator[None]:
+        prev_step = self.step
+        try:
+            self.step = step_n
+            yield
+        finally:
+            self.step = prev_step
 
 
 wandb_logger = WandbLogger()

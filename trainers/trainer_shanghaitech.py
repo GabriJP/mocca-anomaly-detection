@@ -42,6 +42,7 @@ def train(
     r: Dict[str, torch.Tensor],
     mu: float = 0.0,
     es: Optional[EarlyStoppingDM] = None,
+    current_epoch: int = 0,
 ) -> Path:
     logger = logging.getLogger()
 
@@ -83,7 +84,7 @@ def train(
     net_checkpoint = Path()
     es_data = dict()
     recon_loss_fun = DISTS[rc.dist]
-    for epoch in range(1 if rc.debug else rc.epochs):
+    for epoch in range(current_epoch, current_epoch + (1 if rc.debug else rc.epochs)):
         one_class_loss = 0.0
         recon_loss = 0.0
         objective_loss = 0.0
@@ -94,9 +95,7 @@ def train(
         optimizer.zero_grad()
 
         x: torch.Tensor
-        for idx, (x, _) in tqdm(
-            enumerate(train_loader, 1), desc=f"Training epoch: {epoch + 1}", total=len(train_loader)
-        ):
+        for idx, (x, _) in tqdm(enumerate(train_loader, 1), desc=f"Training epoch: {epoch}", total=len(train_loader)):
             if rc.debug and idx == 2:
                 break
 

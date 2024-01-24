@@ -46,31 +46,45 @@ class MoccaClient:
         self.view = view
         self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
+        self.current_epoch = 0
 
     def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
         )
-        out_dir, tmp = get_out_dir(self.rc)
-        net_checkpoint = train(self.net, train_loader, out_dir, device, None, self.rc, self.R, 0.0, self.es)
+        out_dir, _ = get_out_dir(self.rc)
+        net_checkpoint = train(
+            self.net,
+            train_loader,
+            out_dir,
+            device,
+            None,
+            self.rc,
+            self.R,
+            0.0,
+            self.es,
+            self.current_epoch,
+        )
+        self.current_epoch += self.rc.epochs
 
         torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
 
     def evaluate(self) -> None:
-        helper = VideoAnomalyDetectionResultHelper(
-            dataset=self.data_holder.get_test_data(),
-            model=self.net,
-            R=self.R,
-            boundary=self.rc.boundary,
-            device=device,
-            end_to_end_training=True,
-            debug=False,
-            output_file=None,
-            dist=self.rc.dist,
-        )
-        _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
-        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
+        with wandb_logger.custom_step(self.current_epoch):
+            helper = VideoAnomalyDetectionResultHelper(
+                dataset=self.data_holder.get_test_data(),
+                model=self.net,
+                R=self.R,
+                boundary=self.rc.boundary,
+                device=device,
+                end_to_end_training=True,
+                debug=False,
+                output_file=None,
+                dist=self.rc.dist,
+            )
+            _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
+            wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
 
 
 @click.command("cli", context_settings=dict(show_default=True))
@@ -229,11 +243,19 @@ def main(
     for i in range(epochs):
         mc.fit()
         if es.early_stop:
-            mc.evaluate()
             break
-        if i in test_chk_set:
-            mc.evaluate()
-    mc.evaluate()
+
+    out_dir, _ = get_out_dir(rc)
+    checkpoints: Dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
+    for i in test_chk_set:
+        model = load_model(checkpoints[i])
+        mc.net.load_state_dict(model["net_state_dict"])
+        mc.R = model["R"]
+        if not isinstance(model["config"], RunConfig):
+            raise ValueError
+        mc.rc = model["config"]
+        mc.current_epoch = i
+        mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
     wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
