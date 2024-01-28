@@ -134,9 +134,9 @@ def main(
 
     data_holders = {
         path.name[5:]: DataManager(
-            dataset_name="ShanghaiTech", data_path=path, normal_class=-1, seed=seed, clip_length=clip_length
+            dataset_name="ShanghaiTech", data_path=path, normal_class=-1, seed=seed, clip_length=rc.clip_length
         ).get_data_holder()
-        for path in sorted(data_path.iterdir())
+        for path in sorted(rc.data_path.iterdir())
     }
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="train_run", config=asdict(rc))
 
@@ -144,9 +144,8 @@ def main(
 
     net = ShanghaiTech(one_data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
 
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
     wandb.watch(net)
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
@@ -177,7 +176,7 @@ def main(
             reinit=True,
             job_type="test",
         )
-        for j in test_chk_set:
+        for j in sorted(test_chk_set):
             model = load_model(checkpoints[j])
             mc.net.load_state_dict(model["net_state_dict"])
             mc.R = model["R"]

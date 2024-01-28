@@ -216,9 +216,8 @@ def main(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
     wandb.watch(net)
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
@@ -247,14 +246,14 @@ def main(
 
     out_dir, _ = get_out_dir(rc)
     checkpoints: Dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
-    for i in test_chk_set:
-        model = load_model(checkpoints[i])
+    for j in sorted(test_chk_set):
+        model = load_model(checkpoints[j])
         mc.net.load_state_dict(model["net_state_dict"])
         mc.R = model["R"]
         if not isinstance(model["config"], RunConfig):
             raise ValueError
         mc.rc = model["config"]
-        mc.current_epoch = i
+        mc.current_epoch = j
         mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")

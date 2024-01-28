@@ -93,9 +93,8 @@ def test_network(
         rc.use_selectors,
     )
 
-    if rc.compile and False:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net, dynamic=False)  # type: ignore
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False, disable=not rc.compile)  # type: ignore
     load_state_dict_warn = net.load_state_dict(st_dict["net_state_dict"], strict=True, assign=True)
     logging.warning(f"Missing keys when loading state_dict: {load_state_dict_warn.missing_keys}")
     logging.warning(f"Unexpected keys when loading state_dict: {load_state_dict_warn.unexpected_keys}")
