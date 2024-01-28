@@ -423,9 +423,7 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net, data_path)
-        if wandb_group is not None
-        else None,
+        evaluate_fn=wandb_group and get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net, data_path),
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         proximal_mu=proximal_mu,
     )
