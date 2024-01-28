@@ -4,7 +4,6 @@ from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import Set
 from typing import Tuple
@@ -95,8 +94,7 @@ def main(
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     test_chk_split = test_chk.split(",")
-    test_chk_set: Set[int] = {int(a) for a in test_chk_split if not a.startswith("%")}
-    test_chk_remainder: List[int] = list(int(a[1:]) for a in test_chk_split if a.startswith("%"))
+    test_chk_set: Set[int] = set(map(int, test_chk_split))
     # Set seed
     set_seeds(seed)
 
@@ -142,7 +140,9 @@ def main(
 
     one_data_holder = next(iter(data_holders.values()))
 
-    net = ShanghaiTech(one_data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
+    net: ShanghaiTech = ShanghaiTech(
+        one_data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
+    )
 
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
@@ -158,12 +158,11 @@ def main(
 
     initial_time = time.perf_counter()
 
-    if len(test_chk_remainder):
-        test_chk_set.union(set(range(1, epochs, test_chk_remainder[0])))
     i = 0
     for i in range(epochs):
         mc.fit()
 
+    test_chk_set.add(i)
     out_dir, _ = get_out_dir(rc)
     checkpoints: Dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
     for name, data_holder in data_holders.items():

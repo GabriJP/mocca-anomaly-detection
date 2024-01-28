@@ -290,10 +290,11 @@ def client(
     data_holder = data_holder_cl(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
-    net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
+    net: ShanghaiTech = ShanghaiTech(
+        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
+    )
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
     client_class: Type[MoccaClient]
     if continuous:
         client_class = ContinuousClient
