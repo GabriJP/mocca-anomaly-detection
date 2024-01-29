@@ -139,6 +139,7 @@ class ShanghaiTechDataHolder:
         return tuple(sorted(d.name for d in self.train_dir.iterdir() if d.is_dir()))
 
     @staticmethod
+    @lru_cache(maxsize=None)
     def create_clips(
         dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1
     ) -> npt.NDArray[np.str_]:

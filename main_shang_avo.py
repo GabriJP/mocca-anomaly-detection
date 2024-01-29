@@ -190,7 +190,7 @@ def main(
             if not isinstance(model["config"], RunConfig):
                 raise ValueError
             mc.rc = model["config"]
-            mc.current_epoch = j
+            mc.epoch = j
             mc.data_holder = data_holders[name]
             mc.evaluate()
 

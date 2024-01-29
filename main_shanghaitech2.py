@@ -46,7 +46,7 @@ class MoccaClient:
         self.view = view
         self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
-        self.current_epoch = 0
+        self.epoch = 0
 
     def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
@@ -63,9 +63,9 @@ class MoccaClient:
             self.R,
             0.0,
             self.es,
-            self.current_epoch,
+            self.epoch,
         )
-        self.current_epoch += self.rc.epochs
+        self.epoch += self.rc.epochs
 
         torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
@@ -83,7 +83,7 @@ class MoccaClient:
             dist=self.rc.dist,
         )
         _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
-        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
+        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)), self.epoch)
 
 
 @click.command("cli", context_settings=dict(show_default=True))

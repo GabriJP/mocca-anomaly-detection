@@ -118,7 +118,7 @@ class MoccaClient(fl.client.NumPyClient):
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-        wandb_logger.log_test(global_metrics_dict)
+        wandb_logger.log_test(global_metrics_dict, config["round_n"])
         return float(global_oc.mean()), len(global_oc), global_metrics_dict
 
 
@@ -320,6 +320,13 @@ def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], 
     return inner
 
 
+def create_evaluate_config_fn() -> Callable[[int], Config]:
+    def inner(round_n: int) -> Config:
+        return dict(round_n=round_n)
+
+    return inner
+
+
 def get_evaluate_fn(
     wandb_group: str, test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
@@ -380,7 +387,7 @@ def get_evaluate_fn(
         )
         global_oc, global_metrics = helper.test_video_anomaly_detection()
         global_metrics_dict: Config = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-        wandb_logger.log_test(global_metrics_dict)
+        wandb_logger.log_test(global_metrics_dict, server_round)
         return float(global_oc.mean()), global_metrics_dict
 
     return centralized_evaluation
@@ -427,6 +434,7 @@ def server(
         min_available_clients=min_available_clients,
         evaluate_fn=wandb_group and get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net, data_path),
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
+        on_evaluate_config_fn=create_evaluate_config_fn(),
         proximal_mu=proximal_mu,
     )
     fl_server = (

@@ -51,7 +51,6 @@ class WandbLogger:
         self.data: Dict[str, WANDB_DATA] = dict()
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
-        self.epoch = 0
 
     def manual_step(self) -> None:
         if len(self.data):
@@ -69,10 +68,12 @@ class WandbLogger:
             self._log()
         self.data[key] = data
 
-    def log_test(self, data: WANDB_DATA, *, key: str = "test") -> None:
+    def log_test(self, data: WANDB_DATA, epoch: int, *, key: str = "test") -> None:
         for metric in data:
-            wandb.define_metric(metric, step_metric="epoch", step_sync=True, goal="maximize", overwrite=False)
-        self.log_train(dict(**data, epoch=self.epoch), key=key)
+            wandb.define_metric(
+                f"{key}.{metric}", step_metric="epoch", step_sync=True, goal="maximize", overwrite=False
+            )
+        self.log_train(dict(**data, epoch=epoch), key=key)
         self._log()
 
     @staticmethod
