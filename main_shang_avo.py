@@ -165,6 +165,8 @@ def main(
     i = 0
     for i in range(epochs):
         mc.fit()
+        if rc.debug and i:
+            break
 
     test_chk_set.add(i)
     out_dir, _ = get_out_dir(rc)
@@ -180,6 +182,8 @@ def main(
             job_type="test",
         )
         for j in sorted(test_chk_set):
+            if not checkpoints[j].exists():
+                continue
             model = load_model(checkpoints[j])
             mc.net.load_state_dict(model["net_state_dict"])
             mc.R = model["R"]

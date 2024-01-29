@@ -78,7 +78,7 @@ class MoccaClient:
             boundary=self.rc.boundary,
             device=device,
             end_to_end_training=True,
-            debug=False,
+            debug=self.rc.debug,
             output_file=None,
             dist=self.rc.dist,
         )
@@ -245,9 +245,11 @@ def main(
         if es.early_stop:
             break
 
-        if i not in test_chk_set:
-            continue
-        mc.evaluate()
+        if i in test_chk_set:
+            mc.evaluate()
+
+        if rc.debug and i:
+            break
     else:
         mc.evaluate()
 
