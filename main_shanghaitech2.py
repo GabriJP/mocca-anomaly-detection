@@ -250,8 +250,8 @@ def main(
 
         if rc.debug and i:
             break
-    else:
-        mc.evaluate()
+
+    mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
     wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
