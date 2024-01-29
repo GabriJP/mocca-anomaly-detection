@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import logging
 from dataclasses import asdict
 from os import cpu_count

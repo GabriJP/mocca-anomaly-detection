@@ -2,14 +2,12 @@ import logging
 import random
 import timeit
 from collections import deque
-from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
 from typing import Any
 from typing import Deque
 from typing import Dict
-from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -53,6 +51,7 @@ class WandbLogger:
         self.data: Dict[str, WANDB_DATA] = dict()
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
+        self.epoch = 0
 
     def manual_step(self) -> None:
         if len(self.data):
@@ -70,8 +69,11 @@ class WandbLogger:
             self._log()
         self.data[key] = data
 
-    def log_test(self, data: Dict[str, Any], *, key: str = "test") -> None:
-        self.log_train(data, key=key)
+    def log_test(self, data: WANDB_DATA, *, key: str = "test") -> None:
+        if self.epoch == 0:
+            for metric in data:
+                wandb.define_metric(metric, step_metric="epoch", goal="maximize")
+        self.log_train(dict(**data, epoch=self.epoch), key=key)
         self._log()
 
     @staticmethod
@@ -79,15 +81,6 @@ class WandbLogger:
         if wandb.run is None:
             raise ValueError
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
-
-    @contextmanager
-    def custom_step(self, step_n: int) -> Iterator[None]:
-        prev_step = self.step
-        try:
-            self.step = step_n
-            yield
-        finally:
-            self.step = prev_step
 
 
 wandb_logger = WandbLogger()

@@ -8,14 +8,12 @@ from typing import Optional
 from typing import Tuple
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import skimage.io as io
 import torch
 from prettytable import PrettyTable
 from sklearn.metrics import roc_auc_score
-from sklearn.metrics import RocCurveDisplay
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -451,7 +449,10 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
-        if view and False:
+        if view:
+            import matplotlib.pyplot as plt
+            from sklearn.metrics import RocCurveDisplay
+
             for y_, color, name in zip(
                 [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
                 ["aqua", "darkorange", "cornflowerblue"],

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import logging
 import time
 from dataclasses import asdict
@@ -70,20 +71,19 @@ class MoccaClient:
         self.R = torch_dict["R"]
 
     def evaluate(self) -> None:
-        with wandb_logger.custom_step(self.current_epoch):
-            helper = VideoAnomalyDetectionResultHelper(
-                dataset=self.data_holder.get_test_data(),
-                model=self.net,
-                R=self.R,
-                boundary=self.rc.boundary,
-                device=device,
-                end_to_end_training=True,
-                debug=False,
-                output_file=None,
-                dist=self.rc.dist,
-            )
-            _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
-            wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
+        helper = VideoAnomalyDetectionResultHelper(
+            dataset=self.data_holder.get_test_data(),
+            model=self.net,
+            R=self.R,
+            boundary=self.rc.boundary,
+            device=device,
+            end_to_end_training=True,
+            debug=False,
+            output_file=None,
+            dist=self.rc.dist,
+        )
+        _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
+        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)))
 
 
 @click.command("cli", context_settings=dict(show_default=True))
