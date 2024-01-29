@@ -287,30 +287,31 @@ def client(
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
-    data_holder_cl: Type[DataManager] = ContinuousDataManager if continuous else DataManager
-    data_holder = data_holder_cl(
-        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
-    ).get_data_holder()
-    net: ShanghaiTech = ShanghaiTech(
-        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
-    )
-    torch.set_float32_matmul_precision("high")
-    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
-    client_class: Type[MoccaClient]
-    if continuous:
-        client_class = ContinuousClient
-    elif parallel:
-        client_class = ParallelClient
-    else:
-        client_class = MoccaClient
-    mc = client_class(net, data_holder, rc)
-    fl.client.start_numpy_client(
-        server_address=server_address,
-        client=mc,
-        grpc_max_message_length=1024**3,  # 1 GiB
-        root_certificates=Path("ca.crt").read_bytes(),
-    )
-    wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R), name="last_model")
+    with wandb_logger:
+        data_holder_cl: Type[DataManager] = ContinuousDataManager if continuous else DataManager
+        data_holder = data_holder_cl(
+            dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
+        ).get_data_holder()
+        net: ShanghaiTech = ShanghaiTech(
+            data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
+        )
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
+        client_class: Type[MoccaClient]
+        if continuous:
+            client_class = ContinuousClient
+        elif parallel:
+            client_class = ParallelClient
+        else:
+            client_class = MoccaClient
+        mc = client_class(net, data_holder, rc)
+        fl.client.start_numpy_client(
+            server_address=server_address,
+            client=mc,
+            grpc_max_message_length=1024**3,  # 1 GiB
+            root_certificates=Path("ca.crt").read_bytes(),
+        )
+        wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R), name="last_model")
 
 
 def create_fit_config_fn(epochs: int, warm_up_n_epochs: int) -> Callable[[int], Config]:
@@ -328,9 +329,8 @@ def create_evaluate_config_fn() -> Callable[[int], Config]:
 
 
 def get_evaluate_fn(
-    wandb_group: str, test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
+    test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
 ) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
-    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     idx_list_enc = (3, 4, 5, 6)
     data_holder = DataManager(
         dataset_name="ShanghaiTech",
@@ -406,7 +406,7 @@ def get_evaluate_fn(
 @click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
-@click.option("--wandb_group", type=str, default=None)
+@click.option("--wandb_group", type=str, required=True)
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
 @click.option("--compile_net", is_flag=True)
 def server(
@@ -422,43 +422,45 @@ def server(
     min_evaluate_clients: int,
     min_available_clients: int,
     dist: str,
-    wandb_group: Optional[str],
+    wandb_group: str,
     test_checkpoint: int,
     compile_net: bool,
 ) -> None:
-    strategy = FedProx(
-        fraction_fit=0.0,
-        fraction_evaluate=0.0 if min_evaluate_clients == 0 else 1e-5,
-        min_fit_clients=min_fit_clients,
-        min_evaluate_clients=min_evaluate_clients,
-        min_available_clients=min_available_clients,
-        evaluate_fn=wandb_group and get_evaluate_fn(wandb_group, test_checkpoint, dist, compile_net, data_path),
-        on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
-        on_evaluate_config_fn=create_evaluate_config_fn(),
-        proximal_mu=proximal_mu,
-    )
-    fl_server = (
-        None
-        if patience is None or min_delta_pct is None
-        else EarlyStopServer(
-            client_manager=SimpleClientManager(), strategy=strategy, patience=patience, min_delta_pct=min_delta_pct
+    wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
+    with wandb_logger:
+        strategy = FedProx(
+            fraction_fit=0.0,
+            fraction_evaluate=0.0 if min_evaluate_clients == 0 else 1e-5,
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_evaluate_clients,
+            min_available_clients=min_available_clients,
+            evaluate_fn=get_evaluate_fn(test_checkpoint, dist, compile_net, data_path),
+            on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
+            on_evaluate_config_fn=create_evaluate_config_fn(),
+            proximal_mu=proximal_mu,
         )
-    )
-    certificates_path = Path.home() / "certs"
-    hist = fl.server.start_server(
-        server_address=f"0.0.0.0:{port}",
-        server=fl_server,
-        config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=172_800.0),  # Timeout==2 days
-        strategy=strategy,
-        grpc_max_message_length=1024**3,  # 1 GiB
-        certificates=(
-            (certificates_path / "ca.crt").read_bytes(),
-            (certificates_path / "server.pem").read_bytes(),
-            (certificates_path / "server.key").read_bytes(),
-        ),
-    )
-    with Path(f"server_hist_{int(time.time())}.pckl").open("wb") as fd:
-        pickle.dump(hist, fd)
+        fl_server = (
+            None
+            if patience is None or min_delta_pct is None
+            else EarlyStopServer(
+                client_manager=SimpleClientManager(), strategy=strategy, patience=patience, min_delta_pct=min_delta_pct
+            )
+        )
+        certificates_path = Path.home() / "certs"
+        hist = fl.server.start_server(
+            server_address=f"0.0.0.0:{port}",
+            server=fl_server,
+            config=fl.server.ServerConfig(num_rounds=num_rounds, round_timeout=172_800.0),  # Timeout==2 days
+            strategy=strategy,
+            grpc_max_message_length=1024**3,  # 1 GiB
+            certificates=(
+                (certificates_path / "ca.crt").read_bytes(),
+                (certificates_path / "server.pem").read_bytes(),
+                (certificates_path / "server.key").read_bytes(),
+            ),
+        )
+        with Path(f"server_hist_{int(time.time())}.pckl").open("wb") as fd:
+            pickle.dump(hist, fd)
 
 
 if __name__ == "__main__":

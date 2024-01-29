@@ -212,49 +212,51 @@ def main(
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
+    with wandb_logger:
+        data_holder = DataManager(
+            dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
+        ).get_data_holder()
+        net: ShanghaiTech = ShanghaiTech(
+            data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
+        )
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
+        wandb.watch(net)
+        rc.epochs = 1
+        rc.warm_up_n_epochs = 0
 
-    data_holder = DataManager(
-        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
-    ).get_data_holder()
-    net: ShanghaiTech = ShanghaiTech(
-        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
-    )
-    torch.set_float32_matmul_precision("high")
-    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
-    wandb.watch(net)
-    rc.epochs = 1
-    rc.warm_up_n_epochs = 0
+        train_loader, _ = data_holder.get_loaders(
+            batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
+        )
 
-    train_loader, _ = data_holder.get_loaders(
-        batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
-    )
+        es = EarlyStoppingDM(
+            initial_patience=len(train_loader) * es_initial_patience_epochs,
+            rolling_factor=rolling_factor,
+            es_patience=es_patience,
+        )
 
-    es = EarlyStoppingDM(
-        initial_patience=len(train_loader) * es_initial_patience_epochs,
-        rolling_factor=rolling_factor,
-        es_patience=es_patience,
-    )
+        mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
 
-    mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
+        initial_time = time.perf_counter()
 
-    initial_time = time.perf_counter()
+        i = 0
+        for i in range(epochs):
+            mc.fit()
+            if es.early_stop:
+                break
 
-    i = 0
-    for i in range(epochs):
-        mc.fit()
-        if es.early_stop:
-            break
+            if i in test_chk_set:
+                mc.evaluate()
 
-        if i in test_chk_set:
-            mc.evaluate()
+            if rc.debug and i:
+                break
 
-        if rc.debug and i:
-            break
+        mc.evaluate()
 
-    mc.evaluate()
-
-    logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
-    wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
+        logging.getLogger().info(
+            f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds"
+        )
+        wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
 
 
 if __name__ == "__main__":
