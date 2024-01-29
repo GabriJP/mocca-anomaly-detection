@@ -449,22 +449,22 @@ class VideoAnomalyDetectionResultHelper:
             roc_auc_score(global_y_conc, np.concatenate(global_as)),  # anomaly score
         ]
 
-        if view:
-            import matplotlib.pyplot as plt
-            from sklearn.metrics import RocCurveDisplay
-
-            for y_, color, name in zip(
-                [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
-                ["aqua", "darkorange", "cornflowerblue"],
-                ["OC", "RC", "AS"],
-            ):
-                RocCurveDisplay.from_predictions(global_y_conc, y_, name=name, color=color, plot_chance_level=True)
-                plt.axis("square")
-                plt.xlabel("False Positive Rate")
-                plt.ylabel("True Positive Rate")
-                plt.title(name)
-                plt.legend()
-                plt.show()
+        # if view:
+        #     import matplotlib.pyplot as plt
+        #     from sklearn.metrics import RocCurveDisplay
+        #
+        #     for y_, color, name in zip(
+        #         [global_oc_conc, np.concatenate(global_rc), np.concatenate(global_as)],
+        #         ["aqua", "darkorange", "cornflowerblue"],
+        #         ["OC", "RC", "AS"],
+        #     ):
+        #         RocCurveDisplay.from_predictions(global_y_conc, y_, name=name, color=color, plot_chance_level=True)
+        #         plt.axis("square")
+        #         plt.xlabel("False Positive Rate")
+        #         plt.ylabel("True Positive Rate")
+        #         plt.title(name)
+        #         plt.legend()
+        #         plt.show()
 
         vad_table.add_row(["Overall", "avg", *global_metrics])
         print(vad_table)
