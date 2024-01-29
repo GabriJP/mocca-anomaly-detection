@@ -63,6 +63,7 @@ from utils import wandb_logger
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
 @click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
+@click.option("--debug", is_flag=True)
 def main(
     seed: int,
     n_workers: int,
@@ -92,6 +93,7 @@ def main(
     wandb_group: Optional[str],
     compile_net: bool,
     test_chk: str,
+    debug: bool,
 ) -> None:
     idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     test_chk_split = test_chk.split(",")
@@ -129,6 +131,7 @@ def main(
         fp16=False,
         compile=compile_net,
         dist="l2",
+        debug=debug,
     )
 
     data_holders = {
