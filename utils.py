@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from typing import Deque
 from typing import Dict
+from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -47,10 +48,13 @@ DISTS = dict(
 
 
 class WandbLogger:
-    def __init__(self) -> None:
-        self.data: Dict[str, WANDB_DATA] = dict()
+    def __init__(self, epoch_metrics: Iterable[str] = ()) -> None:
+        self.data: Dict[str, Union[float, int, bool, WANDB_DATA]] = dict()
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
+        epoch_metric = wandb.define_metric("epoch", hidden=True)
+        for metric in epoch_metrics:
+            wandb.define_metric(metric, step_metric=epoch_metric.name, goal="maximize")
 
     def manual_step(self) -> None:
         if len(self.data):
@@ -69,11 +73,8 @@ class WandbLogger:
         self.data[key] = data
 
     def log_test(self, data: WANDB_DATA, epoch: int, *, key: str = "test") -> None:
-        for metric in data:
-            wandb.define_metric(
-                f"{key}.{metric}", step_metric=f"{key}.epoch", step_sync=True, goal="maximize", overwrite=False
-            )
-        self.log_train(dict(**data, epoch=epoch), key=key)
+        self.data["epoch"] = epoch
+        self.log_train(dict(**data), key=key)
         self._log()
 
     @staticmethod
@@ -83,7 +84,7 @@ class WandbLogger:
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
 
 
-wandb_logger = WandbLogger()
+wandb_logger = WandbLogger(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
 
 
 class EarlyStopServer(flwr.server.Server):
