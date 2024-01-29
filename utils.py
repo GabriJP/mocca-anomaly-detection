@@ -70,9 +70,8 @@ class WandbLogger:
         self.data[key] = data
 
     def log_test(self, data: WANDB_DATA, *, key: str = "test") -> None:
-        if self.epoch == 0:
-            for metric in data:
-                wandb.define_metric(metric, step_metric="epoch", goal="maximize")
+        for metric in data:
+            wandb.define_metric(metric, step_metric="epoch", step_sync=True, goal="maximize", overwrite=False)
         self.log_train(dict(**data, epoch=self.epoch), key=key)
         self._log()
 

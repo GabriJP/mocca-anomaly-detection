@@ -242,17 +242,10 @@ def main(
         if es.early_stop:
             break
 
-    test_chk_set.add(i)
-    out_dir, _ = get_out_dir(rc)
-    checkpoints: Dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
-    for j in sorted(test_chk_set):
-        model = load_model(checkpoints[j])
-        mc.net.load_state_dict(model["net_state_dict"])
-        mc.R = model["R"]
-        if not isinstance(model["config"], RunConfig):
-            raise ValueError
-        mc.rc = model["config"]
-        mc.current_epoch = j
+        if i not in test_chk_set:
+            continue
+        mc.evaluate()
+    else:
         mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
