@@ -58,6 +58,7 @@ class WandbLogger:
         self._epoch_metric: Optional[Metric] = None
 
     def __enter__(self) -> Self:
+        logging.info("Logger initialized")
         epoch_metric = wandb.define_metric("epoch", hidden=True)
         for metric in self._epoch_metrics:
             wandb.define_metric(metric, step_metric=epoch_metric.name, goal="maximize")
@@ -65,6 +66,7 @@ class WandbLogger:
 
     def __exit__(self, *_: Any) -> None:
         self._log()
+        logging.info("Exiting logger")
 
     def _require_initialized(self) -> None:
         if self._epoch_metric is None:
