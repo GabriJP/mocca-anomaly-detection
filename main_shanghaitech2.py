@@ -46,7 +46,7 @@ class MoccaClient:
         self.view = view
         self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
-        self.epoch = 0
+        self.epoch = -1
 
     def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
