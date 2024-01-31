@@ -23,8 +23,6 @@ import wandb
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from typing_extensions import Self
-from wandb.sdk.wandb_metric import Metric
 
 WANDB_DATA = Dict[str, Union[float, int, bool]]
 
@@ -50,35 +48,22 @@ DISTS = dict(
 
 
 class WandbLogger:
-    def __init__(self, epoch_metrics: Iterable[str] = ()) -> None:
-        self._epoch_metrics = epoch_metrics
+    def __init__(self) -> None:
         self.data: Dict[str, Union[float, int, bool, WANDB_DATA]] = dict()
         self.artifacts: Dict[str, wandb.Artifact] = dict()
         self.step = 0
-        self._epoch_metric: Optional[Metric] = None
 
-    def __enter__(self) -> Self:
-        logging.info("Logger initialized")
+    @staticmethod
+    def add_epoch_metrics(epoch_metrics: Iterable[str] = ()) -> None:
         epoch_metric = wandb.define_metric("epoch", hidden=True)
-        for metric in self._epoch_metrics:
+        for metric in epoch_metrics:
             wandb.define_metric(metric, step_metric=epoch_metric.name, goal="maximize")
-        return self
-
-    def __exit__(self, *_: Any) -> None:
-        self._log()
-        logging.info("Exiting logger")
-
-    def _require_initialized(self) -> None:
-        if self._epoch_metric is None:
-            raise ValueError("Logger not initialized")
 
     def manual_step(self) -> None:
-        self._require_initialized()
         if not self._log():
             self.step += 1
 
     def _log(self) -> bool:
-        self._require_initialized()
         if not self.data:
             return False
         wandb.log(self.data, step=self.step, commit=True)
@@ -87,13 +72,11 @@ class WandbLogger:
         return True
 
     def log_train(self, data: WANDB_DATA, *, key: str = "train") -> None:
-        self._require_initialized()
         if key in self.data:
             self._log()
         self.data[key] = data
 
     def log_test(self, data: WANDB_DATA, epoch: int, *, key: str = "test") -> None:
-        self._require_initialized()
         self.data["epoch"] = epoch
         self.log_train(data, key=key)
         self._log()
@@ -105,7 +88,7 @@ class WandbLogger:
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
 
 
-wandb_logger = WandbLogger(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
+wandb_logger = WandbLogger()
 
 
 class EarlyStopServer(flwr.server.Server):

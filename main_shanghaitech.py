@@ -194,80 +194,150 @@ def main(
     )
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
-    with wandb_logger:
-        if not any([train, end_to_end_training]) and model_ckp is None:
-            logging.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
-            raise ValueError("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
+    wandb_logger.add_epoch_metrics(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
+    if not any([train, end_to_end_training]) and model_ckp is None:
+        logging.error("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
+        raise ValueError("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
 
+    logging.info(
+        "Start run with params:\n"
+        f"\n\t\t\t\tEnd to end training : {end_to_end_training}"
+        f"\n\t\t\t\tTrain model         : {train}"
+        f"\n\t\t\t\tTest model          : {test}"
+        f"\n\t\t\t\tBatch size          : {batch_size}\n"
+        f"\n\t\t\t\tAutoEncoder Pretraining"
+        f"\n\t\t\t\tPretrain epochs     : {ae_epochs}"
+        f"\n\t\t\t\tAE-Learning rate    : {ae_learning_rate}"
+        f"\n\t\t\t\tAE-milestones       : {ae_lr_milestones}"
+        f"\n\t\t\t\tAE-Weight decay     : {ae_weight_decay}\n"
+        f"\n\t\t\t\tEncoder Training"
+        f"\n\t\t\t\tClip length         : {clip_length}"
+        f"\n\t\t\t\tBoundary            : {boundary}"
+        f"\n\t\t\t\tTrain epochs        : {epochs}"
+        f"\n\t\t\t\tLearning rate       : {learning_rate}"
+        f"\n\t\t\t\tMilestones          : {lr_milestones}"
+        f"\n\t\t\t\tUse selectors       : {use_selectors}"
+        f"\n\t\t\t\tWeight decay        : {weight_decay}"
+        f"\n\t\t\t\tCode length         : {code_length}"
+        f"\n\t\t\t\tNu                  : {nu}"
+        f"\n\t\t\t\tEncoder list        : {idx_list_enc_ilist}\n"
+        f"\n\t\t\t\tLSTMs"
+        f"\n\t\t\t\tLoad LSTMs          : {load_lstm}"
+        f"\n\t\t\t\tBidirectional       : {bidirectional}"
+        f"\n\t\t\t\tHidden size         : {hidden_size}"
+        f"\n\t\t\t\tNumber of layers    : {num_layers}"
+        f"\n\t\t\t\tDropout prob        : {dropout}\n"
+    )
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Init DataHolder class
+    data_holder = DataManager(
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=test
+    ).get_data_holder()
+
+    # Load data
+    train_loader, _ = data_holder.get_loaders(
+        batch_size=batch_size, shuffle_train=True, pin_memory=device == "cuda", num_workers=n_workers
+    )
+    # Print data infos
+    only_test = test and not train
+    logging.info("Dataset info:")
+    logging.info("\n" f"\n\t\t\t\tBatch size    : {batch_size}")
+    if not only_test:
         logging.info(
-            "Start run with params:\n"
-            f"\n\t\t\t\tEnd to end training : {end_to_end_training}"
-            f"\n\t\t\t\tTrain model         : {train}"
-            f"\n\t\t\t\tTest model          : {test}"
-            f"\n\t\t\t\tBatch size          : {batch_size}\n"
-            f"\n\t\t\t\tAutoEncoder Pretraining"
-            f"\n\t\t\t\tPretrain epochs     : {ae_epochs}"
-            f"\n\t\t\t\tAE-Learning rate    : {ae_learning_rate}"
-            f"\n\t\t\t\tAE-milestones       : {ae_lr_milestones}"
-            f"\n\t\t\t\tAE-Weight decay     : {ae_weight_decay}\n"
-            f"\n\t\t\t\tEncoder Training"
-            f"\n\t\t\t\tClip length         : {clip_length}"
-            f"\n\t\t\t\tBoundary            : {boundary}"
-            f"\n\t\t\t\tTrain epochs        : {epochs}"
-            f"\n\t\t\t\tLearning rate       : {learning_rate}"
-            f"\n\t\t\t\tMilestones          : {lr_milestones}"
-            f"\n\t\t\t\tUse selectors       : {use_selectors}"
-            f"\n\t\t\t\tWeight decay        : {weight_decay}"
-            f"\n\t\t\t\tCode length         : {code_length}"
-            f"\n\t\t\t\tNu                  : {nu}"
-            f"\n\t\t\t\tEncoder list        : {idx_list_enc_ilist}\n"
-            f"\n\t\t\t\tLSTMs"
-            f"\n\t\t\t\tLoad LSTMs          : {load_lstm}"
-            f"\n\t\t\t\tBidirectional       : {bidirectional}"
-            f"\n\t\t\t\tHidden size         : {hidden_size}"
-            f"\n\t\t\t\tNumber of layers    : {num_layers}"
-            f"\n\t\t\t\tDropout prob        : {dropout}\n"
+            f"TRAIN:"
+            f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"  # type: ignore
+            f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // batch_size}"  # type: ignore
         )
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    #
+    # Train the AUTOENCODER on the RECONSTRUCTION task and then train only the #
+    # ENCODER on the ONE CLASS OBJECTIVE #
+    #
+    net_checkpoint: Optional[Path] = None
+    if train and not end_to_end_training:
+        if net_checkpoint is None:
+            if model_ckp is None:
+                raise ValueError("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
+            net_checkpoint = model_ckp
 
-        # Init DataHolder class
-        data_holder = DataManager(
-            dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, only_test=test
-        ).get_data_holder()
+        aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
 
-        # Load data
-        train_loader, _ = data_holder.get_loaders(
-            batch_size=batch_size, shuffle_train=True, pin_memory=device == "cuda", num_workers=n_workers
+        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name=data_path.name)
+
+        # Init Encoder
+        net: torch.nn.Module = ShanghaiTechEncoder(
+            data_holder.shape,
+            code_length,
+            load_lstm,
+            hidden_size,
+            num_layers,
+            dropout,
+            bidirectional,
+            use_selectors,
         )
-        # Print data infos
-        only_test = test and not train
-        logging.info("Dataset info:")
-        logging.info("\n" f"\n\t\t\t\tBatch size    : {batch_size}")
-        if not only_test:
-            logging.info(
-                f"TRAIN:"
-                f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"  # type: ignore
-                f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset) // batch_size}"  # type: ignore
-            )
 
-        #
-        # Train the AUTOENCODER on the RECONSTRUCTION task and then train only the #
-        # ENCODER on the ONE CLASS OBJECTIVE #
-        #
-        net_checkpoint: Optional[Path] = None
-        if train and not end_to_end_training:
-            if net_checkpoint is None:
-                if model_ckp is None:
-                    raise ValueError("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
-                net_checkpoint = model_ckp
+        # Load encoder weight from autoencoder
+        net_dict = net.state_dict()
+        logging.info(f"Loading encoder from: {net_checkpoint}")
+        ae_net_dict = load_model(net_checkpoint, map_location=lambda storage, loc: storage)["net_state_dict"]
 
-            aelr = float(net_checkpoint.parent.name.split("-")[4].split("_")[-1])
+        # Filter out decoder network keys
+        # Overwrite values in the existing state_dict
+        net_dict.update({k: v for k, v in ae_net_dict.items() if k in net_dict})
+        # Load the new state_dict
+        net.load_state_dict(net_dict, strict=True)
 
-            out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=aelr, dset_name=data_path.name)
+        # TRAIN
+        net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc, dict())
 
-            # Init Encoder
-            net: torch.nn.Module = ShanghaiTechEncoder(
+    #
+    #
+
+    #
+    # Train the AUTOENCODER on the combined objective: #
+    # RECONSTRUCTION + ONE CLASS #
+    #
+    if end_to_end_training:
+        out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=int(learning_rate), dset_name="ShanghaiTech")
+
+        # Init AutoEncoder
+        ae_net = ShanghaiTech(
+            data_holder.shape,
+            code_length,
+            load_lstm,
+            hidden_size,
+            num_layers,
+            dropout,
+            bidirectional,
+            use_selectors,
+        )
+        # End to end TRAIN
+        wandb.watch(ae_net)
+        net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc, dict())
+    #
+    #
+
+    #
+    # Model test #
+    #
+    if test:
+        if net_checkpoint is None:
+            net_checkpoint = model_ckp
+
+        if net_checkpoint is None:
+            raise ValueError
+
+        st_dict = load_model(net_checkpoint)
+        if not isinstance(st_dict["config"], FullRunConfig):
+            raise ValueError
+        rc = st_dict["config"]
+
+        # Init dataset
+        dataset = data_holder.get_test_data()
+        net = (
+            ShanghaiTech(
                 data_holder.shape,
                 code_length,
                 load_lstm,
@@ -277,34 +347,9 @@ def main(
                 bidirectional,
                 use_selectors,
             )
-
-            # Load encoder weight from autoencoder
-            net_dict = net.state_dict()
-            logging.info(f"Loading encoder from: {net_checkpoint}")
-            ae_net_dict = load_model(net_checkpoint, map_location=lambda storage, loc: storage)["net_state_dict"]
-
-            # Filter out decoder network keys
-            # Overwrite values in the existing state_dict
-            net_dict.update({k: v for k, v in ae_net_dict.items() if k in net_dict})
-            # Load the new state_dict
-            net.load_state_dict(net_dict, strict=True)
-
-            # TRAIN
-            net_checkpoint = sh_train(net, train_loader, out_dir, device, net_checkpoint, rc, dict())
-
-        #
-        #
-
-        #
-        # Train the AUTOENCODER on the combined objective: #
-        # RECONSTRUCTION + ONE CLASS #
-        #
-        if end_to_end_training:
-            out_dir, tmp = get_out_dir(rc, pretrain=False, aelr=int(learning_rate), dset_name="ShanghaiTech")
-
-            # Init AutoEncoder
-            ae_net = ShanghaiTech(
-                data_holder.shape,
+            if rc.end_to_end_training
+            else ShanghaiTechEncoder(
+                dataset.shape,
                 code_length,
                 load_lstm,
                 hidden_size,
@@ -313,90 +358,45 @@ def main(
                 bidirectional,
                 use_selectors,
             )
-            # End to end TRAIN
-            wandb.watch(ae_net)
-            net_checkpoint = sh_train(ae_net, train_loader, out_dir, device, None, rc, dict())
-        #
-        #
+        )
 
-        #
-        # Model test #
-        #
-        if test:
-            if net_checkpoint is None:
-                net_checkpoint = model_ckp
+        net.load_state_dict(st_dict["net_state_dict"], strict=True)
+        wandb.watch(net)
+        logging.info(f"Loaded model from: {net_checkpoint}")
+        logging.info(
+            f"Start test with params:"
+            f"\n\t\t\t\tDataset        : {data_path.name}"
+            f"\n\t\t\t\tCode length    : {code_length}"
+            f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
+            f"\n\t\t\t\tBoundary       : {boundary}"
+            f"\n\t\t\t\tUse Selectors  : {use_selectors}"
+            f"\n\t\t\t\tBatch size     : {batch_size}"
+            f"\n\t\t\t\tN workers      : {n_workers}"
+            f"\n\t\t\t\tLoad LSTMs     : {load_lstm}"
+            f"\n\t\t\t\tHidden size    : {hidden_size}"
+            f"\n\t\t\t\tNum layers     : {num_layers}"
+            f"\n\t\t\t\tBidirectional  : {bidirectional}"
+            f"\n\t\t\t\tDropout prob   : {dropout}"
+        )
 
-            if net_checkpoint is None:
-                raise ValueError
-
-            st_dict = load_model(net_checkpoint)
-            if not isinstance(st_dict["config"], FullRunConfig):
-                raise ValueError
-            rc = st_dict["config"]
-
-            # Init dataset
-            dataset = data_holder.get_test_data()
-            net = (
-                ShanghaiTech(
-                    data_holder.shape,
-                    code_length,
-                    load_lstm,
-                    hidden_size,
-                    num_layers,
-                    dropout,
-                    bidirectional,
-                    use_selectors,
-                )
-                if rc.end_to_end_training
-                else ShanghaiTechEncoder(
-                    dataset.shape,
-                    code_length,
-                    load_lstm,
-                    hidden_size,
-                    num_layers,
-                    dropout,
-                    bidirectional,
-                    use_selectors,
-                )
-            )
-
-            net.load_state_dict(st_dict["net_state_dict"], strict=True)
-            wandb.watch(net)
-            logging.info(f"Loaded model from: {net_checkpoint}")
-            logging.info(
-                f"Start test with params:"
-                f"\n\t\t\t\tDataset        : {data_path.name}"
-                f"\n\t\t\t\tCode length    : {code_length}"
-                f"\n\t\t\t\tEnc layer list : {idx_list_enc_ilist}"
-                f"\n\t\t\t\tBoundary       : {boundary}"
-                f"\n\t\t\t\tUse Selectors  : {use_selectors}"
-                f"\n\t\t\t\tBatch size     : {batch_size}"
-                f"\n\t\t\t\tN workers      : {n_workers}"
-                f"\n\t\t\t\tLoad LSTMs     : {load_lstm}"
-                f"\n\t\t\t\tHidden size    : {hidden_size}"
-                f"\n\t\t\t\tNum layers     : {num_layers}"
-                f"\n\t\t\t\tBidirectional  : {bidirectional}"
-                f"\n\t\t\t\tDropout prob   : {dropout}"
-            )
-
-            # Initialize test helper for processing each video seperately
-            # It prints the result to the loaded checkpoint directory
-            helper = VideoAnomalyDetectionResultHelper(
-                dataset=dataset,
-                model=net,
-                R=st_dict["R"],
-                boundary=boundary,
-                device=device,
-                end_to_end_training=rc.end_to_end_training,
-                debug=debug,
-                output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
-                dist=rc.dist,
-            )
-            # TEST
-            global_oc, global_metrics = helper.test_video_anomaly_detection()
-            global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
-            wandb.log(dict(test=global_metrics_dict))
-            print("Test finished")
+        # Initialize test helper for processing each video seperately
+        # It prints the result to the loaded checkpoint directory
+        helper = VideoAnomalyDetectionResultHelper(
+            dataset=dataset,
+            model=net,
+            R=st_dict["R"],
+            boundary=boundary,
+            device=device,
+            end_to_end_training=rc.end_to_end_training,
+            debug=debug,
+            output_file=net_checkpoint.parent / "shanghaitech_test_results.txt",
+            dist=rc.dist,
+        )
+        # TEST
+        global_oc, global_metrics = helper.test_video_anomaly_detection()
+        global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        wandb.log(dict(test=global_metrics_dict))
+        print("Test finished")
 
 
 if __name__ == "__main__":
