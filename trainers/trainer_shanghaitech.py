@@ -169,7 +169,7 @@ def train(
                 )
 
         if epoch in rc.lr_milestones:
-            logger.info(f"  LR scheduler: new learning rate is {float(scheduler.get_lr()):g}")
+            logger.info(f"  LR scheduler: new learning rate is {scheduler.get_lr():g}")
 
         time_ = time.time() if ae_net_checkpoint is None else ae_net_checkpoint.name.split("_")[-1].split(".p")[0]
         net_checkpoint = out_dir / f"net_ckp_{epoch}_{time_}.pth"

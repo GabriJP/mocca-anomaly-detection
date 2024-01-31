@@ -46,9 +46,10 @@ class MoccaClient:
         self.view = view
         self.view_data = view_data
         self.R: Dict[str, torch.Tensor] = dict()
-        self.epoch = -1
+        self.epoch = -self.rc.epochs
 
     def fit(self) -> None:
+        self.epoch += self.rc.epochs
         train_loader, _ = self.data_holder.get_loaders(
             batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
         )
@@ -65,7 +66,6 @@ class MoccaClient:
             self.es,
             self.epoch,
         )
-        self.epoch += self.rc.epochs
 
         torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
@@ -254,7 +254,7 @@ def main(
     mc.evaluate()
 
     logging.getLogger().info(f"Fitted in {i + 1} epochs requiring {time.perf_counter() - initial_time:.02f} seconds")
-    wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
+    # wandb_logger.save_model(dict(net_state_dict=net.state_dict(), R=mc.R))
 
 
 if __name__ == "__main__":
