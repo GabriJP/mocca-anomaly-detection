@@ -105,7 +105,7 @@ def train(
             # Update network parameters via backpropagation: forward + backward + optimize
             with torch.autocast(device_type=device, enabled=rc.fp16):
                 x_r, _, d_lstms = net(x)
-                recon_loss_ = recon_loss_fun(x_r, x, test=False)
+                recon_loss_ = recon_loss_fun(x_r, x)
                 dist, one_class_loss_ = eval_ad_loss(d_lstms, r, rc.nu, rc.boundary, device)
                 objective_loss_ = one_class_loss_ + recon_loss_
 

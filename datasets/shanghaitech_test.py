@@ -325,7 +325,7 @@ class VideoAnomalyDetectionResultHelper:
 
                 if self.end_to_end_training:
                     x_r, _, d_lstm = self.model(x)
-                    recon_loss = recon_loss_fun(x_r, x, test=True)
+                    recon_loss = recon_loss_fun(x_r, x)
                     viewer.put_x_r(x_r)
                 else:
                     _, d_lstm = self.model(x)
