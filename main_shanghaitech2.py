@@ -47,14 +47,14 @@ def init_weights_ones(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.ones_(m.weight)
-    nn.init.zeros_(m.bias)
+    nn.init.ones_(m.bias)
 
 
 def init_weights_xavier_uniform(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.xavier_uniform_(m.weight)
-    nn.init.zeros_(m.bias)
+    nn.init.xavier_uniform_(m.bias)
 
 
 initializers = dict(
