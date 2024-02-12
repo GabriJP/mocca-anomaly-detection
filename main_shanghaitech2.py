@@ -11,11 +11,15 @@ from typing import Tuple
 
 import click
 import torch
+import torch.nn as nn
 import wandb
 
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
+from models.shanghaitech_base_model import DownsampleBlock
+from models.shanghaitech_base_model import TemporallySharedFullyConnection
+from models.shanghaitech_base_model import UpsampleBlock
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
@@ -26,6 +30,39 @@ from utils import set_seeds
 from utils import wandb_logger
 
 device = "cuda"
+
+
+def module_is_initializable(module: nn.Module) -> bool:
+    return isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock))
+
+
+def init_weights_zeros(m: nn.Module) -> None:
+    if not module_is_initializable(m):
+        return
+    nn.init.zeros_(m.weight)
+    nn.init.zeros_(m.bias)
+
+
+def init_weights_ones(m: nn.Module) -> None:
+    if not module_is_initializable(m):
+        return
+    nn.init.ones_(m.weight)
+    nn.init.zeros_(m.bias)
+
+
+def init_weights_xavier_uniform(m: nn.Module) -> None:
+    if not module_is_initializable(m):
+        return
+    nn.init.xavier_uniform_(m.weight)
+    nn.init.zeros_(m.bias)
+
+
+initializers = dict(
+    zeros=init_weights_zeros,
+    ones=init_weights_ones,
+    xavier_uniform=init_weights_xavier_uniform,
+    none=lambda _: None,
+)
 
 
 class MoccaClient:
@@ -125,6 +162,7 @@ class MoccaClient:
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--fp16", is_flag=True)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
+@click.option("--initialization", type=click.Choice(list(initializers)), default="none")
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--wandb_name", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
@@ -162,6 +200,7 @@ def main(
     nu: float,
     fp16: bool,
     dist: str,
+    initialization: str,
     wandb_group: Optional[str],
     wandb_name: Optional[str],
     compile_net: bool,
@@ -219,6 +258,7 @@ def main(
     net: ShanghaiTech = ShanghaiTech(
         data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
     )
+    net.apply(initializers[initialization])
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
     wandb.watch(net)
