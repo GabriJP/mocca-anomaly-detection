@@ -1,6 +1,6 @@
 from collections import Counter
+from collections import Counter as tCounter
 from pathlib import Path
-from typing import Counter as tCounter
 from typing import List
 
 import click

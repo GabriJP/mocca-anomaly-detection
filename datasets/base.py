@@ -1,9 +1,9 @@
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Callable
+from collections.abc import Sequence
 from typing import Any
-from typing import Callable
 from typing import List
-from typing import Sequence
 from typing import Tuple
 from typing import Union
 

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import asdict
+from functools import partial
 from os import cpu_count
 from pathlib import Path
 from typing import Dict
 from typing import Optional
+from typing import ParamSpec
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 import click
 import torch
@@ -36,33 +40,34 @@ def module_is_initializable(module: nn.Module) -> bool:
     return isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock))
 
 
-def init_weights_zeros(m: nn.Module) -> None:
-    if not module_is_initializable(m):
-        return
-    nn.init.zeros_(m.weight)
-    if m.bias is not None:
-        nn.init.zeros_(m.bias)
+P = ParamSpec("P")
 
 
-def init_weights_ones(m: nn.Module) -> None:
-    if not module_is_initializable(m):
+def _initialize_module(
+    module: nn.Module,
+    func: Union[Callable[[torch.Tensor], torch.Tensor], Callable[[torch.Tensor, P.args, P.kwargs], torch.Tensor]],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> None:
+    if not module_is_initializable(module):
         return
-    nn.init.ones_(m.weight)
-    if m.bias is not None:
-        nn.init.ones_(m.bias)
+
+    if module.weight is not None:
+        func(module.weight, *args, **kwargs)
+    else:
+        logging.warning(f"Not initializing weights for module {module} of class name {module.__class__.__name__}")
+
+    if module.bias is not None:
+        func(module.bias, *args, **kwargs)
 
 
 def init_weights_xavier_uniform(m: nn.Module) -> None:
-    if not module_is_initializable(m):
-        return
-    nn.init.xavier_uniform_(m.weight)
-    if m.bias is not None:
-        nn.init.xavier_uniform_(m.bias)
+    _initialize_module(m, nn.init.xavier_uniform_)
 
 
-initializers = dict(
-    zeros=init_weights_zeros,
-    ones=init_weights_ones,
+initializers: Dict[str, Callable[[nn.Module], None]] = dict(
+    zeros=partial(_initialize_module, func=nn.init.zeros_),
+    ones=partial(_initialize_module, func=nn.init.ones_),
     xavier_uniform=init_weights_xavier_uniform,
     none=lambda _: None,
 )

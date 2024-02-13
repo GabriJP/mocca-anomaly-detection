@@ -2,14 +2,14 @@ import logging
 import random
 import timeit
 from collections import deque
+from collections.abc import Callable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from logging import INFO
 from pathlib import Path
 from typing import Any
-from typing import Callable
 from typing import Deque
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple

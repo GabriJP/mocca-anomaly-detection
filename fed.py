@@ -4,15 +4,15 @@ import logging
 import pickle
 import time
 from collections import OrderedDict
+from collections.abc import Callable
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
 from time import perf_counter
 from time import sleep
-from typing import Callable
 from typing import Dict
-from typing import Iterator
 from typing import Optional
 from typing import Tuple
 from typing import Type
