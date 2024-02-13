@@ -1,6 +1,5 @@
 from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -101,7 +100,7 @@ def remove_background(video: U8_NDTYPE, background: U8_NDTYPE, threshold: float)
     return no_bg_video
 
 
-def n_subpaths(path: Path, count_filter: Optional[Callable[[Path], bool]] = (lambda _: True)) -> int:
+def n_subpaths(path: Path, count_filter: Callable[[Path], bool] | None = (lambda _: True)) -> int:
     return sum(1 for _ in filter(count_filter, path.iterdir()))
 
 

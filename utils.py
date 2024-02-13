@@ -9,10 +9,6 @@ from logging import INFO
 from pathlib import Path
 from typing import Any
 from typing import Deque
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
 from typing import TypedDict
 from typing import Union
 
@@ -25,7 +21,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-WANDB_DATA = Dict[str, Union[float, int, bool]]
+WANDB_DATA = dict[str, Union[float, int, bool]]
 
 
 def _fp16_recon_loss(x_r: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
@@ -36,7 +32,7 @@ def _mocca_recon_loss(x_r: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
     return torch.mean(torch.sum((x_r - x) ** 2, dim=tuple(range(1, x_r.dim()))))
 
 
-DISTS: Dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = dict(
+DISTS: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = dict(
     l1=_fp16_recon_loss,
     l2=_mocca_recon_loss,
 )
@@ -44,8 +40,8 @@ DISTS: Dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = dict(
 
 class WandbLogger:
     def __init__(self) -> None:
-        self.data: Dict[str, Union[float, int, bool, WANDB_DATA]] = dict()
-        self.artifacts: Dict[str, wandb.Artifact] = dict()
+        self.data: dict[str, float | int | bool | WANDB_DATA] = dict()
+        self.artifacts: dict[str, wandb.Artifact] = dict()
         self.step = 0
 
     @staticmethod
@@ -77,7 +73,7 @@ class WandbLogger:
         self._log()
 
     @staticmethod
-    def save_model(save_dict: Dict[str, Any], name: str = "model") -> None:
+    def save_model(save_dict: dict[str, Any], name: str = "model") -> None:
         if wandb.run is None:
             raise ValueError
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
@@ -91,7 +87,7 @@ class EarlyStopServer(flwr.server.Server):
         self,
         *,
         client_manager: Any,
-        strategy: Optional[flwr.server.strategy.Strategy] = None,
+        strategy: flwr.server.strategy.Strategy | None = None,
         patience: int = 0,
         min_delta_pct: float = 0.0,
     ) -> None:
@@ -111,7 +107,7 @@ class EarlyStopServer(flwr.server.Server):
         return self.counter >= self.patience
 
     # pylint: disable=too-many-locals
-    def fit(self, num_rounds: int, timeout: Optional[float]) -> flwr.server.History:
+    def fit(self, num_rounds: int, timeout: float | None) -> flwr.server.History:
         """Run federated averaging for a number of rounds."""
         history = flwr.server.History()
 
@@ -181,7 +177,7 @@ class EarlyStoppingDM:
         self.early_stops: Deque[float] = deque([False] * es_patience, maxlen=es_patience)
         self.es = False
 
-    def log_loss(self, new_loss: float) -> Dict[str, float]:
+    def log_loss(self, new_loss: float) -> dict[str, float]:
         self.step += 1
         self.losses.append(new_loss)
 
@@ -216,15 +212,15 @@ class FullRunConfig:
     debug: bool
     # Model config
     code_length: int
-    model_ckp: Optional[Path]
+    model_ckp: Path | None
     # Optimizer config
     optimizer: str
     ae_learning_rate: float
     learning_rate: float
     ae_weight_decay: float
     weight_decay: float
-    ae_lr_milestones: List[int]
-    lr_milestones: List[int]
+    ae_lr_milestones: list[int]
+    lr_milestones: list[int]
     # Data
     data_path: Path
     clip_length: int
@@ -245,7 +241,7 @@ class FullRunConfig:
     train_best_conf: bool
     batch_size: int
     boundary: str
-    idx_list_enc: List[int]
+    idx_list_enc: list[int]
     epochs: int
     ae_epochs: int
     nu: float
@@ -271,13 +267,13 @@ class RunConfig:
     dropout: float
     batch_size: int
     boundary: str
-    idx_list_enc: Tuple[int, ...]
+    idx_list_enc: tuple[int, ...]
     nu: float
     fp16: bool
     compile: bool
     dist: str
     optimizer: str = "adam"
-    lr_milestones: Tuple[int, ...] = tuple()
+    lr_milestones: tuple[int, ...] = tuple()
     end_to_end_training: bool = True
     debug: bool = False
     warm_up_n_epochs: int = 0
@@ -285,7 +281,7 @@ class RunConfig:
     log_frequency: int = 1
 
 
-def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
+def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> tuple[Path, str]:
     """Creates training output dir
 
     Parameters
@@ -345,7 +341,7 @@ def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str =
     return out_dir, tmp
 
 
-def get_out_dir2(rc: RunConfig) -> Tuple[Path, str]:
+def get_out_dir2(rc: RunConfig) -> tuple[Path, str]:
     tmp_name = (
         f"train-mn_ShanghaiTech-cl_{rc.code_length}-bs_{rc.batch_size}-nu_{rc.nu}-lr_{rc.learning_rate}-"
         f"bd_{rc.boundary}-sl_False-ile_{'.'.join(map(str, rc.idx_list_enc))}-lstm_{rc.load_lstm}-"
@@ -408,16 +404,16 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
 
 
 class TorchDict(TypedDict):
-    net_state_dict: Dict[str, Any]
-    R: Dict[str, torch.Tensor]
-    config: Union[FullRunConfig, RunConfig]
+    net_state_dict: dict[str, Any]
+    R: dict[str, torch.Tensor]
+    config: FullRunConfig | RunConfig
 
 
 def save_model(
     path: Path,
     net: torch.nn.Module,
-    r: Dict[str, torch.Tensor],
-    config: Union[FullRunConfig, RunConfig],
+    r: dict[str, torch.Tensor],
+    config: FullRunConfig | RunConfig,
 ) -> None:
     torch.save(dict(net_state_dict=net.state_dict(), R=r, config=config), path)
 
@@ -427,13 +423,13 @@ def load_model(path: Path, **load_kwargs: Any) -> TorchDict:
 
 
 def eval_spheres_centers(
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
+    train_loader: DataLoader[tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     ae_net_cehckpoint: str,
     use_selectors: bool,
     device: str,
     debug: bool,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
@@ -484,12 +480,12 @@ def eval_spheres_centers(
 
 @torch.no_grad()
 def init_center_c(
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
+    train_loader: DataLoader[tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     device: str,
     debug: bool,
     eps: float = 0.1,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Initialize hypersphere center as the mean from an initial forward pass on the data."""
     n_samples = 0
 

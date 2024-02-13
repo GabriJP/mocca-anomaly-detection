@@ -2,7 +2,6 @@ from itertools import product
 from pathlib import Path
 from shutil import rmtree
 from typing import Final
-from typing import Tuple
 
 import cv2
 import numpy as np
@@ -19,7 +18,7 @@ from .utils import save_video
 U8_NDTYPE = npt.NDArray[np.uint8]
 
 
-UCSD_NAMES: Final[Tuple[str, str]] = ("UCSDped1", "UCSDped2")
+UCSD_NAMES: Final[tuple[str, str]] = ("UCSDped1", "UCSDped2")
 
 
 def process_ucsd_gt(data_root: Path) -> None:

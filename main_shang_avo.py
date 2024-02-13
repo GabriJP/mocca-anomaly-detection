@@ -4,10 +4,6 @@ import time
 from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
-from typing import Dict
-from typing import Optional
-from typing import Set
-from typing import Tuple
 
 import click
 import torch
@@ -90,14 +86,14 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
-    wandb_group: Optional[str],
+    wandb_group: str | None,
     compile_net: bool,
     test_chk: str,
     debug: bool,
 ) -> None:
-    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
+    idx_list_enc_ilist: tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     test_chk_split = test_chk.split(",")
-    test_chk_set: Set[int] = set(map(int, test_chk_split))
+    test_chk_set: set[int] = set(map(int, test_chk_split))
     # Set seed
     set_seeds(seed)
 
@@ -170,7 +166,7 @@ def main(
 
     test_chk_set.add(i)
     out_dir, _ = get_out_dir(rc)
-    checkpoints: Dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
+    checkpoints: dict[int, Path] = {int(path.name.split("_")[2]): path for path in out_dir.iterdir()}
     for name, data_holder in data_holders.items():
         wandb.init(
             project="mocca",

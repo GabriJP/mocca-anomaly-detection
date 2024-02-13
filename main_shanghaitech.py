@@ -3,8 +3,6 @@ import logging
 from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
-from typing import List
-from typing import Optional
 
 import click
 import torch
@@ -100,15 +98,15 @@ def main(
     debug: bool,
     # Model config,
     code_length: int,
-    model_ckp: Optional[Path],
+    model_ckp: Path | None,
     # Optimizer config,
     optimizer: str,
     ae_learning_rate: float,
     learning_rate: float,
     ae_weight_decay: float,
     weight_decay: float,
-    ae_lr_milestones: List[int],
-    lr_milestones: List[int],
+    ae_lr_milestones: list[int],
+    lr_milestones: list[int],
     # Data,
     data_path: Path,
     clip_length: int,
@@ -135,11 +133,11 @@ def main(
     nu: float,
     fp16: bool,
     dist: str,
-    wandb_group: Optional[str],
-    wandb_name: Optional[str],
+    wandb_group: str | None,
+    wandb_name: str | None,
     compile_net: bool,
 ) -> None:
-    idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
+    idx_list_enc_ilist: list[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = FullRunConfig(
         seed,
         n_workers,
@@ -255,7 +253,7 @@ def main(
     # Train the AUTOENCODER on the RECONSTRUCTION task and then train only the #
     # ENCODER on the ONE CLASS OBJECTIVE #
     #
-    net_checkpoint: Optional[Path] = None
+    net_checkpoint: Path | None = None
     if train and not end_to_end_training:
         if net_checkpoint is None:
             if model_ckp is None:

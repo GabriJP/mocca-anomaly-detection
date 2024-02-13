@@ -12,11 +12,6 @@ from os import cpu_count
 from pathlib import Path
 from time import perf_counter
 from time import sleep
-from typing import Dict
-from typing import Optional
-from typing import Tuple
-from typing import Type
-from typing import Union
 
 import click
 import flwr as fl
@@ -50,9 +45,9 @@ class MoccaClient(fl.client.NumPyClient):
     def __init__(self, net: ShanghaiTech, data_holder: ShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__()
         self.net = net.to(wanted_device)
-        self.data_holder: Union[ShanghaiTechDataHolder, ContinuousShanghaiTechDataHolder] = data_holder
+        self.data_holder: ShanghaiTechDataHolder | ContinuousShanghaiTechDataHolder = data_holder
         self.rc = rc
-        self.R: Dict[str, torch.Tensor] = dict()
+        self.R: dict[str, torch.Tensor] = dict()
 
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.R):
@@ -77,7 +72,7 @@ class MoccaClient(fl.client.NumPyClient):
         for k, rv in zip(keys, rs_list):
             self.R[k] = torch.tensor(rv, device=wanted_device)
 
-    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
+    def fit(self, parameters: NDArrays, config: Config) -> tuple[NDArrays, int, Config]:
         self.rc.epochs = int(config["epochs"])
         self.rc.warm_up_n_epochs = int(config["warm_up_n_epochs"])
         self.set_parameters(parameters)
@@ -100,7 +95,7 @@ class MoccaClient(fl.client.NumPyClient):
         self.R = torch_dict["R"]
         return self.get_parameters(config=dict()), len(train_loader) * self.rc.epochs, dict()
 
-    def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
+    def evaluate(self, parameters: NDArrays, config: Config) -> tuple[float, int, Config]:
         if self.data_holder.root.name.endswith("13"):
             return 0.0, 0, dict(oc_metric=0.0, recon_metric=0.0, anomaly_score=0.0)
         self.set_parameters(parameters)
@@ -171,11 +166,11 @@ class ParallelClient(MoccaClient):
                 self.is_locked = False
                 fcntl.flock(fd, fcntl.LOCK_UN)
 
-    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
+    def fit(self, parameters: NDArrays, config: Config) -> tuple[NDArrays, int, Config]:
         with self.execution_exclusive_context(to_target_device=True):
             return super().fit(parameters, config)
 
-    def evaluate(self, parameters: NDArrays, config: Config) -> Tuple[float, int, Config]:
+    def evaluate(self, parameters: NDArrays, config: Config) -> tuple[float, int, Config]:
         with self.execution_exclusive_context(to_target_device=True):
             return super().evaluate(parameters, config)
 
@@ -184,7 +179,7 @@ class ContinuousClient(ParallelClient):
     def __init__(self, net: ShanghaiTech, data_holder: ContinuousShanghaiTechDataHolder, rc: RunConfig) -> None:
         super().__init__(net, data_holder, rc)
 
-    def fit(self, parameters: NDArrays, config: Config) -> Tuple[NDArrays, int, Config]:
+    def fit(self, parameters: NDArrays, config: Config) -> tuple[NDArrays, int, Config]:
         if not isinstance(self.data_holder, ContinuousShanghaiTechDataHolder):
             raise ValueError
         if config.get("reset", False):
@@ -249,14 +244,14 @@ def client(
     boundary: str,
     idx_list_enc: str,
     nu: float,
-    wandb_group: Optional[str],
-    wandb_name: Optional[str],
+    wandb_group: str | None,
+    wandb_name: str | None,
     seed: int,
     compile_net: bool,
     parallel: bool,
     continuous: bool,
 ) -> None:
-    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
+    idx_list_enc_ilist: tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     rc = RunConfig(
         n_workers,
         output_path,
@@ -288,7 +283,7 @@ def client(
 
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name=wandb_name, config=asdict(rc))
     wandb_logger.add_epoch_metrics(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
-    data_holder_cl: Type[DataManager] = ContinuousDataManager if continuous else DataManager
+    data_holder_cl: type[DataManager] = ContinuousDataManager if continuous else DataManager
     data_holder = data_holder_cl(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
@@ -297,7 +292,7 @@ def client(
     )
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
-    client_class: Type[MoccaClient]
+    client_class: type[MoccaClient]
     if continuous:
         client_class = ContinuousClient
     elif parallel:
@@ -330,7 +325,7 @@ def create_evaluate_config_fn() -> Callable[[int], Config]:
 
 def get_evaluate_fn(
     test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
-) -> Callable[[int, NDArrays, Dict[str, Scalar]], Tuple[float, Dict[str, Scalar]]]:
+) -> Callable[[int, NDArrays, dict[str, Scalar]], tuple[float, dict[str, Scalar]]]:
     idx_list_enc = (3, 4, 5, 6)
     data_holder = DataManager(
         dataset_name="ShanghaiTech",
@@ -354,8 +349,8 @@ def get_evaluate_fn(
     R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
 
     def centralized_evaluation(
-        server_round: int, parameters: NDArrays, _: Dict[str, Scalar]
-    ) -> Tuple[float, Dict[str, Scalar]]:
+        server_round: int, parameters: NDArrays, _: dict[str, Scalar]
+    ) -> tuple[float, dict[str, Scalar]]:
         if server_round % test_checkpoint != 0:
             wandb_logger.manual_step()
             return 0.0, dict()
@@ -416,8 +411,8 @@ def server(
     epochs: int,
     warm_up_n_epochs: int,
     proximal_mu: float,
-    patience: Optional[int],
-    min_delta_pct: Optional[float],
+    patience: int | None,
+    min_delta_pct: float | None,
     min_fit_clients: int,
     min_evaluate_clients: int,
     min_available_clients: int,

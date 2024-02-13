@@ -3,7 +3,6 @@ import logging
 import sys
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import Tuple
 
 import click
 import cv2
@@ -146,7 +145,7 @@ def label_paths(data_path: Path) -> None:
         pool.join()
 
 
-def _color_for(value: float) -> Tuple[int, int, int]:
+def _color_for(value: float) -> tuple[int, int, int]:
     color: npt.NDArray[np.uint8] = np.array((0.0, value * 255, (1 - value) * 255)).astype(np.uint8)
     return int(color[0]), int(color[1]), int(color[2])
 

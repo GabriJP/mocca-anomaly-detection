@@ -2,10 +2,6 @@ from functools import reduce
 from operator import mul
 from pathlib import Path
 from typing import Any
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
 
 import torch
 import torch.nn as nn
@@ -113,7 +109,7 @@ class TemporallySharedFullyConnection(BaseModule):
 
 
 def residual_op(
-    x: torch.Tensor, functions: List[nn.Module], bns: List[Union[nn.Module, None]], activation_fn: nn.Module
+    x: torch.Tensor, functions: list[nn.Module], bns: list[nn.Module | None], activation_fn: nn.Module
 ) -> torch.Tensor:
     """
     Implements a global residual operation.
@@ -177,7 +173,7 @@ class BaseBlock(BaseModule):
         self._use_bn = use_bn
         self._bias = use_bias
 
-    def get_bn(self) -> Optional[nn.Module]:
+    def get_bn(self) -> nn.Module | None:
         """
         Returns batch norm layers, if needed.
         :return: batch norm layers or None
@@ -199,7 +195,7 @@ class DownsampleBlock(BaseBlock):
         channel_in: int,
         channel_out: int,
         activation_fn: nn.Module,
-        stride: Tuple[int, int, int],
+        stride: tuple[int, int, int],
         use_bn: bool = True,
         use_bias: bool = False,
     ) -> None:
@@ -253,8 +249,8 @@ class UpsampleBlock(BaseBlock):
         channel_in: int,
         channel_out: int,
         activation_fn: nn.Module,
-        stride: Tuple[int, int, int],
-        output_padding: Tuple[int, int, int],
+        stride: tuple[int, int, int],
+        output_padding: tuple[int, int, int],
         use_bn: bool = True,
         use_bias: bool = False,
     ) -> None:

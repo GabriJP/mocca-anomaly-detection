@@ -2,10 +2,6 @@ from functools import cached_property
 from pathlib import Path
 from shutil import rmtree
 from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
 
 import cv2
 import numpy as np
@@ -47,7 +43,7 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_video_gt: U8_A
 
     @cached_property
-    def test_ids(self) -> List[str]:
+    def test_ids(self) -> list[str]:
         """
         Loads the set of all test video ids.
         :return: The list of test ids.
@@ -85,14 +81,14 @@ class ShanghaiTechTestHandler(VideoAnomalyDetectionDataset):
         self.cur_len = len(self.cur_video_frames) - t + 1
 
     @property
-    def shape(self) -> Tuple[int, int, int, int]:
+    def shape(self) -> tuple[int, int, int, int]:
         """
         Returns the shape of examples being fed to the model.
         """
         return 3, 16, 256, 512
 
     @property
-    def test_videos(self) -> List[str]:
+    def test_videos(self) -> list[str]:
         """
         Returns all available test videos.
         """
@@ -223,12 +219,12 @@ class VideoAnomalyDetectionResultHelper:
         self,
         dataset: VideoAnomalyDetectionDataset,
         model: nn.Module,
-        R: Dict[str, torch.Tensor],
+        R: dict[str, torch.Tensor],
         boundary: str,
         device: str,
         end_to_end_training: bool,
         debug: bool,
-        output_file: Optional[Path],
+        output_file: Path | None,
         dist: str,
     ) -> None:
         """
@@ -248,7 +244,7 @@ class VideoAnomalyDetectionResultHelper:
         self.output_file = output_file
         self.dist = dist
 
-    def _get_scores(self, d_lstm: Dict[str, torch.Tensor]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
+    def _get_scores(self, d_lstm: dict[str, torch.Tensor]) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
         dists = {k: torch.sum(d_lstm[k] ** 2, dim=1) for k in self.keys}
         scores = {k: torch.zeros((dist.shape[0],), device=self.device) for k, dist in dists.items()}
@@ -265,8 +261,8 @@ class VideoAnomalyDetectionResultHelper:
 
     @torch.no_grad()
     def test_video_anomaly_detection(
-        self, *, view: bool = False, view_data: Tuple[str, str] = ("weights_name", "dataset_name")
-    ) -> Tuple[OP_A, List[float]]:
+        self, *, view: bool = False, view_data: tuple[str, str] = ("weights_name", "dataset_name")
+    ) -> tuple[OP_A, list[float]]:
         """
         Actually performs tests.
         """
@@ -286,9 +282,9 @@ class VideoAnomalyDetectionResultHelper:
         global_oc = list()
         global_rc = list()
         global_as = list()
-        global_as_by_layer: Dict[str, List[OP_A]] = {k: list() for k in self.keys}
+        global_as_by_layer: dict[str, list[OP_A]] = {k: list() for k in self.keys}
         global_y = list()
-        global_y_by_layer: Dict[str, List[U8_A]] = {k: list() for k in self.keys}
+        global_y_by_layer: dict[str, list[U8_A]] = {k: list() for k in self.keys}
 
         # Get accumulators
         ra_rc = ResultsAccumulator(nb_frames_per_clip=t)
@@ -311,7 +307,7 @@ class VideoAnomalyDetectionResultHelper:
             # Build score containers
             sample_rc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
             sample_oc: OP_A = np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE)
-            sample_oc_by_layer: Dict[str, OP_A] = {
+            sample_oc_by_layer: dict[str, OP_A] = {
                 k: np.zeros(shape=(len(loader) + t - 1,), dtype=OP_DTYPE) for k in self.keys
             }
             sample_y = self.dataset.load_test_sequence_gt(video_id)

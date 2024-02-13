@@ -6,12 +6,7 @@ from dataclasses import asdict
 from functools import partial
 from os import cpu_count
 from pathlib import Path
-from typing import Dict
-from typing import Optional
 from typing import ParamSpec
-from typing import Set
-from typing import Tuple
-from typing import Union
 
 import click
 import torch
@@ -45,7 +40,7 @@ P = ParamSpec("P")
 
 def _initialize_module(
     module: nn.Module,
-    func: Union[Callable[[torch.Tensor], torch.Tensor], Callable[[torch.Tensor, P.args, P.kwargs], torch.Tensor]],
+    func: Callable[[torch.Tensor], torch.Tensor] | Callable[[torch.Tensor, P.args, P.kwargs], torch.Tensor],
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> None:
@@ -65,7 +60,7 @@ def init_weights_xavier_uniform(m: nn.Module) -> None:
     _initialize_module(m, nn.init.xavier_uniform_)
 
 
-initializers: Dict[str, Callable[[nn.Module], None]] = dict(
+initializers: dict[str, Callable[[nn.Module], None]] = dict(
     zeros=partial(_initialize_module, func=nn.init.zeros_),
     ones=partial(_initialize_module, func=nn.init.ones_),
     xavier_uniform=init_weights_xavier_uniform,
@@ -79,9 +74,9 @@ class MoccaClient:
         net: ShanghaiTech,
         data_holder: ShanghaiTechDataHolder,
         rc: RunConfig,
-        es: Optional[EarlyStoppingDM] = None,
+        es: EarlyStoppingDM | None = None,
         view: bool = False,
-        view_data: Tuple[str, str] = ("weights_name", "dataset_name"),
+        view_data: tuple[str, str] = ("weights_name", "dataset_name"),
     ) -> None:
         super().__init__()
         self.net = net.to(device)
@@ -90,7 +85,7 @@ class MoccaClient:
         self.es = es
         self.view = view
         self.view_data = view_data
-        self.R: Dict[str, torch.Tensor] = dict()
+        self.R: dict[str, torch.Tensor] = dict()
         self.epoch = -self.rc.epochs
 
     def fit(self) -> None:
@@ -209,8 +204,8 @@ def main(
     fp16: bool,
     dist: str,
     initialization: str,
-    wandb_group: Optional[str],
-    wandb_name: Optional[str],
+    wandb_group: str | None,
+    wandb_name: str | None,
     compile_net: bool,
     es_initial_patience_epochs: int,
     rolling_factor: int,
@@ -219,9 +214,9 @@ def main(
     test_chk: str,
     debug: bool,
 ) -> None:
-    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
+    idx_list_enc_ilist: tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     test_chk_split = test_chk.split(",")
-    test_chk_set: Set[int] = {int(a) for a in test_chk_split if not a.startswith("%")}
+    test_chk_set: set[int] = {int(a) for a in test_chk_split if not a.startswith("%")}
     # Set seed
     set_seeds(seed)
 
