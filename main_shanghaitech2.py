@@ -40,7 +40,7 @@ def init_weights_zeros(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.zeros_(m.weight)
-    if hasattr(m, "bias") and m.bias is not None:
+    if m.bias is not None:
         nn.init.zeros_(m.bias)
 
 
@@ -48,14 +48,16 @@ def init_weights_ones(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.ones_(m.weight)
-    nn.init.ones_(m.bias)
+    if m.bias is not None:
+        nn.init.ones_(m.bias)
 
 
 def init_weights_xavier_uniform(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.xavier_uniform_(m.weight)
-    nn.init.xavier_uniform_(m.bias)
+    if m.bias is not None:
+        nn.init.xavier_uniform_(m.bias)
 
 
 initializers = dict(
