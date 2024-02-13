@@ -31,10 +31,6 @@ from utils import wandb_logger
 device = "cuda"
 
 
-def module_is_initializable(module: nn.Module) -> bool:
-    return isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock))
-
-
 P = ParamSpec("P")
 
 
@@ -44,7 +40,7 @@ def _initialize_module(
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> None:
-    if not module_is_initializable(module):
+    if not isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock)):
         return
 
     if module.weight is not None:
@@ -52,7 +48,7 @@ def _initialize_module(
     else:
         logging.warning(f"Not initializing weights for module {module} of class name {module.__class__.__name__}")
 
-    if module.bias is not None:
+    if isinstance(module.bias, torch.Tensor):
         func(module.bias, *args, **kwargs)
 
 
