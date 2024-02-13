@@ -40,7 +40,8 @@ def init_weights_zeros(m: nn.Module) -> None:
     if not module_is_initializable(m):
         return
     nn.init.zeros_(m.weight)
-    nn.init.zeros_(m.bias)
+    if hasattr(m, "bias") and m.bias is not None:
+        nn.init.zeros_(m.bias)
 
 
 def init_weights_ones(m: nn.Module) -> None:
