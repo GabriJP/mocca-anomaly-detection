@@ -43,12 +43,10 @@ def _initialize_module(
     if not isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock)):
         return
 
-    if module.weight is not None:
+    if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor):
         func(module.weight, *args, **kwargs)
-    else:
-        logging.warning(f"Not initializing weights for module {module} of class name {module.__class__.__name__}")
 
-    if isinstance(module.bias, torch.Tensor):
+    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor):
         func(module.bias, *args, **kwargs)
 
 
