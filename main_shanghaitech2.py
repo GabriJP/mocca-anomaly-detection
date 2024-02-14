@@ -50,8 +50,20 @@ def _initialize_module(
         func(module.bias, *args, **kwargs)
 
 
-def init_weights_xavier_uniform(m: nn.Module) -> None:
-    _initialize_module(m, nn.init.xavier_uniform_)
+def init_weights_xavier_uniform(module: nn.Module) -> None:
+    if not isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock)):
+        return
+
+    gain = 1.0
+    if hasattr(module, "weight") and isinstance(module.weight, torch.nn.ReLU):
+        gain = nn.init.calculate_gain("relu")
+        logging.info("Using RELU initializer")
+
+    if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor) and module.weight.dim() > 1:
+        nn.init.xavier_uniform_(module.weight, gain=gain)
+
+    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor) and module.weight.dim() > 1:
+        nn.init.xavier_uniform_(module.bias, gain=gain)
 
 
 initializers: dict[str, Callable[[nn.Module], None]] = dict(
