@@ -62,7 +62,7 @@ def init_weights_xavier_uniform(module: nn.Module) -> None:
     if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor) and module.weight.dim() > 1:
         nn.init.xavier_uniform_(module.weight, gain=gain)
 
-    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor) and module.weight.dim() > 1:
+    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor) and module.bias.dim() > 1:
         nn.init.xavier_uniform_(module.bias, gain=gain)
 
 

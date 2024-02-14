@@ -1,4 +1,5 @@
-name: tmp
+#conda deactivate ; conda env remove -n tmp ; conda create -yn tmp ; conda activate tmp ; conda install -y pytorch torchvision pytorch-cuda=12.1 -c pytorch -c nvidia ; conda install -y -c defaults -c conda-forge click matplotlib flwr tqdm pre-commit scikit-image scikit-learn scipy tensorboardx wandb prettytable ; pip install "opencv-python==4.5.5.64"
+name: mocca
 channels:
   - pytorch
   - nvidia
