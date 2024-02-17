@@ -271,12 +271,16 @@ def main(
     )
     net.apply(initializers[initialization])
     r = None
-    if load_weights is not None:
+    if load_weights is not None and not compile_net:
         state_dict = load_model(load_weights)
         net.load_state_dict(state_dict["net_state_dict"])
         r = state_dict["R"]
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
+    if load_weights is not None and compile_net:
+        state_dict = load_model(load_weights)
+        net.load_state_dict(state_dict["net_state_dict"])
+        r = state_dict["R"]
     wandb.watch(net)
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
