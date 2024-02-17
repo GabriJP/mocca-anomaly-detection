@@ -141,6 +141,7 @@ class MoccaClient:
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
+@click.option("--load-weights", type=click.Path(dir_okay=False, path_type=Path), default=None)
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 # Model config
 @click.option("-zl", "--code-length", default=2048, type=int, help="Code length")
@@ -185,6 +186,7 @@ def main(
     seed: int,
     n_workers: int,
     output_path: Path,
+    load_weights: Path | None,
     disable_logging: bool,
     # Model config,
     code_length: int,
@@ -268,6 +270,11 @@ def main(
         data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
     )
     net.apply(initializers[initialization])
+    r = None
+    if load_weights is not None:
+        state_dict = load_model(load_weights)
+        net.load_state_dict(state_dict["net_state_dict"])
+        r = state_dict["R"]
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
     wandb.watch(net)
@@ -285,6 +292,8 @@ def main(
     )
 
     mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
+    if r is not None:
+        mc.R = r
 
     initial_time = time.perf_counter()
 
