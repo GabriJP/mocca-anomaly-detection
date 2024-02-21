@@ -73,6 +73,7 @@ class MoccaClient:
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
 @click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
+@click.option("--load-weights", type=click.Path(dir_okay=False, path_type=Path), default=None)
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 # Model config
 @click.option("-zl", "--code-length", default=2048, type=int, help="Code length")
@@ -111,6 +112,7 @@ def main(
     seed: int,
     n_workers: int,
     output_path: Path,
+    load_weights: Path | None,
     disable_logging: bool,
     # Model config,
     code_length: int,
@@ -177,11 +179,21 @@ def main(
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=seed, clip_length=clip_length
     ).get_data_holder()
-    net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional)
+    net: ShanghaiTech = ShanghaiTech(
+        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
+    )
+    r: dict[str, torch.Tensor] | None = None
+    if load_weights is not None and not compile_net:
+        state_dict = torch.load(load_weights)
+        net.load_state_dict(state_dict["net_state_dict"])
+        r = state_dict["R"]
+    torch.set_float32_matmul_precision("high")
+    net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
+    if load_weights is not None and compile_net:
+        state_dict = torch.load(load_weights)
+        net.load_state_dict(state_dict["net_state_dict"])
+        r = state_dict["R"]
     wandb.watch(net)
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
     rc.epochs = 1
     rc.warm_up_n_epochs = 0
 
@@ -196,6 +208,8 @@ def main(
     )
 
     mc = MoccaClient(net, data_holder, rc, es)
+    if r is not None:
+        mc.R = r
 
     initial_time = time.perf_counter()
 
