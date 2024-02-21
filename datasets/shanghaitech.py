@@ -1,9 +1,7 @@
 import random
 from functools import lru_cache
 from pathlib import Path
-from typing import List
 from typing import Optional
-from typing import Tuple
 
 import numpy
 import numpy as np
@@ -85,7 +83,7 @@ class ShanghaiTechDataHolder:
 
     def get_loaders(
         self, batch_size: int, shuffle_train: bool = True, pin_memory: bool = False, num_workers: int = 0
-    ) -> Tuple[DataLoader[Tuple[torch.Tensor, int]], DataLoader[torch.Tensor]]:
+    ) -> tuple[DataLoader[tuple[torch.Tensor, int]], DataLoader[torch.Tensor]]:
         """Returns MVtec dataloaders
 
         Parameters
@@ -132,7 +130,7 @@ class ShanghaiTechDataHolder:
         return train_loader, test_loader
 
     @lru_cache(maxsize=None)
-    def load_train_ids(self) -> Tuple[str, ...]:
+    def load_train_ids(self) -> tuple[str, ...]:
         """
         Loads the set of all train video ids.
         :return: The list of train ids.
@@ -141,7 +139,7 @@ class ShanghaiTechDataHolder:
 
     @staticmethod
     def create_clips(
-        dir_path: Path, ids: Tuple[str, ...], clip_length: int = 16, stride: int = 1
+        dir_path: Path, ids: tuple[str, ...], clip_length: int = 16, stride: int = 1
     ) -> npt.NDArray[np.str_]:
         """
         Gets frame directory and ids of the directories in the frame dir
@@ -155,7 +153,7 @@ class ShanghaiTechDataHolder:
         :return: clips:: numpy array with (num_clips,clip_length) shape
                  ground_truths:: numpy array with (num_clips,clip_length) shape
         """
-        clips: List[List[Path]] = list()
+        clips: list[list[Path]] = list()
         print(f"Creating clips for {dir_path} dataset with length {clip_length}...")
         for idx in tqdm(ids):
             frames = sorted(x for x in (dir_path / idx).iterdir() if x.suffix == ".jpg")
@@ -165,7 +163,7 @@ class ShanghaiTechDataHolder:
         return np.array(clips)
 
 
-class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
+class MySHANGHAI(Dataset[tuple[torch.Tensor, int]]):
     def __init__(self, clips: npt.NDArray[np.str_], transform: Optional[Compose] = None, clip_length: int = 16):
         self.clips = clips
         self.transform = transform
@@ -177,7 +175,7 @@ class MySHANGHAI(Dataset[Tuple[torch.Tensor, int]]):
     def load(self, index: int) -> npt.NDArray[np.uint8]:
         return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, int]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         """
         Args:
             index (int): Index

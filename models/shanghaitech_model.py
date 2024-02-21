@@ -1,7 +1,4 @@
 from typing import Any
-from typing import Dict
-from typing import List
-from typing import Tuple
 from typing import Union
 
 import torch
@@ -92,7 +89,7 @@ class ShanghaiTechEncoder(BaseModule):
 
     def __init__(
         self,
-        input_shape: Tuple[int, int, int, int],
+        input_shape: tuple[int, int, int, int],
         code_length: int,
         load_lstm: bool,
         hidden_size: int,
@@ -155,12 +152,12 @@ class ShanghaiTechEncoder(BaseModule):
         # )
 
     @staticmethod
-    def get_names() -> List[str]:
+    def get_names() -> list[str]:
         d_lstm_names = [f"conv_lstm_o_{i}" for i in range(5)]
         d_lstm_names.extend(f"tdl_lstm_o_{i}" for i in range(2))
         return d_lstm_names
 
-    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, tuple[torch.Tensor, dict[str, Any]]]:
         """
         Forward propagation.
         :param x: the input batch of patches.
@@ -217,7 +214,7 @@ class ShanghaiTechDecoder(BaseModule):
     """
 
     def __init__(
-        self, code_length: int, deepest_shape: Tuple[int, int, int, int], output_shape: Tuple[int, int, int, int]
+        self, code_length: int, deepest_shape: tuple[int, int, int, int], output_shape: tuple[int, int, int, int]
     ) -> None:
         """
         Class constructor.
@@ -289,7 +286,7 @@ class ShanghaiTech(BaseModule):
 
     def __init__(
         self,
-        input_shape: Tuple[int, int, int, int],
+        input_shape: tuple[int, int, int, int],
         code_length: int,
         load_lstm: bool = False,
         hidden_size: int = 100,
@@ -325,7 +322,7 @@ class ShanghaiTech(BaseModule):
             code_length=code_length, deepest_shape=self.encoder.deepest_shape, output_shape=input_shape
         )
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, ...]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
         """
         Forward propagation.
         :param x: the input batch of patches.

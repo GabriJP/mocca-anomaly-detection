@@ -1,8 +1,6 @@
 import logging
-from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
-from typing import List
 from typing import Optional
 
 import click
@@ -102,8 +100,8 @@ def main(
     learning_rate: float,
     ae_weight_decay: float,
     weight_decay: float,
-    ae_lr_milestones: List[int],
-    lr_milestones: List[int],
+    ae_lr_milestones: list[int],
+    lr_milestones: list[int],
     # Data,
     data_path: Path,
     clip_length: int,
@@ -131,7 +129,7 @@ def main(
     wandb_group: Optional[str],
     wandb_name: Optional[str],
 ) -> None:
-    idx_list_enc_ilist: List[int] = [int(a) for a in idx_list_enc.split(",")]
+    idx_list_enc_ilist: list[int] = [int(a) for a in idx_list_enc.split(",")]
     rc = FullRunConfig(
         seed,
         n_workers,
@@ -386,7 +384,7 @@ def main(
         )
         # TEST
         global_oc, global_metrics = helper.test_video_anomaly_detection()
-        global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
+        # global_metrics_dict = dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics))
         # wandb.log(dict(test=global_metrics_dict))
         print("Test finished")
     #

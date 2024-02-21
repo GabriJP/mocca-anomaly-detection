@@ -1,9 +1,7 @@
 from functools import reduce
 from operator import mul
 from typing import Any
-from typing import List
 from typing import Optional
-from typing import Tuple
 from typing import Union
 
 import torch
@@ -57,8 +55,8 @@ class MaskedConv3d(BaseModule, nn.Conv3d):
 
         self.register_buffer("mask", self.weight.data.clone())
         _, _, kT, kH, kW = self.weight.size()
-        self.mask.fill_(1)  # type: ignore
-        self.mask[:, :, kT // 2 + 1 :] = 0  # type: ignore
+        self.mask.fill_(1)
+        self.mask[:, :, kT // 2 + 1 :] = 0
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -110,7 +108,7 @@ class TemporallySharedFullyConnection(BaseModule):
 
 
 def residual_op(
-    x: torch.Tensor, functions: List[nn.Module], bns: List[Union[nn.Module, None]], activation_fn: nn.Module
+    x: torch.Tensor, functions: list[nn.Module], bns: list[Union[nn.Module, None]], activation_fn: nn.Module
 ) -> torch.Tensor:
     """
     Implements a global residual operation.
@@ -196,7 +194,7 @@ class DownsampleBlock(BaseBlock):
         channel_in: int,
         channel_out: int,
         activation_fn: nn.Module,
-        stride: Tuple[int, int, int],
+        stride: tuple[int, int, int],
         use_bn: bool = True,
         use_bias: bool = False,
     ) -> None:
@@ -250,8 +248,8 @@ class UpsampleBlock(BaseBlock):
         channel_in: int,
         channel_out: int,
         activation_fn: nn.Module,
-        stride: Tuple[int, int, int],
-        output_padding: Tuple[int, int, int],
+        stride: tuple[int, int, int],
+        output_padding: tuple[int, int, int],
         use_bn: bool = True,
         use_bias: bool = False,
     ) -> None:

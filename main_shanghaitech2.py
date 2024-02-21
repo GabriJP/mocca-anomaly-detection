@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import logging
 import time
 from dataclasses import asdict
 from os import cpu_count
 from pathlib import Path
-from typing import Dict
-from typing import Optional
-from typing import Tuple
 
 import click
 import torch
@@ -31,14 +30,14 @@ class MoccaClient:
         net: ShanghaiTech,
         data_holder: ShanghaiTechDataHolder,
         rc: RunConfig,
-        es: Optional[EarlyStoppingDM] = None,
+        es: EarlyStoppingDM | None = None,
     ) -> None:
         super().__init__()
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
         self.es = es
-        self.R: Dict[str, torch.Tensor] = dict()
+        self.R: dict[str, torch.Tensor] = dict()
 
     def fit(self) -> None:
         train_loader, _ = self.data_holder.get_loaders(
@@ -134,14 +133,14 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
-    wandb_group: Optional[str],
-    wandb_name: Optional[str],
+    wandb_group: str | None,
+    wandb_name: str | None,
     compile_net: bool,
     es_initial_patience_epochs: int,
     rolling_factor: int,
     es_patience: int,
 ) -> None:
-    idx_list_enc_ilist: Tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
+    idx_list_enc_ilist: tuple[int, ...] = tuple(int(a) for a in idx_list_enc.split(","))
     # Set seed
     set_seeds(seed)
 

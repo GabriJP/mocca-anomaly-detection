@@ -1,10 +1,8 @@
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Sequence
 from typing import Any
 from typing import Callable
-from typing import List
-from typing import Sequence
-from typing import Tuple
 from typing import Union
 
 import numpy as np
@@ -28,7 +26,7 @@ class DatasetBase(Dataset[torch.Tensor], ABC):
 
     @property
     @abstractmethod
-    def shape(self) -> Tuple[int, int, int, int]:
+    def shape(self) -> tuple[int, int, int, int]:
         """
         Returns the shape of examples.
         """
@@ -55,12 +53,12 @@ class VideoAnomalyDetectionDataset(DatasetBase, ABC):
     """
 
     @property
-    def collate_fn(self) -> Callable[[List[Any]], Any]:
+    def collate_fn(self) -> Callable[[list[Any]], Any]:
         return default_collate
 
     @property
     @abstractmethod
-    def test_videos(self) -> List[str]:
+    def test_videos(self) -> list[str]:
         """
         Returns all test video ids.
         """
@@ -74,7 +72,7 @@ class VideoAnomalyDetectionDataset(DatasetBase, ABC):
         pass
 
     @property
-    def raw_shape(self) -> Tuple[int, int, int, int]:
+    def raw_shape(self) -> tuple[int, int, int, int]:
         """
         Workaround!
         """

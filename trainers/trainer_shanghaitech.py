@@ -1,11 +1,8 @@
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict
-from typing import List
 from typing import Optional
-from typing import Sequence
-from typing import Tuple
 from typing import Union
 
 import numpy as np
@@ -26,12 +23,12 @@ from utils import wandb_logger
 
 def train(
     net: nn.Module,
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
+    train_loader: DataLoader[tuple[torch.Tensor, int]],
     out_dir: Path,
     device: str,
     ae_net_checkpoint: Optional[Path],
     rc: Union[FullRunConfig, RunConfig],
-    r: Dict[str, torch.Tensor],
+    r: dict[str, torch.Tensor],
     mu: float = 0.0,
     es: Optional[EarlyStoppingDM] = None,
 ) -> Path:
@@ -173,15 +170,15 @@ def train(
     return net_checkpoint
 
 
-def get_keys(idx_list_enc: Sequence[int]) -> List[str]:
+def get_keys(idx_list_enc: Sequence[int]) -> list[str]:
     """Initialize hypersphere center c as the mean from an initial forward pass on the data."""
     names = ShanghaiTechEncoder.get_names()
     return [names[i] for i in idx_list_enc]
 
 
 def eval_ad_loss(
-    d_lstms: Dict[str, torch.Tensor], R: Dict[str, torch.Tensor], nu: float, boundary: str, device: str
-) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
+    d_lstms: dict[str, torch.Tensor], R: dict[str, torch.Tensor], nu: float, boundary: str, device: str
+) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
     dist = dict()
     loss = torch.tensor(1.0, device=device)
 

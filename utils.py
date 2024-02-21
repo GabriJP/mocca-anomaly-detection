@@ -7,10 +7,7 @@ from logging import INFO
 from pathlib import Path
 from typing import Any
 from typing import Deque
-from typing import Dict
-from typing import List
 from typing import Optional
-from typing import Tuple
 from typing import Union
 
 import numpy as np
@@ -26,13 +23,13 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-WANDB_DATA = Dict[str, Union[float, int, bool]]
+WANDB_DATA = dict[str, Union[float, int, bool]]
 
 
 class WandbLogger:
     def __init__(self) -> None:
-        self.data: Dict[str, WANDB_DATA] = dict()
-        self.artifacts: Dict[str, wandb.Artifact] = dict()
+        self.data: dict[str, WANDB_DATA] = dict()
+        self.artifacts: dict[str, wandb.Artifact] = dict()
         self.step = 0
 
     def _log(self) -> None:
@@ -45,12 +42,12 @@ class WandbLogger:
             self._log()
         self.data[key] = data
 
-    def log_test(self, data: Dict[str, Any], *, key: str = "test") -> None:
+    def log_test(self, data: dict[str, Any], *, key: str = "test") -> None:
         self.log_train(data, key=key)
         self._log()
 
     @staticmethod
-    def save_model(save_dict: Dict[str, Any], name: str = "model") -> None:
+    def save_model(save_dict: dict[str, Any], name: str = "model") -> None:
         if wandb.run is None:
             raise ValueError
         torch.save(save_dict, Path(wandb.run.dir) / f"{name}.pt")
@@ -154,7 +151,7 @@ class EarlyStoppingDM:
         self.early_stops: Deque[float] = deque([False] * es_patience, maxlen=es_patience)
         self.es = False
 
-    def log_loss(self, new_loss: float) -> Dict[str, float]:
+    def log_loss(self, new_loss: float) -> dict[str, float]:
         self.step += 1
         self.losses.append(new_loss)
 
@@ -196,8 +193,8 @@ class FullRunConfig:
     learning_rate: float
     ae_weight_decay: float
     weight_decay: float
-    ae_lr_milestones: List[int]
-    lr_milestones: List[int]
+    ae_lr_milestones: list[int]
+    lr_milestones: list[int]
     # Data
     data_path: Path
     clip_length: int
@@ -218,7 +215,7 @@ class FullRunConfig:
     train_best_conf: bool
     batch_size: int
     boundary: str
-    idx_list_enc: List[int]
+    idx_list_enc: list[int]
     epochs: int
     ae_epochs: int
     nu: float
@@ -240,10 +237,10 @@ class RunConfig:
     dropout: float
     batch_size: int
     boundary: str
-    idx_list_enc: Tuple[int, ...]
+    idx_list_enc: tuple[int, ...]
     nu: float
     optimizer: str = "adam"
-    lr_milestones: Tuple[int, ...] = tuple()
+    lr_milestones: tuple[int, ...] = tuple()
     end_to_end_training: bool = True
     debug: bool = False
     warm_up_n_epochs: int = 0
@@ -251,7 +248,7 @@ class RunConfig:
     log_frequency: int = 1
 
 
-def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> Tuple[Path, str]:
+def get_out_dir(rc: FullRunConfig, pretrain: bool, aelr: float, dset_name: str = "cifar10") -> tuple[Path, str]:
     """Creates training output dir
 
     Parameters
@@ -361,7 +358,7 @@ def purge_params(encoder_net: nn.Module, ae_net_cehckpoint: str) -> None:
 
 def extract_arguments_from_checkpoint(
     net_checkpoint: Path,
-) -> Tuple[int, int, str, bool, List[int], bool, int, int, float, bool, str, str]:
+) -> tuple[int, int, str, bool, list[int], bool, int, int, float, bool, str, str]:
     """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
     architectural specifications of the model.
 
@@ -416,13 +413,13 @@ def extract_arguments_from_checkpoint(
 
 
 def eval_spheres_centers(
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
+    train_loader: DataLoader[tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     ae_net_cehckpoint: str,
     use_selectors: bool,
     device: str,
     debug: bool,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
@@ -473,12 +470,12 @@ def eval_spheres_centers(
 
 @torch.no_grad()
 def init_center_c(
-    train_loader: DataLoader[Tuple[torch.Tensor, int]],
+    train_loader: DataLoader[tuple[torch.Tensor, int]],
     encoder_net: torch.nn.Module,
     device: str,
     debug: bool,
     eps: float = 0.1,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Initialize hypersphere center as the mean from an initial forward pass on the data."""
     n_samples = 0
 
