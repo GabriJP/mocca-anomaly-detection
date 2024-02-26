@@ -193,6 +193,7 @@ class MySHANGHAI(Dataset[tuple[torch.Tensor, int]]):
     def load(self, index: int) -> npt.NDArray[np.uint8]:
         return np.stack([np.uint8(io.imread(img_path)) for img_path in self.clips[index]])
 
+    @torch.no_grad()
     def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         """
         Args:

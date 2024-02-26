@@ -49,6 +49,7 @@ class MoccaClient(fl.client.NumPyClient):
         self.rc = rc
         self.R: dict[str, torch.Tensor] = dict()
 
+    @torch.no_grad()
     def get_parameters(self, config: Config) -> NDArrays:
         if not len(self.R):
             self.R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(self.rc.idx_list_enc)}

@@ -108,6 +108,7 @@ class ToFloatTensor3D:
     def __init__(self, normalize: bool = True) -> None:
         self._normalize = normalize
 
+    @torch.no_grad()
     def __call__(self, sample: Sequence[npt.NDArray[np.uint8]] | npt.NDArray[np.uint8]) -> torch.Tensor:
         if len(sample) == 3:
             x, _, _ = sample

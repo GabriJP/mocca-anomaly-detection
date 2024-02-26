@@ -244,6 +244,7 @@ class VideoAnomalyDetectionResultHelper:
         self.output_file = output_file
         self.dist = dist
 
+    @torch.no_grad()
     def _get_scores(self, d_lstm: dict[str, torch.Tensor]) -> tuple[dict[str, torch.Tensor], torch.Tensor]:
         # Eval novelty scores
         dists = {k: torch.sum(d_lstm[k] ** 2, dim=1) for k in self.keys}
