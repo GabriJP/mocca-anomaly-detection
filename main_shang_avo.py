@@ -56,6 +56,7 @@ from utils import wandb_logger
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--max_radius", is_flag=True)
 @click.option("--wandb_group", type=str, default=None)
 @click.option("--compile_net", is_flag=True)
 @click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
@@ -86,6 +87,7 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
+    max_radius: bool,
     wandb_group: str | None,
     compile_net: bool,
     test_chk: str,
@@ -154,7 +156,7 @@ def main(
         batch_size=rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=rc.n_workers
     )
 
-    mc = MoccaClient(net, one_data_holder, rc)
+    mc = MoccaClient(net, one_data_holder, rc, max_radius)
 
     initial_time = time.perf_counter()
 

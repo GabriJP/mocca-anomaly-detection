@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import logging
 import time
-from collections import defaultdict
 from collections.abc import Callable
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -123,6 +122,7 @@ class MoccaClient:
         self.R = torch_dict["R"]
 
     @contextmanager
+    @torch.no_grad()
     def test_context_manager(self, enabled: bool) -> Iterator[None]:
         if not enabled:
             yield
@@ -132,19 +132,18 @@ class MoccaClient:
         try:
             self.net.eval()
             train_loader, _ = self.data_holder.get_loaders(
-                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
+                batch_size=self.rc.batch_size, shuffle_train=False, pin_memory=True, num_workers=self.rc.n_workers
             )
-            self.R = defaultdict(lambda: torch.tensor(0.0, device=device))
+            self.R = {k: torch.tensor(0.0, device=device) for k in last_r}
+            x: torch.Tensor
             for idx, (x, _) in tqdm(enumerate(train_loader, 1), desc="Searching max radius", total=len(train_loader)):
+                if self.rc.debug and idx > 5:
+                    break
                 x = x.to(device)
                 x_r, _, d_lstms = self.net(x)
-                for k in self.R.keys():
+                for k, v in self.R.items():
                     res = torch.sum(d_lstms[k] ** 2, dim=-1)
-
-                    if res < self.R[k]:
-                        continue
-
-                    self.R[k] = res
+                    self.R[k] = res.maximum(v).max()
 
             yield
         finally:
@@ -332,7 +331,9 @@ def main(
         es_patience=es_patience,
     )
 
-    mc = MoccaClient(net, data_holder, rc, max_radius, es, view=view, view_data=(wandb_name or "noname", data_path.name))
+    mc = MoccaClient(
+        net, data_holder, rc, max_radius, es, view=view, view_data=(wandb_name or "noname", data_path.name)
+    )
     if r is not None:
         mc.R = r
 
