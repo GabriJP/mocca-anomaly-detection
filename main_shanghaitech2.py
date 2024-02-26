@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import logging
 import time
+from collections import defaultdict
 from collections.abc import Callable
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict
 from functools import partial
 from os import cpu_count
@@ -12,6 +15,7 @@ import click
 import torch
 import torch.nn as nn
 import wandb
+from tqdm import tqdm
 
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
@@ -80,6 +84,7 @@ class MoccaClient:
         net: ShanghaiTech,
         data_holder: ShanghaiTechDataHolder,
         rc: RunConfig,
+        max_radius: bool,
         es: EarlyStoppingDM | None = None,
         view: bool = False,
         view_data: tuple[str, str] = ("weights_name", "dataset_name"),
@@ -88,6 +93,7 @@ class MoccaClient:
         self.net = net.to(device)
         self.data_holder = data_holder
         self.rc = rc
+        self.max_radius = max_radius
         self.es = es
         self.view = view
         self.view_data = view_data
@@ -116,20 +122,49 @@ class MoccaClient:
         torch_dict = load_model(net_checkpoint)
         self.R = torch_dict["R"]
 
+    @contextmanager
+    def test_context_manager(self, enabled: bool) -> Iterator[None]:
+        if not enabled:
+            yield
+            return
+
+        last_r = self.R
+        try:
+            self.net.eval()
+            train_loader, _ = self.data_holder.get_loaders(
+                batch_size=self.rc.batch_size, shuffle_train=True, pin_memory=True, num_workers=self.rc.n_workers
+            )
+            self.R = defaultdict(lambda: torch.tensor(0.0, device=device))
+            for idx, (x, _) in tqdm(enumerate(train_loader, 1), desc="Searching max radius", total=len(train_loader)):
+                x = x.to(device)
+                x_r, _, d_lstms = self.net(x)
+                for k in self.R.keys():
+                    res = torch.sum(d_lstms[k] ** 2, dim=-1)
+
+                    if res < self.R[k]:
+                        continue
+
+                    self.R[k] = res
+
+            yield
+        finally:
+            self.R = last_r
+
     def evaluate(self) -> None:
-        helper = VideoAnomalyDetectionResultHelper(
-            dataset=self.data_holder.get_test_data(),
-            model=self.net,
-            R=self.R,
-            boundary=self.rc.boundary,
-            device=device,
-            end_to_end_training=True,
-            debug=self.rc.debug,
-            output_file=None,
-            dist=self.rc.dist,
-        )
-        _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
-        wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)), self.epoch)
+        with self.test_context_manager(self.max_radius):
+            helper = VideoAnomalyDetectionResultHelper(
+                dataset=self.data_holder.get_test_data(),
+                model=self.net,
+                R=self.R,
+                boundary=self.rc.boundary,
+                device=device,
+                end_to_end_training=True,
+                debug=self.rc.debug,
+                output_file=None,
+                dist=self.rc.dist,
+            )
+            _, global_metrics = helper.test_video_anomaly_detection(view=self.view, view_data=self.view_data)
+            wandb_logger.log_test(dict(zip(("oc_metric", "recon_metric", "anomaly_score"), global_metrics)), self.epoch)
 
 
 @click.command("cli", context_settings=dict(show_default=True))
@@ -170,6 +205,7 @@ class MoccaClient:
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
+@click.option("--max_radius", is_flag=True)
 @click.option("--fp16", is_flag=True)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--initialization", type=click.Choice(list(initializers)), default="none")
@@ -209,6 +245,7 @@ def main(
     idx_list_enc: str,
     epochs: int,
     nu: float,
+    max_radius: bool,
     fp16: bool,
     dist: str,
     initialization: str,
@@ -295,7 +332,7 @@ def main(
         es_patience=es_patience,
     )
 
-    mc = MoccaClient(net, data_holder, rc, es, view=view, view_data=(wandb_name or "noname", data_path.name))
+    mc = MoccaClient(net, data_holder, rc, max_radius, es, view=view, view_data=(wandb_name or "noname", data_path.name))
     if r is not None:
         mc.R = r
 
