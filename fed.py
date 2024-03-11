@@ -441,20 +441,16 @@ def server(
 ) -> None:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     wandb_logger.add_epoch_metrics(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
-    initial_parameters = None
-    if initialization != "none":
-        data_holder = DataManager(
-            dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=-1, clip_length=clip_length
-        ).get_data_holder()
 
-        net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional)
-        r_ = {
-            k: torch.tensor(0.0, device=wanted_device) for k in get_keys(tuple(int(a) for a in idx_list_enc.split(",")))
-        }
+    data_holder = DataManager(
+        dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=-1, clip_length=clip_length
+    ).get_data_holder()
+    net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional)
+    r_ = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(tuple(int(a) for a in idx_list_enc.split(",")))}
+    initial_parameters = [val.cpu().numpy() for val in net.state_dict().values()] + [
+        val.cpu().numpy() for val in r_.values()
+    ]
 
-        initial_parameters = [val.cpu().numpy() for val in net.state_dict().values()] + [
-            val.cpu().numpy() for val in r_.values()
-        ]
     strategy = FedProx(
         fraction_fit=0.0,
         fraction_evaluate=0.0 if min_evaluate_clients == 0 else 1e-5,

@@ -26,7 +26,7 @@ echo "Starting server"
 #eval "$(conda shell.bash hook)"
 #conda activate mocca
 export FLWR_TELEMETRY_ENABLED=0
-nohup python fed.py server --port 8081 --num_rounds 100 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 13 --min_evaluate_clients 13 --min_available_clients 13 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server data/shanghaitech/complete/ --port 8081 --num_rounds 10 --epochs 1 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 13 --min_evaluate_clients 13 --min_available_clients 13 --initialization xavier_uniform --code-length 512 --load_lstm --bidirectional --idx-list-enc 3,4,5,6 --compile_net >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
 sleep 5
@@ -34,7 +34,17 @@ sleep 5
 CLIENT_NAME="almogrote"
 BATCH_SIZE=16
 NICE_N=0
-for i in 01 05 04 08 03; do
+for i in 01 05 04 08; do
+  DATA_PATH="data/shang$i"
+  WANDB_NAME="${CLIENT_NAME}_$i"
+  exec_client
+  NICE_N=$((NICE_N + 1))
+done
+
+CLIENT_NAME="gofio"
+BATCH_SIZE=8
+NICE_N=0
+for i in 03 06 02; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
@@ -44,7 +54,7 @@ done
 CLIENT_NAME="platano"
 BATCH_SIZE=8
 NICE_N=0
-for i in 06 02 09 11 13; do
+for i in 09 11 13; do
   DATA_PATH="data/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
