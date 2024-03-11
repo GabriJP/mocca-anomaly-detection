@@ -1,80 +1,31 @@
 #!/usr/bin/env python3
 import logging
 import time
-from collections.abc import Callable
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict
-from functools import partial
 from os import cpu_count
 from pathlib import Path
-from typing import ParamSpec
 
 import click
 import torch
-import torch.nn as nn
 import wandb
 from tqdm import tqdm
 
 from datasets import ShanghaiTechDataHolder
 from datasets import VideoAnomalyDetectionResultHelper
 from datasets.data_manager import DataManager
-from models.shanghaitech_base_model import DownsampleBlock
-from models.shanghaitech_base_model import TemporallySharedFullyConnection
-from models.shanghaitech_base_model import UpsampleBlock
 from models.shanghaitech_model import ShanghaiTech
 from trainers import train
 from utils import EarlyStoppingDM
 from utils import get_out_dir2 as get_out_dir
+from utils import initializers
 from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
 from utils import wandb_logger
 
 device = "cuda"
-
-
-P = ParamSpec("P")
-
-
-def _initialize_module(
-    module: nn.Module,
-    func: Callable[[torch.Tensor], torch.Tensor] | Callable[[torch.Tensor, P.args, P.kwargs], torch.Tensor],
-    *args: P.args,
-    **kwargs: P.kwargs,
-) -> None:
-    if not isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock)):
-        return
-
-    if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor):
-        func(module.weight, *args, **kwargs)
-
-    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor):
-        func(module.bias, *args, **kwargs)
-
-
-def init_weights_xavier_uniform(module: nn.Module) -> None:
-    if not isinstance(module, (nn.Conv3d, TemporallySharedFullyConnection, nn.LSTM, DownsampleBlock, UpsampleBlock)):
-        return
-
-    gain = 1.0
-    if hasattr(module, "weight") and isinstance(module.weight, torch.nn.ReLU):
-        gain = nn.init.calculate_gain("relu")
-        logging.info("Using RELU initializer")
-
-    if hasattr(module, "weight") and isinstance(module.weight, torch.Tensor) and module.weight.dim() > 1:
-        nn.init.xavier_uniform_(module.weight, gain=gain)
-
-    if hasattr(module, "bias") and isinstance(module.bias, torch.Tensor) and module.bias.dim() > 1:
-        nn.init.xavier_uniform_(module.bias, gain=gain)
-
-
-initializers: dict[str, Callable[[nn.Module], None]] = dict(
-    zeros=partial(_initialize_module, func=nn.init.zeros_),
-    ones=partial(_initialize_module, func=nn.init.ones_),
-    xavier_uniform=init_weights_xavier_uniform,
-    none=lambda _: None,
-)
 
 
 class MoccaClient:
