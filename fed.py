@@ -447,9 +447,9 @@ def server(
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional)
     r_ = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(tuple(int(a) for a in idx_list_enc.split(",")))}
-    initial_parameters = [val.cpu().numpy() for val in net.state_dict().values()] + [
-        val.cpu().numpy() for val in r_.values()
-    ]
+    initial_parameters = fl.common.ndarrays_to_parameters(
+        [val.cpu().numpy() for val in net.state_dict().values()] + [val.cpu().numpy() for val in r_.values()]
+    )
 
     strategy = FedProx(
         fraction_fit=0.0,
