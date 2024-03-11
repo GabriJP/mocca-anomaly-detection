@@ -35,7 +35,7 @@ CLIENT_NAME="almogrote"
 BATCH_SIZE=16
 NICE_N=0
 for i in 01 05 04 08; do
-  DATA_PATH="data/shang$i"
+  DATA_PATH="data/separated/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -45,7 +45,7 @@ CLIENT_NAME="gofio"
 BATCH_SIZE=8
 NICE_N=0
 for i in 03 06 02; do
-  DATA_PATH="data/shang$i"
+  DATA_PATH="data/separated/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -55,7 +55,7 @@ CLIENT_NAME="platano"
 BATCH_SIZE=8
 NICE_N=0
 for i in 09 11 13; do
-  DATA_PATH="data/shang$i"
+  DATA_PATH="data/separated/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -65,7 +65,7 @@ CLIENT_NAME="citic"
 BATCH_SIZE=4
 NICE_N=0
 for i in 12 07 10; do
-  DATA_PATH="data/shang$i"
+  DATA_PATH="data/separated/shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
