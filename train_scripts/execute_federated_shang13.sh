@@ -3,6 +3,8 @@
 GID=${1:-"fed_shang13_autoname"}
 COMMON_OPTS="citic:8081 --load-lstm --n_workers 4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
 
+SEP_BASE_PATH="data/shanghaitech/separated/"
+
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
 
@@ -35,7 +37,7 @@ CLIENT_NAME="almogrote"
 BATCH_SIZE=16
 NICE_N=0
 for i in 01 05 04 08; do
-  DATA_PATH="data/separated/shang$i"
+  DATA_PATH="${SEP_BASE_PATH}shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -45,7 +47,7 @@ CLIENT_NAME="gofio"
 BATCH_SIZE=8
 NICE_N=0
 for i in 03 06 02; do
-  DATA_PATH="data/separated/shang$i"
+  DATA_PATH="${SEP_BASE_PATH}shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -55,7 +57,7 @@ CLIENT_NAME="platano"
 BATCH_SIZE=8
 NICE_N=0
 for i in 09 11 13; do
-  DATA_PATH="data/separated/shang$i"
+  DATA_PATH="${SEP_BASE_PATH}shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
@@ -65,7 +67,7 @@ CLIENT_NAME="citic"
 BATCH_SIZE=4
 NICE_N=0
 for i in 12 07 10; do
-  DATA_PATH="data/separated/shang$i"
+  DATA_PATH="${SEP_BASE_PATH}shang$i"
   WANDB_NAME="${CLIENT_NAME}_$i"
   exec_client
   NICE_N=$((NICE_N + 1))
