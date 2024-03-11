@@ -6,7 +6,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
-from utils import load_model
+from utils.persistance import load_model
 
 
 class BaseModule(nn.Module):

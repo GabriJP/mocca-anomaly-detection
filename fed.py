@@ -33,6 +33,7 @@ from trainers import get_keys
 from trainers import train
 from utils import EarlyStopServer
 from utils import get_out_dir2 as get_out_dir
+from utils import initializers
 from utils import load_model
 from utils import RunConfig
 from utils import set_seeds
@@ -402,6 +403,14 @@ def get_evaluate_fn(
 @click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
 @click.option("--min_available_clients", type=click.IntRange(2), default=2)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
+@click.option("--initialization", type=click.Choice(list(initializers)), default="none")
+@click.option("--clip-length", type=click.IntRange(1), default=16)
+@click.option("--code-length", type=click.IntRange(1), default=2048)
+@click.option("--hidden-size", type=click.IntRange(1), default=100)
+@click.option("--num-layers", type=click.IntRange(1), default=1)
+@click.option("--load_lstm", is_flag=True)
+@click.option("--bidirectional", is_flag=True)
+@click.option("--idx-list-enc", type=str, default="6")
 @click.option("--wandb_group", type=str, required=True)
 @click.option("--test_checkpoint", type=click.IntRange(1), default=1)
 @click.option("--compile_net", is_flag=True)
@@ -418,12 +427,34 @@ def server(
     min_evaluate_clients: int,
     min_available_clients: int,
     dist: str,
+    initialization: str,
+    clip_length: int,
+    code_length: int,
+    hidden_size: int,
+    num_layers: int,
+    load_lstm: bool,
+    bidirectional: bool,
+    idx_list_enc: str,
     wandb_group: str,
     test_checkpoint: int,
     compile_net: bool,
 ) -> None:
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     wandb_logger.add_epoch_metrics(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
+    initial_parameters = None
+    if initialization != "none":
+        data_holder = DataManager(
+            dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=-1, clip_length=clip_length
+        ).get_data_holder()
+
+        net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional)
+        r_ = {
+            k: torch.tensor(0.0, device=wanted_device) for k in get_keys(tuple(int(a) for a in idx_list_enc.split(",")))
+        }
+
+        initial_parameters = [val.cpu().numpy() for val in net.state_dict().values()] + [
+            val.cpu().numpy() for val in r_.values()
+        ]
     strategy = FedProx(
         fraction_fit=0.0,
         fraction_evaluate=0.0 if min_evaluate_clients == 0 else 1e-5,
@@ -433,6 +464,7 @@ def server(
         evaluate_fn=get_evaluate_fn(test_checkpoint, dist, compile_net, data_path),
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         on_evaluate_config_fn=create_evaluate_config_fn(),
+        initial_parameters=initial_parameters,
         proximal_mu=proximal_mu,
     )
     fl_server = (
