@@ -195,7 +195,7 @@ def cli() -> None:
 
 
 @cli.command(context_settings=dict(show_default=True))
-@click.argument("server_address", type=str, default="xavier:8080")
+@click.argument("server_address", type=str, required=True)
 @click.option(
     "--n_workers",
     type=click.IntRange(0),
@@ -302,9 +302,9 @@ def client(
     else:
         client_class = MoccaClient
     mc = client_class(net, data_holder, rc)
-    fl.client.start_numpy_client(
+    fl.client.start_client(
         server_address=server_address,
-        client=mc,
+        client=mc.to_client(),
         grpc_max_message_length=1024**3,  # 1 GiB
         root_certificates=Path("ca.crt").read_bytes(),
     )
