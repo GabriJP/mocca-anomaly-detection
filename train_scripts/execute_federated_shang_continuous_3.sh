@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"continuous3"}
-COMMON_OPTS="almogrote:50011 --load-lstm --n_workers 2 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --continuous --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --n_workers 4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --continuous --wandb_group ${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -32,12 +32,12 @@ BATCH_SIZE=16
 NODE_N=0
 exec_client
 
-CLIENT_NAME="platano"
-BATCH_SIZE=6
+CLIENT_NAME="gofio"
+BATCH_SIZE=8
 NODE_N=1
 exec_client
 
-CLIENT_NAME="citic"
-BATCH_SIZE=4
+CLIENT_NAME="platano"
+BATCH_SIZE=8
 NODE_N=2
 exec_client
