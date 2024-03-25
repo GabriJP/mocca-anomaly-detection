@@ -326,30 +326,13 @@ def create_evaluate_config_fn() -> Callable[[int], Config]:
 
 
 def get_evaluate_fn(
-    test_checkpoint: int, dist: str, compile_net: bool, data_path: Path
+    net: ShanghaiTech,
+    r_: dict[str, torch.Tensor],
+    data_holder: ShanghaiTechDataHolder,
+    test_checkpoint: int,
+    dist: str,
+    idx_list: tuple[int, ...],
 ) -> Callable[[int, NDArrays, dict[str, Scalar]], tuple[float, dict[str, Scalar]]]:
-    idx_list_enc = (3, 4, 5, 6)
-    data_holder = DataManager(
-        dataset_name="ShanghaiTech",
-        data_path=data_path,
-        normal_class=-1,
-        seed=-1,
-        clip_length=16,
-    ).get_data_holder()
-    net = ShanghaiTech(
-        data_holder.shape,
-        code_length=512,
-        load_lstm=True,
-        hidden_size=100,
-        num_layers=1,
-        dropout=0.3,
-        bidirectional=True,
-    )
-    if compile_net:
-        torch.set_float32_matmul_precision("high")
-        net = torch.compile(net)  # type: ignore
-    R = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list_enc)}
-
     def centralized_evaluation(
         server_round: int, parameters: NDArrays, _: dict[str, Scalar]
     ) -> tuple[float, dict[str, Scalar]]:
@@ -362,19 +345,19 @@ def get_evaluate_fn(
 
         rs_list = parameters[len(state_dict) :]
 
-        keys = list(R.keys()) if len(R) else get_keys(idx_list_enc)
+        keys = list(r_.keys()) if len(r_) else get_keys(idx_list)
 
         if len(keys) != len(rs_list):
             raise ValueError("Keys, cs and rs differ in quantity")
 
         for k, rv in zip(keys, rs_list):
-            R[k] = torch.tensor(rv, device=wanted_device)
+            r_[k] = torch.tensor(rv, device=wanted_device)
 
         dataset = data_holder.get_test_data()
         helper = VideoAnomalyDetectionResultHelper(
             dataset=dataset,
             model=net,
-            R=R,
+            R=r_,
             boundary="soft",
             device=wanted_device,
             end_to_end_training=True,
@@ -442,11 +425,17 @@ def server(
     wandb.init(project="mocca", entity="gabijp", group=wandb_group, name="server")
     wandb_logger.add_epoch_metrics(("test.oc_metric", "test.recon_metric", "test.anomaly_score"))
 
+    idx_list = tuple(map(int, idx_list_enc.split(",")))
+
     data_holder = DataManager(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=-1, clip_length=clip_length
     ).get_data_holder()
     net = ShanghaiTech(data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional)
-    r_ = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(tuple(int(a) for a in idx_list_enc.split(",")))}
+    net.apply(initializers[initialization])
+    if compile_net:
+        torch.set_float32_matmul_precision("high")
+        net = torch.compile(net)  # type: ignore
+    r_ = {k: torch.tensor(0.0, device=wanted_device) for k in get_keys(idx_list)}
     initial_parameters = fl.common.ndarrays_to_parameters(
         [val.cpu().numpy() for val in net.state_dict().values()] + [val.cpu().numpy() for val in r_.values()]
     )
@@ -457,7 +446,7 @@ def server(
         min_fit_clients=min_fit_clients,
         min_evaluate_clients=min_evaluate_clients,
         min_available_clients=min_available_clients,
-        evaluate_fn=get_evaluate_fn(test_checkpoint, dist, compile_net, data_path),
+        evaluate_fn=get_evaluate_fn(net, r_, data_holder, test_checkpoint, dist, idx_list),
         on_fit_config_fn=create_fit_config_fn(epochs, warm_up_n_epochs),
         on_evaluate_config_fn=create_evaluate_config_fn(),
         initial_parameters=initial_parameters,
