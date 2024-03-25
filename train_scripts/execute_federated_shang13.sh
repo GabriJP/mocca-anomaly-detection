@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"fed_shang13_autoname"}
-COMMON_OPTS="citic:8081 --load-lstm --n_workers 4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --n-workers=4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --wandb-group=${GID}"
 
 SEP_BASE_PATH="data/shanghaitech/separated/"
 
@@ -19,7 +19,7 @@ export PATH="\${HOME}/miniconda3/condabin:$PATH"
 eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
 export FLWR_TELEMETRY_ENABLED=0
-nohup nice -n $NICE_N python fed.py client $COMMON_OPTS --data-path $DATA_PATH --wandb_name $WANDB_NAME --batch-size $BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
+nohup nice -n $NICE_N python fed.py client $COMMON_OPTS --data-path=$DATA_PATH --wandb-name=$WANDB_NAME --batch-size=$BATCH_SIZE >${GID}_${WANDB_NAME}.log 2>&1 </dev/null &
 EOC
 }
 
@@ -28,7 +28,7 @@ echo "Starting server"
 #eval "$(conda shell.bash hook)"
 #conda activate mocca
 export FLWR_TELEMETRY_ENABLED=0
-nohup python fed.py server data/shanghaitech/complete/ --port 8081 --num_rounds 70 --epochs 1 --warm_up_n_epochs=0 --proximal_mu 1 --min_fit_clients 2 --min_evaluate_clients 13 --min_available_clients 13 --initialization xavier_uniform --code-length 512 --load_lstm --bidirectional --idx-list-enc 3,4,5,6 --wandb_group "${GID}" >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server data/shanghaitech/complete/ --port=8081 --num-rounds=70 --epochs=1 --warm_up_n-epochs=0 --proximal-mu=1 --min_fit-clients=2 --min_evaluate-clients=13 --min_available-clients=13 --initialization=xavier_uniform --code-length=512 --load-lstm --bidirectional --idx-list-enc=3,4,5,6 --wandb-group="${GID}" >"${GID}_server.log" 2>&1 </dev/null &
 #SERVER_PID=$!
 echo "Delay"
 sleep 5

@@ -23,12 +23,12 @@ from utils import wandb_logger
 @click.command("cli", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
-    "--n_workers",
+    "--n-workers",
     type=click.IntRange(0),
     default=cpu_count(),
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
-@click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
+@click.option("--output-path", type=click.Path(file_okay=False, path_type=Path), default="./output")
 @click.option("-lf", "--log-frequency", type=int, default=5, help="Log frequency")
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 @click.option("-db", "--debug", is_flag=True, help="Debug mode")
@@ -72,7 +72,7 @@ from utils import wandb_logger
     is_flag=True,
     help="End-to-End training of the autoencoder",
 )
-@click.option("-we", "--warm_up_n_epochs", type=int, default=5, help="Warm up epochs")
+@click.option("-we", "--warm-up-n-epochs", type=int, default=5, help="Warm up epochs")
 @click.option("-use", "--use-selectors", is_flag=True, help="Use features selector")
 @click.option("-ba", "--batch-accumulation", type=int, default=-1, help="Batch accumulation")
 @click.option("-tr", "--train", is_flag=True, help="Train model")
@@ -86,9 +86,9 @@ from utils import wandb_logger
 @click.option("-nu", "--nu", type=float, default=0.1)
 @click.option("--fp16", is_flag=True)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
-@click.option("--wandb_group", type=str, default=None)
-@click.option("--wandb_name", type=str, default=None)
-@click.option("--compile_net", is_flag=True)
+@click.option("--wandb-group", type=str, default=None)
+@click.option("--wandb-name", type=str, default=None)
+@click.option("--compile-net", is_flag=True)
 def main(
     seed: int,
     n_workers: int,

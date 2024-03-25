@@ -197,12 +197,12 @@ def cli() -> None:
 @cli.command(context_settings=dict(show_default=True))
 @click.argument("server_address", type=str, required=True)
 @click.option(
-    "--n_workers",
+    "--n-workers",
     type=click.IntRange(0),
     default=cpu_count(),
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
-@click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
+@click.option("--output-path", type=click.Path(file_okay=False, path_type=Path), default=Path("./output"))
 @click.option("--code-length", type=click.IntRange(1), default=1024, help="Code length")
 @click.option("--learning-rate", type=click.FloatRange(0, 1), default=1.0e-4, help="Learning rate")
 @click.option("--weight-decay", type=click.FloatRange(0, 1), default=0.5e-6, help="Learning rate")
@@ -222,10 +222,10 @@ def cli() -> None:
 @click.option("--boundary", type=click.Choice(["soft", "hard"]), default="soft", help="Boundary")
 @click.option("--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("--nu", type=click.FloatRange(0, 1), default=0.1)
-@click.option("--wandb_group", type=str, default=None)
-@click.option("--wandb_name", type=str, default=None)
+@click.option("--wandb-group", type=str, default=None)
+@click.option("--wandb-name", type=str, default=None)
 @click.option("--seed", type=int, default=-1)
-@click.option("--compile_net", is_flag=True)
+@click.option("--compile-net", is_flag=True)
 @click.option("--parallel", is_flag=True, help="Use Parallel client so only one execution is running at any given time")
 @click.option("--continuous", is_flag=True, help="Use Continuous Data Manager")
 def client(
@@ -391,29 +391,29 @@ def get_evaluate_fn(
 
 
 @cli.command(context_settings=dict(show_default=True))
-@click.argument("data_path", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("data-path", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option("--port", type=click.IntRange(0, 65_535), default=8080)
-@click.option("--num_rounds", type=click.IntRange(1), default=5)
+@click.option("--num-rounds", type=click.IntRange(1), default=5)
 @click.option("--epochs", type=click.IntRange(1), default=5)
-@click.option("--warm_up_n_epochs", type=click.IntRange(0), default=0)
-@click.option("--proximal_mu", type=click.FloatRange(0, 1), default=1.0)
+@click.option("--warm-up-n-epochs", type=click.IntRange(0), default=0)
+@click.option("--proximal-mu", type=click.FloatRange(0, 1), default=1.0)
 @click.option("--patience", type=click.IntRange(0), default=None)
-@click.option("--min_delta_pct", type=click.FloatRange(0, 1), default=None)
-@click.option("--min_fit_clients", type=click.IntRange(2), default=2)
-@click.option("--min_evaluate_clients", type=click.IntRange(0), default=2)
-@click.option("--min_available_clients", type=click.IntRange(2), default=2)
+@click.option("--min-delta-pct", type=click.FloatRange(0, 1), default=None)
+@click.option("--min-fit-clients", type=click.IntRange(2), default=2)
+@click.option("--min-evaluate-clients", type=click.IntRange(0), default=2)
+@click.option("--min-available-clients", type=click.IntRange(2), default=2)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--initialization", type=click.Choice(list(initializers)), default="none")
 @click.option("--clip-length", type=click.IntRange(1), default=16)
 @click.option("--code-length", type=click.IntRange(1), default=2048)
 @click.option("--hidden-size", type=click.IntRange(1), default=100)
 @click.option("--num-layers", type=click.IntRange(1), default=1)
-@click.option("--load_lstm", is_flag=True)
+@click.option("--load-lstm", is_flag=True)
 @click.option("--bidirectional", is_flag=True)
 @click.option("--idx-list-enc", type=str, default="6")
-@click.option("--wandb_group", type=str, required=True)
-@click.option("--test_checkpoint", type=click.IntRange(1), default=1)
-@click.option("--compile_net", is_flag=True)
+@click.option("--wandb-group", type=str, required=True)
+@click.option("--test-checkpoint", type=click.IntRange(1), default=1)
+@click.option("--compile-net", is_flag=True)
 def server(
     data_path: Path,
     port: int,

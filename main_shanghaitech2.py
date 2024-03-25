@@ -120,12 +120,12 @@ class MoccaClient:
 @click.command("cli", context_settings=dict(show_default=True))
 @click.option("-s", "--seed", type=int, default=-1, help="Random seed")
 @click.option(
-    "--n_workers",
+    "--n-workers",
     type=click.IntRange(0),
     default=cpu_count(),
     help="Number of workers for data loading. 0 means that the data will be loaded in the main process.",
 )
-@click.option("--output_path", type=click.Path(file_okay=False, path_type=Path), default="./output")
+@click.option("--output-path", type=click.Path(file_okay=False, path_type=Path), default="./output")
 @click.option("--load-weights", type=click.Path(dir_okay=False, path_type=Path), default=None)
 @click.option("-dl", "--disable-logging", is_flag=True, help="Disable logging")
 # Model config
@@ -155,16 +155,16 @@ class MoccaClient:
 @click.option("-ile", "--idx-list-enc", type=str, default="6", help="List of indices of model encoder")
 @click.option("-e", "--epochs", type=int, default=1, help="Training epochs")
 @click.option("-nu", "--nu", type=float, default=0.1)
-@click.option("--max_radius", is_flag=True)
+@click.option("--max-radius", is_flag=True)
 @click.option("--fp16", is_flag=True)
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--initialization", type=click.Choice(list(initializers)), default="none")
-@click.option("--wandb_group", type=str, default=None)
-@click.option("--wandb_name", type=str, default=None)
-@click.option("--compile_net", is_flag=True)
-@click.option("--es_initial_patience_epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
-@click.option("--rolling_factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
-@click.option("--es_patience", type=click.IntRange(1), default=100, help="Early stopping patience")
+@click.option("--wandb-group", type=str, default=None)
+@click.option("--wandb-name", type=str, default=None)
+@click.option("--compile-net", is_flag=True)
+@click.option("--es_initial_patience-epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
+@click.option("--rolling-factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
+@click.option("--es-patience", type=click.IntRange(1), default=100, help="Early stopping patience")
 @click.option("--view", is_flag=True)
 @click.option("--test-chk", type=str, default="30", help="Comma-separated of epochs. Checkpoints for test")
 @click.option("--debug", is_flag=True)

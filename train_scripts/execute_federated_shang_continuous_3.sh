@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GID=${1:-"continuous3"}
-COMMON_OPTS="citic:8081 --load-lstm --n_workers 4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --continuous --wandb_group ${GID}"
+COMMON_OPTS="citic:8081 --load-lstm --n-workers=4 --bidirectional --clip-length=16 --code-length=512 --dropout=0.3 --idx-list-enc=3,4,5,6 --parallel --continuous --wandb-group=${GID}"
 
 cd "${HOME}/mocca-anomaly-detection" || exit
 git pull
@@ -18,12 +18,12 @@ eval "\$(conda shell.bash hook)"
 conda activate mocca || exit
 export FLWR_TELEMETRY_ENABLED=0
 ls data/shanghaitech/continuous_3/$NODE_N/ | xargs -i \
-nohup sh -c "python fed.py client $COMMON_OPTS --data-path data/shanghaitech/continuous_3/$NODE_N/{} --wandb_name {} --batch-size $BATCH_SIZE >${GID}_{}.log 2>&1 </dev/null &"
+nohup sh -c "python fed.py client $COMMON_OPTS --data-path=data/shanghaitech/continuous_3/$NODE_N/{} --wandb-name={} --batch-size=$BATCH_SIZE >${GID}_{}.log 2>&1 </dev/null &"
 EOC
 }
 
 echo "Starting server"
-nohup python fed.py server data/shanghaitech/complete/ --port 8081 --num_rounds 660 --epochs 2 --warm_up_n_epochs=0 --proximal_mu 1 --min_evaluate_clients 13 --min_available_clients 13 --initialization xavier_uniform --wandb_group "${GID}" --min_fit_clients 2 --test_checkpoint 30 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server data/shanghaitech/complete/ --port=8081 --num-rounds=660 --epochs=2 --warm_up_n-epochs=0 --load-lstm --proximal-mu=1 --min_evaluate-clients=13 --min_available-clients=13 --initialization=xavier_uniform --wandb-group="${GID}" --min_fit-clients=2 --test-checkpoint=30=>"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
