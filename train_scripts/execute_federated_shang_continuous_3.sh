@@ -23,7 +23,7 @@ EOC
 }
 
 echo "Starting server"
-nohup python fed.py server data/shanghaitech/complete/ --port=8081 --num-rounds=660 --epochs=2 --warm-up-n-epochs=0 --load-lstm --proximal-mu=1 --min-evaluate-clients=13 --min-available-clients=13 --initialization=xavier_uniform --wandb-group="${GID}" --min-fit-clients=2 --test-checkpoint=30=>"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server data/shanghaitech/complete/ --port=8081 --num-rounds=660 --epochs=2 --warm-up-n-epochs=0 --load-lstm --proximal-mu=1 --min-evaluate-clients=13 --min-available-clients=13 --initialization=xavier_uniform --wandb-group="${GID}" --min-fit-clients=2 --test-checkpoint=30 >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
