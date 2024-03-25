@@ -23,7 +23,7 @@ EOC
 }
 
 echo "Starting server"
-nohup python fed.py server --port=50011 --num-rounds=990 --epochs=2 --warm_up_n-epochs=0 --proximal-mu=1 --min_evaluate-clients=0 --min_available-clients=13 --wandb-group="${GID}" --min_fit-clients=3 --test-checkpoint=30 >"${GID}_server.log" 2>&1 </dev/null &
+nohup python fed.py server --port=50011 --num-rounds=990 --epochs=2 --warm-up-n-epochs=0 --proximal-mu=1 --min-evaluate-clients=0 --min-available-clients=13 --wandb-group="${GID}" --min-fit-clients=3 --test-checkpoint=30 >"${GID}_server.log" 2>&1 </dev/null &
 echo "Delay"
 sleep 5
 
