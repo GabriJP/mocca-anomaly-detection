@@ -162,7 +162,7 @@ class MoccaClient:
 @click.option("--wandb-group", type=str, default=None)
 @click.option("--wandb-name", type=str, default=None)
 @click.option("--compile-net", is_flag=True)
-@click.option("--es_initial_patience-epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
+@click.option("--es-initial-patience-epochs", type=click.IntRange(0), default=1, help="Early stopping initial patience")
 @click.option("--rolling-factor", type=click.IntRange(2), default=20, help="Early stopping rolling window size")
 @click.option("--es-patience", type=click.IntRange(1), default=100, help="Early stopping patience")
 @click.option("--view", is_flag=True)
