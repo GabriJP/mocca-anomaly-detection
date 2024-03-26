@@ -28,7 +28,7 @@ echo "Delay"
 sleep 5
 
 CLIENT_NAME="almogrote"
-BATCH_SIZE=16
+BATCH_SIZE=8
 NODE_N=0
 exec_client
 
