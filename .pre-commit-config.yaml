@@ -6,7 +6,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/psf/black
-    rev: 24.2.0
+    rev: 24.3.0
     hooks:
       - id: black
         args: [ --line-length=120, --target-version=py311 ]
@@ -42,13 +42,13 @@ repos:
         args: [ --py311-plus ]
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+    rev: v3.15.2
     hooks:
       - id: pyupgrade
         args: [ --py311-plus ]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
+    rev: v1.9.0
     hooks:
       - id: mypy
         additional_dependencies: [ click, numpy, torch, wandb ]

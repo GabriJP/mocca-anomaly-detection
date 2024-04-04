@@ -388,7 +388,7 @@ def get_evaluate_fn(
 @click.option("--dist", type=click.Choice(["l1", "l2"]), default="l2")
 @click.option("--initialization", type=click.Choice(list(initializers)), default="none")
 @click.option("--clip-length", type=click.IntRange(1), default=16)
-@click.option("--code-length", type=click.IntRange(1), default=2048)
+@click.option("--code-length", type=click.IntRange(1), default=1024)
 @click.option("--hidden-size", type=click.IntRange(1), default=100)
 @click.option("--num-layers", type=click.IntRange(1), default=1)
 @click.option("--load-lstm", is_flag=True)
