@@ -393,6 +393,7 @@ def get_evaluate_fn(
 @click.option("--num-layers", type=click.IntRange(1), default=1)
 @click.option("--load-lstm", is_flag=True)
 @click.option("--bidirectional", is_flag=True)
+@click.option("--dropout", type=click.FloatRange(0.0, 1.0), default=0.0)
 @click.option("--idx-list-enc", type=str, default="6")
 @click.option("--wandb-group", type=str, required=True)
 @click.option("--test-checkpoint", type=click.IntRange(1), default=1)
@@ -417,6 +418,7 @@ def server(
     num_layers: int,
     load_lstm: bool,
     bidirectional: bool,
+    dropout: float,
     idx_list_enc: str,
     wandb_group: str,
     test_checkpoint: int,
@@ -431,7 +433,7 @@ def server(
         dataset_name="ShanghaiTech", data_path=data_path, normal_class=-1, seed=-1, clip_length=clip_length
     ).get_data_holder()
     net: ShanghaiTech = ShanghaiTech(
-        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, 0.0, bidirectional
+        data_holder.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional
     )
     torch.set_float32_matmul_precision("high")
     net = torch.compile(net, dynamic=False, disable=not compile_net)  # type: ignore
